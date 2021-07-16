@@ -12,6 +12,7 @@ import java.util.Map;
 public class RewardKeeper {
 	private TradeRecover tradeRecover;
 
+	// orderId -> reward
 	private Map<String, RewardOrder> orderRewards;
 
 
