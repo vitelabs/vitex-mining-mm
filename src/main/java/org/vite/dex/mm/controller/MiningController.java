@@ -1,4 +1,4 @@
-package org.vite.data.dex.controller;
+package org.vite.dex.mm.controller;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MiningController {
 
     @RequestMapping("/mining/reward")
-    public String getMiningReward(){
+    public String getMiningReward() {
         return "hello vitex";
     }
 }

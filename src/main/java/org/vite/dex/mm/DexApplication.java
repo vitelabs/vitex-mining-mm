@@ -1,4 +1,4 @@
-package org.vite.data.dex;
+package org.vite.dex.mm;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
