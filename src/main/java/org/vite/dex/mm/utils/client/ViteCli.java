@@ -2,21 +2,22 @@ package org.vite.dex.mm.utils.client;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.vite.dex.mm.constant.constants.MMConst;
-import org.vite.dex.mm.entity.OrderModel;
-import org.vite.dex.mm.orderbook.EventStream;
 import org.vitej.core.protocol.HttpService;
 import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
 import org.vitej.core.protocol.methods.Hash;
-import org.vitej.core.protocol.methods.request.Request;
 import org.vitej.core.protocol.methods.request.VmLogFilter;
-import org.vitej.core.protocol.methods.response.*;
+import org.vitej.core.protocol.methods.response.AccountBlock;
+import org.vitej.core.protocol.methods.response.AccountBlockResponse;
+import org.vitej.core.protocol.methods.response.AccountBlocksResponse;
+import org.vitej.core.protocol.methods.response.CommonResponse;
+import org.vitej.core.protocol.methods.response.VmLogInfo;
+import org.vitej.core.protocol.methods.response.VmlogInfosResponse;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.vite.dex.mm.constant.constants.MMConst.NODE_SERVER_URL;
@@ -50,6 +51,7 @@ public class ViteCli {
         return block;
     }
 
+    // todo page 
     public List<VmLogInfo> getEventsByHeightRange(long startHeight, long endHeight) throws IOException {
         VmlogInfosResponse resp = null;
         try {
@@ -78,7 +80,8 @@ public class ViteCli {
         return result;
     }
 
-    public CommonResponse getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side, int startIdx, int limit) throws IOException {
+    public CommonResponse getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side, int startIdx,
+            int limit) throws IOException {
         CommonResponse response = null;
         try {
             response = vitej.commonMethod("dextrade_getOrdersFromMarket",

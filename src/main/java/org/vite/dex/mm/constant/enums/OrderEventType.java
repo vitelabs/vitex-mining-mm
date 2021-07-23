@@ -1,10 +1,11 @@
 package org.vite.dex.mm.constant.enums;
 
+import lombok.Getter;
+
 /**
  * order event type
  */
 public enum OrderEventType {
-
     OrderNew(1, "new order event"),
     OrderCancel(2, "cancel order event"),
     OrderFill(3, "fill order event");
@@ -14,14 +15,9 @@ public enum OrderEventType {
         this.desc = desc;
     }
 
-    private int value;
-    private String desc;
+    @Getter
+    private final int value;
+    @Getter
+    private final String desc;
 
-    public int getValue() {
-        return value;
-    }
-
-    public String getDesc() {
-        return desc;
-    }
 }

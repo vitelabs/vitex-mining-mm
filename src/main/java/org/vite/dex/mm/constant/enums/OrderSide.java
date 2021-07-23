@@ -12,6 +12,7 @@ public enum OrderSide {
         this.desc = desc;
     }
 
+    // todo
     private int value;
     private String desc;
 

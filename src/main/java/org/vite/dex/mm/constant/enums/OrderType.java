@@ -13,6 +13,7 @@ public enum OrderType {
         this.desc = desc;
     }
 
+    // todo
     private int value;
     private String desc;
 

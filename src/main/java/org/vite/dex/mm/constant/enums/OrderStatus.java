@@ -17,6 +17,7 @@ public enum OrderStatus {
     Failed(9, "Request failed"),
     Expired(10, "Order expired");
 
+    // todo
     OrderStatus(int value, String desc) {
         this.value = value;
         this.desc = desc;

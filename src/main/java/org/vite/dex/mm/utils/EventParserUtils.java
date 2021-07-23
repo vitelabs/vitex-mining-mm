@@ -4,7 +4,9 @@ import org.vite.dex.mm.constant.enums.EventType;
 
 import java.util.List;
 
-import static org.vite.dex.mm.constant.constants.MMConst.*;
+import static org.vite.dex.mm.constant.constants.MMConst.ORDER_NEW_EVENT_TOPIC;
+import static org.vite.dex.mm.constant.constants.MMConst.ORDER_UPDATE_EVENT_TOPIC;
+import static org.vite.dex.mm.constant.constants.MMConst.TX_EVENT_TOPIC;
 
 /**
  * Event utils

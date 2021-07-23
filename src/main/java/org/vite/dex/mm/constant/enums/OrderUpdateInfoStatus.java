@@ -11,6 +11,7 @@ public enum OrderUpdateInfoStatus {
         this.desc = desc;
     }
 
+    // todo
     private int value;
     private String desc;
 

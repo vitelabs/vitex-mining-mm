@@ -1,9 +1,6 @@
 package org.vite.dex.mm.entity;
 
 import lombok.Data;
-import org.vite.dex.mm.constant.enums.OrderSide;
-import org.vite.dex.mm.constant.enums.OrderStatus;
-import org.vite.dex.mm.constant.enums.OrderType;
 
 import java.math.BigDecimal;
 import java.util.List;

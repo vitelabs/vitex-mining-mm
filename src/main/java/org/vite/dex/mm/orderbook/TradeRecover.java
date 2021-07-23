@@ -9,21 +9,23 @@ import org.springframework.stereotype.Service;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
-import org.vite.dex.mm.exception.GlobalExceptionHandler;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
 import org.vite.dex.mm.utils.EventParserUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
-import org.vitej.core.protocol.methods.Address;
 import org.vitej.core.protocol.methods.Hash;
-import org.vitej.core.protocol.methods.request.VmLogFilter;
-import org.vitej.core.protocol.methods.response.*;
+import org.vitej.core.protocol.methods.response.AccountBlock;
+import org.vitej.core.protocol.methods.response.CommonResponse;
+import org.vitej.core.protocol.methods.response.VmLogInfo;
+import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.io.IOException;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
-import static org.vite.dex.mm.constant.constants.MMConst.*;
+import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
 
 /**
  * 1. prepare order book, get the current order book
@@ -56,13 +58,13 @@ public class TradeRecover {
                 String tradePair = tp.getTradeTokenId() + UnderscoreStr + tp.getQuoteTokenId();
                 // get the sell orders of the trade-pair
                 List<OrderModel> sellOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), true);
-                orderBook.setSells(sellOrders);
                 // get the buy orders of the trade-pair
                 List<OrderModel> buysOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false);
-                orderBook.setBuys(buysOrders);
+                orderBook.init(buysOrders, sellOrders);
                 this.orderBooks.put(tradePair, orderBook);
             }
         } catch (Exception e) {
+            // Todo
             e.printStackTrace();
         }
     }
@@ -76,11 +78,13 @@ public class TradeRecover {
      * @return
      * @throws IOException
      */
-    private List<OrderModel> getSingleSideOrders(String tradeTokenId, String quoteTokenId, boolean side) throws IOException {
+    private List<OrderModel> getSingleSideOrders(String tradeTokenId, String quoteTokenId, boolean side)
+            throws IOException {
         List<OrderModel> singleSideOrders = new LinkedList<>();
         while (true) {
             int round = 0;
-            CommonResponse response = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, round, 100 * (round + 1));
+            CommonResponse response =
+                    viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, round, 100 * (round + 1));
             String mapStrSell = JSON.toJSONString(response.getResult());
             Map<String, Object> resMap = JSON.parseObject(mapStrSell, Map.class);
             String jsonString = JSONObject.toJSONString(resMap.get("orders"));
@@ -97,7 +101,8 @@ public class TradeRecover {
     /**
      * 1. get trade contract vmLogs
      * 2. parse vmLogs
-     * 3. mark timestamp for vm log
+     * 3. mark timestamp for vm log   // todo
+     * 4. category
      *
      * @param startTime
      */
@@ -120,19 +125,25 @@ public class TradeRecover {
                 switch (eventType) {
                     case NewOrder:
                         DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                        String tradeTokenOfNewOrder = ViteDataDecodeUtils.getShowToken(dexOrder.getTradeToken().toByteArray());
-                        String quoteTokenOfNewOrder = ViteDataDecodeUtils.getShowToken(dexOrder.getQuoteToken().toByteArray());
+                        String tradeTokenOfNewOrder =
+                                ViteDataDecodeUtils.getShowToken(dexOrder.getTradeToken().toByteArray());
+                        String quoteTokenOfNewOrder =
+                                ViteDataDecodeUtils.getShowToken(dexOrder.getQuoteToken().toByteArray());
                         String tradePairOfNewOrder = tradeTokenOfNewOrder + UnderscoreStr + quoteTokenOfNewOrder;
                         eventStreams.putIfAbsent(tradePairOfNewOrder, new EventStream()).addEvent(vmLogInfo);
                         break;
                     // both cancel and fill order will emit the updateEvent
                     case UpdateOrder:
                         DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
-                        String tradeTokenOfUpdateOrder = ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getTradeToken().toByteArray());
-                        String quoteTokenOfUpdateOrder = ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getQuoteToken().toByteArray());
-                        String tradePairOfUpdateOrder = tradeTokenOfUpdateOrder + UnderscoreStr + quoteTokenOfUpdateOrder;
+                        String tradeTokenOfUpdateOrder =
+                                ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getTradeToken().toByteArray());
+                        String quoteTokenOfUpdateOrder =
+                                ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getQuoteToken().toByteArray());
+                        String tradePairOfUpdateOrder =
+                                tradeTokenOfUpdateOrder + UnderscoreStr + quoteTokenOfUpdateOrder;
                         eventStreams.putIfAbsent(tradePairOfUpdateOrder, new EventStream()).addEvent(vmLogInfo);
                         break;
+                    // todo tx
                 }
             }
         } catch (Exception e) {
@@ -152,7 +163,9 @@ public class TradeRecover {
         AccountBlock cycleStartABlock = null;
         while (true) {
             boolean found = false;
+            // todo whether contains current hash 
             List<AccountBlock> result = viteCli.getAccountBlocksBelowCurrentHash(currentHash, 50);
+            // todo sort result by height desc
             for (AccountBlock aBlock : result) {
                 if (aBlock.getTimestamp().isBefore(startTime)) {
                     cycleStartABlock = aBlock;
@@ -162,6 +175,7 @@ public class TradeRecover {
                     cycleStartABlock = aBlock;
                 }
             }
+            // todo if result.size==0 return
             if (found) {
                 break;
             }

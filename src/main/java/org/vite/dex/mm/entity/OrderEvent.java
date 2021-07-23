@@ -15,5 +15,4 @@ public class OrderEvent {
 
     private int side;
 
-
 }

@@ -6,7 +6,7 @@ import org.vite.dex.mm.utils.decode.ViteToken;
 
 public class ViteDataDecodeUtils {
 
-    public static String getShowToken(byte[] original){
+    public static String getShowToken(byte[] original) {
         if (original == null || original.length == 0) {
             return "";
         }
@@ -15,7 +15,7 @@ public class ViteDataDecodeUtils {
         return token.hex();
     }
 
-    public static String getShowAddress(byte[] original){
+    public static String getShowAddress(byte[] original) {
         if (original == null || original.length == 0) {
             return "";
         }
