@@ -2,8 +2,7 @@ package org.vite.dex.mm.entity;
 
 import lombok.Data;
 
-import java.math.BigDecimal;
-import java.util.List;
+import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
 
 @Data
 public class TradePair {
@@ -21,4 +20,7 @@ public class TradePair {
     // the effective interval of distance when market mining
     Double effectiveInterval;
 
+    public String getTp() {
+        return getTradeTokenId() + UnderscoreStr + getQuoteTokenId();
+    }
 }

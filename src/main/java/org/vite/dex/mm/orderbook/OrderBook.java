@@ -4,14 +4,8 @@ import com.google.common.collect.Lists;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.spongycastle.util.encoders.Hex;
-import org.vite.dex.mm.constant.enums.EventType;
-import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
+import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
-import org.vite.dex.mm.model.proto.DexTradeEvent;
-import org.vite.dex.mm.utils.EventParserUtils;
-import org.vitej.core.protocol.methods.response.VmLogInfo;
-import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.math.BigDecimal;
 import java.util.LinkedList;
@@ -19,10 +13,10 @@ import java.util.List;
 
 public interface OrderBook {
     // back-trace according to a event
-    void revert(VmLogInfo e);
+    void revert(OrderEvent event);
 
     // back-trace according to a event
-    void deal(VmLogInfo e);
+    void deal(OrderEvent event);
 
     // init method
     void init(List<OrderModel> buys, List<OrderModel> sells);
@@ -43,62 +37,61 @@ public interface OrderBook {
         @Getter
         protected LinkedList<OrderModel> sells;
 
-        public Impl() {
-        }
+        public Impl() {}
 
         // backtrace according to an event
-        public void revert(VmLogInfo e) {
-            try {
-                Vmlog log = e.getVmlog();
-                byte[] event = log.getData();
-                EventType eventType = EventParserUtils.getEventType(log.getTopicsRaw());
+        public void revert(OrderEvent event) {
+            // try {
+            //     Vmlog log = e.getVmlog();
+            //     byte[] event = log.getData();
+            //     EventType eventType = EventParserUtils.getEventType(log.getTopicsRaw());
 
-                switch (eventType) {
-                    case NewOrder:
-                        DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                        boolean side = dexOrder.getOrder().getSide();
-                        String orderId = Hex.toHexString(dexOrder.getOrder().getId().toByteArray());
-                        revertByRemoveOrder(orderId, side);
-                        break;
-                    case UpdateOrder:
-                        DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
-                        int status = orderUpdateInfo.getStatus();
-                        OrderModel orderModel = OrderModel.assembleOrderByUpdateInfo(orderUpdateInfo);
-                        if (status == OrderUpdateInfoStatus.FullyExecuted.getValue()
-                                || status == OrderUpdateInfoStatus.Cancelled.getValue()) {
-                            if (orderModel.isSide()) {
-                                sells.add(orderModel);
-                            } else {
-                                buys.add(orderModel);
-                            }
+            //     switch (eventType) {
+            //         case NewOrder:
+            //             DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
+            //             boolean side = dexOrder.getOrder().getSide();
+            //             String orderId = Hex.toHexString(dexOrder.getOrder().getId().toByteArray());
+            //             revertByRemoveOrder(orderId, side);
+            //             break;
+            //         case UpdateOrder:
+            //             DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
+            //             int status = orderUpdateInfo.getStatus();
+            //             OrderModel orderModel = OrderModel.assembleOrderByUpdateInfo(orderUpdateInfo);
+            //             if (status == OrderUpdateInfoStatus.FullyExecuted.getValue()
+            //                     || status == OrderUpdateInfoStatus.Cancelled.getValue()) {
+            //                 if (orderModel.isSide()) {
+            //                     sells.add(orderModel);
+            //                 } else {
+            //                     buys.add(orderModel);
+            //                 }
 
-                        } else if (status == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
-                            BigDecimal executedQuantity =
-                                    new BigDecimal(orderUpdateInfo.getExecutedQuantity().toByteArray().toString());
-                            BigDecimal executedAmount =
-                                    new BigDecimal((orderUpdateInfo.getExecutedAmount().toByteArray().toString()));
-                            orderModel.setExecutedAmount(orderModel.getAmount().add(executedAmount));
-                            orderModel.setExecutedQuantity(orderModel.getQuantity().add(executedQuantity));
-                            // update current order
-                            if (orderModel.isSide()) {
-                                for (int i = 0; i < sells.size(); i++) {
-                                    if (sells.get(i).getId().equals(orderModel.getId())) {
-                                        sells.set(i, orderModel);
-                                    }
-                                }
-                            } else {
-                                for (int i = 0; i < buys.size(); i++) {
-                                    if (buys.get(i).getId().equals(orderModel.getId())) {
-                                        buys.add(orderModel);
-                                    }
-                                }
-                            }
-                        }
-                        break;
-                }
-            } catch (Exception exception) {
-                log.error("revert failed,the err is :" + exception);
-            }
+            //             } else if (status == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
+            //                 BigDecimal executedQuantity =
+            //                         new BigDecimal(orderUpdateInfo.getExecutedQuantity().toByteArray().toString());
+            //                 BigDecimal executedAmount =
+            //                         new BigDecimal((orderUpdateInfo.getExecutedAmount().toByteArray().toString()));
+            //                 orderModel.setExecutedAmount(orderModel.getAmount().add(executedAmount));
+            //                 orderModel.setExecutedQuantity(orderModel.getQuantity().add(executedQuantity));
+            //                 // update current order
+            //                 if (orderModel.isSide()) {
+            //                     for (int i = 0; i < sells.size(); i++) {
+            //                         if (sells.get(i).getId().equals(orderModel.getId())) {
+            //                             sells.set(i, orderModel);
+            //                         }
+            //                     }
+            //                 } else {
+            //                     for (int i = 0; i < buys.size(); i++) {
+            //                         if (buys.get(i).getId().equals(orderModel.getId())) {
+            //                             buys.add(orderModel);
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //             break;
+            //     }
+            // } catch (Exception exception) {
+            //     log.error("revert failed,the err is :" + exception);
+            // }
         }
 
         private void revertByRemoveOrder(String orderId, boolean side) {
@@ -125,7 +118,7 @@ public interface OrderBook {
 
         // back-trace according to a event
         @Override
-        public void deal(VmLogInfo e) {
+        public void deal(OrderEvent event) {
             // curEventId == e.id - 1
             // buys.0, sells.0
         }

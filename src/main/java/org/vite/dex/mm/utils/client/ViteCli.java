@@ -6,10 +6,16 @@ import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.request.VmLogFilter;
-import org.vitej.core.protocol.methods.response.*;
+import org.vitej.core.protocol.methods.response.AccountBlock;
+import org.vitej.core.protocol.methods.response.AccountBlockResponse;
+import org.vitej.core.protocol.methods.response.AccountBlocksResponse;
+import org.vitej.core.protocol.methods.response.CommonResponse;
+import org.vitej.core.protocol.methods.response.VmLogInfo;
+import org.vitej.core.protocol.methods.response.VmlogInfosResponse;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,28 +68,25 @@ public class ViteCli {
 
         List<VmLogInfo> events = new ArrayList<>();
         // Paging fetch
-        try {
-            int round = 0;
-            while (true) {
-                long from = round * pageSize;
-                long to = (round + 1) * pageSize;
-                if (to > endHeight) {
-                    to = endHeight;
-                }
-
-                VmLogFilter filter = new VmLogFilter(new Address(TRADE_CONTRACT_ADDRESS), from, to);
-                VmlogInfosResponse resp = vitej.getVmlogsByFilter(filter).send();
-                List<VmLogInfo> eventsByPage = resp.getResult();
-                if (eventsByPage == null || eventsByPage.size() == 0) {
-                    break;
-                }
-                events.addAll(eventsByPage);
-                round++;
+        int round = 0;
+        while (true) {
+            long from = startHeight + round * pageSize;
+            long to = (round + 1) * pageSize;
+            if (to > endHeight) {
+                to = endHeight;
             }
-        } catch (Exception e) {
-            log.error("getEventsByHeightRange failed,the err:" + e);
-            throw e;
+
+            // todo [] () [) (]
+            VmLogFilter filter = new VmLogFilter(new Address(TRADE_CONTRACT_ADDRESS), from, to);
+            VmlogInfosResponse resp = vitej.getVmlogsByFilter(filter).send();
+            List<VmLogInfo> eventsByPage = resp.getResult();
+            if (eventsByPage == null || eventsByPage.isEmpty()) {
+                break;
+            }
+            events.addAll(eventsByPage);
+            round++;
         }
+
         return events;
     }
 
@@ -103,7 +106,7 @@ public class ViteCli {
     }
 
     public CommonResponse getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side, int startIdx,
-                                              int limit) throws IOException {
+            int limit) throws IOException {
         CommonResponse response = null;
         try {
             response = vitej.commonMethod("dextrade_getOrdersFromMarket",

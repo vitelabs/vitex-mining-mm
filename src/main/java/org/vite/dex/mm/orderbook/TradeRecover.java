@@ -3,32 +3,28 @@ package org.vite.dex.mm.orderbook;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
-import org.vite.dex.mm.model.proto.DexTradeEvent;
-import org.vite.dex.mm.utils.EventParserUtils;
-import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.response.AccountBlock;
 import org.vitej.core.protocol.methods.response.CommonResponse;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
-import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
-import static org.vite.dex.mm.constant.enums.OrderEventType.*;
 
 /**
  * 1. prepare order book, get the current order book
@@ -42,12 +38,12 @@ import static org.vite.dex.mm.constant.enums.OrderEventType.*;
 public class TradeRecover {
     private static final Logger logger = LoggerFactory.getLogger(TradeRecover.class);
     private Map<String, EventStream> eventStreams; //<TradePairStr,EventStream>
-    private Map<String, OrderBook> orderBooks;     //<TradePairStr,OrderBook>
+    private Map<String, OrderBook> orderBooks; //<TradePairStr,OrderBook>
     private Map<String, AccountBlock> accountBlockMap; //<BlockHash,AccountBlock>
-    private long currentCheckPointTime;
 
     // TODO create a method to query from Trade Contract to get all trade-pairs
     private List<TradePair> tradePairs = new ArrayList<>();
+
 
     @Autowired
     ViteCli viteCli;
@@ -58,7 +54,6 @@ public class TradeRecover {
      * @throws IOException
      */
     public void prepareOrderBooks() throws IOException {
-        currentCheckPointTime = System.currentTimeMillis() / 1000;
         try {
             for (TradePair tp : tradePairs) {
                 OrderBook orderBook = new OrderBook.Impl();
@@ -115,60 +110,37 @@ public class TradeRecover {
      * @param startTime
      */
     public void prepareEvents(long startTime) throws IOException {
-        try {
-            // 1. get all events
-            AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
-            Hash currentHash = latestAccountBlock.getHash();
-            AccountBlock cycleStartBlock = getCycleStartAccountBlock(currentHash, startTime);
-            Long startHeight = cycleStartBlock.getHeight();
-            Long endHeight = latestAccountBlock.getHeight();
-            List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 50);
+        // 1. get all events
+        AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
+        Hash currentHash = latestAccountBlock.getHash();
+        AccountBlock cycleStartBlock = getCycleStartAccountBlock(currentHash, startTime);
+        // todo null check
+        Long startHeight = cycleStartBlock.getHeight();
+        Long endHeight = latestAccountBlock.getHeight();
+        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 50);
 
-            // 2. parse vmLogs and group these vmLogs by trade-pair
-            for (VmLogInfo vmLogInfo : vmLogInfoList) {
-                Vmlog log = vmLogInfo.getVmlog();
-                byte[] event = log.getData();
-                EventType eventType = EventParserUtils.getEventType(log.getTopicsRaw());
-
-                switch (eventType) {
-                    case NewOrder:
-                        DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                        String tradeTokenOfNewOrder =
-                                ViteDataDecodeUtils.getShowToken(dexOrder.getTradeToken().toByteArray());
-                        String quoteTokenOfNewOrder =
-                                ViteDataDecodeUtils.getShowToken(dexOrder.getQuoteToken().toByteArray());
-                        String tradePairOfNewOrder = tradeTokenOfNewOrder + UnderscoreStr + quoteTokenOfNewOrder;
-                        Long newOrderTimestamp = accountBlockMap.get(vmLogInfo.getAccountBlockHash().toString()).getTimestampRaw();
-                        if (newOrderTimestamp > currentCheckPointTime) {
-                            continue;
-                        }
-                        OrderEvent orderEvent = new OrderEvent(vmLogInfo, newOrderTimestamp, OrderNew);
-                        eventStreams.putIfAbsent(tradePairOfNewOrder, new EventStream()).addEvent(orderEvent);
-                        break;
-                    // both cancel and fill order will emit the updateEvent
-                    case UpdateOrder:
-                        DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
-                        String tradeTokenOfUpdateOrder =
-                                ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getTradeToken().toByteArray());
-                        String quoteTokenOfUpdateOrder =
-                                ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getQuoteToken().toByteArray());
-                        String tradePairOfUpdateOrder =
-                                tradeTokenOfUpdateOrder + UnderscoreStr + quoteTokenOfUpdateOrder;
-                        Long updateOrderTimestamp = accountBlockMap.get(vmLogInfo.getAccountBlockHash().toString()).getTimestampRaw();
-                        if (updateOrderTimestamp > currentCheckPointTime) {
-                            continue;
-                        }
-                        OrderEvent e = new OrderEvent(vmLogInfo, updateOrderTimestamp, OrderUpdate);
-                        eventStreams.putIfAbsent(tradePairOfUpdateOrder, new EventStream()).addEvent(e);
-                        break;
-                    //why should parse this ones?
-                    case TX:
-
-                }
+        // 2. parse vmLogs and group these vmLogs by trade-pair
+        for (VmLogInfo vmLogInfo : vmLogInfoList) {
+            OrderEvent orderEvent = new OrderEvent(vmLogInfo);
+            orderEvent.parse();
+            orderEvent.markTimestamp(accountBlockMap.get(orderEvent.getBlockHash()).getTimestampRaw());
+            if (!orderEvent.ignore()) {
+                eventStreams.getOrDefault(orderEvent.getTp(), new EventStream()).addEvent(orderEvent);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
+    }
+
+
+    public void filterEvents() {
+        tradePairs.forEach(tp -> {
+            filterEvents(tp);
+        });
+    }
+
+    private void filterEvents(TradePair tp) {
+        EventStream events = eventStreams.get(tp.getTp());
+        OrderBook orderBook = orderBooks.get(tp.getTp());
+        events.filter(orderBook);
     }
 
     /**
@@ -184,29 +156,38 @@ public class TradeRecover {
             return null;
         }
 
-        AccountBlock cycleStartBlock = null;
+        List<AccountBlock> blocks = getAccountBlocks(startTime, currentHash);
+
+        this.accountBlockMap = blocks.stream().collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block));
+
+        if (CollectionUtils.isEmpty(blocks)) {
+            return null;
+        }
+        return blocks.get(blocks.size() - 1);
+    }
+
+    private List<AccountBlock> getAccountBlocks(long startTime, Hash endHash) throws IOException {
+        List<AccountBlock> blocks = new ArrayList<>();
         while (true) {
-            boolean found = false;
-            List<AccountBlock> result = viteCli.getAccountBlocksBelowCurrentHash(currentHash, 50);
+            // todo [] () 
+            List<AccountBlock> result = viteCli.getAccountBlocksBelowCurrentHash(endHash, 200);
+            if (CollectionUtils.isEmpty(result)) {
+                break;
+            }
             // sort blocks in descending order of height
             result.sort((block0, block1) -> block1.getHeight().compareTo(block0.getHeight()));
 
             for (AccountBlock aBlock : result) {
-                accountBlockMap.put(aBlock.getHash().toString(), aBlock);
-                if (aBlock.getTimestamp().isBefore(startTime)) {
-                    cycleStartBlock = aBlock;
-                    found = true;
-                    break;
+                if (!aBlock.getTimestamp().isBefore(startTime)) {
+                    blocks.add(aBlock);
+                    endHash = aBlock.getHash();
                 } else {
-                    cycleStartBlock = aBlock;
+                    // ignore
+                    return blocks;
                 }
             }
-            if (found) {
-                break;
-            }
-            currentHash = cycleStartBlock.getHash();
         }
-        return cycleStartBlock;
+        return blocks;
     }
 
     /**
@@ -221,5 +202,12 @@ public class TradeRecover {
                 orderBook.revert(event.getVmLogInfo());
             }
         }
+    }
+
+    public void run(long pointTime) throws IOException {
+        prepareOrderBooks();
+        prepareEvents(pointTime);
+        filterEvents();
+        recoverOrderBooks();
     }
 }
