@@ -1,5 +1,7 @@
 package org.vite.dex.mm.constant.enums;
 
+import lombok.Getter;
+
 /**
  * order side
  */
@@ -12,15 +14,9 @@ public enum OrderSide {
         this.desc = desc;
     }
 
-    // todo
-    private int value;
-    private String desc;
+    @Getter
+    private final int value;
+    @Getter
+    private final String desc;
 
-    public int getValue() {
-        return value;
-    }
-
-    public String getDesc() {
-        return desc;
-    }
 }

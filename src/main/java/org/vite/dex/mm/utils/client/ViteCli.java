@@ -1,31 +1,26 @@
 package org.vite.dex.mm.utils.client;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.vitej.core.protocol.HttpService;
 import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.request.VmLogFilter;
-import org.vitej.core.protocol.methods.response.AccountBlock;
-import org.vitej.core.protocol.methods.response.AccountBlockResponse;
-import org.vitej.core.protocol.methods.response.AccountBlocksResponse;
-import org.vitej.core.protocol.methods.response.CommonResponse;
-import org.vitej.core.protocol.methods.response.VmLogInfo;
-import org.vitej.core.protocol.methods.response.VmlogInfosResponse;
+import org.vitej.core.protocol.methods.response.*;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
-
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.vite.dex.mm.constant.constants.MMConst.NODE_SERVER_URL;
 import static org.vite.dex.mm.constant.constants.MMConst.TRADE_CONTRACT_ADDRESS;
 
 @Resource
+@Slf4j
 public class ViteCli {
-    private static final Logger logger = LoggerFactory.getLogger(ViteCli.class);
 
     private static Vitej vitej;
 
@@ -45,24 +40,51 @@ public class ViteCli {
                     .send();
             block = response.getResult();
         } catch (Exception e) {
-            logger.error("getHashOfLatestAccountBlock failed,the err:" + e);
+            log.error("getHashOfLatestAccountBlock failed,the err:" + e);
             throw e;
         }
         return block;
     }
 
-    // todo page 
-    public List<VmLogInfo> getEventsByHeightRange(long startHeight, long endHeight) throws IOException {
-        VmlogInfosResponse resp = null;
+    /**
+     * get events by height range,pay attention to the event sequence
+     *
+     * @param startHeight
+     * @param endHeight
+     * @param pageSize
+     * @return
+     * @throws IOException
+     */
+    public List<VmLogInfo> getEventsByHeightRange(long startHeight, long endHeight, int pageSize) throws IOException {
+        if (startHeight > endHeight) {
+            return Collections.emptyList();
+        }
+
+        List<VmLogInfo> events = new ArrayList<>();
+        // Paging fetch
         try {
-            VmLogFilter filter = new VmLogFilter(new Address(TRADE_CONTRACT_ADDRESS),
-                    startHeight, endHeight);
-            resp = vitej.getVmlogsByFilter(filter).send();
+            int round = 0;
+            while (true) {
+                long from = round * pageSize;
+                long to = (round + 1) * pageSize;
+                if (to > endHeight) {
+                    to = endHeight;
+                }
+
+                VmLogFilter filter = new VmLogFilter(new Address(TRADE_CONTRACT_ADDRESS), from, to);
+                VmlogInfosResponse resp = vitej.getVmlogsByFilter(filter).send();
+                List<VmLogInfo> eventsByPage = resp.getResult();
+                if (eventsByPage == null || eventsByPage.size() == 0) {
+                    break;
+                }
+                events.addAll(eventsByPage);
+                round++;
+            }
         } catch (Exception e) {
-            logger.error("getEventsByHeightRange failed,the err:" + e);
+            log.error("getEventsByHeightRange failed,the err:" + e);
             throw e;
         }
-        return resp.getResult();
+        return events;
     }
 
     public List<AccountBlock> getAccountBlocksBelowCurrentHash(Hash currentHash, int cnt) throws IOException {
@@ -74,20 +96,20 @@ public class ViteCli {
                     .send();
             result = resp.getResult();
         } catch (Exception e) {
-            logger.error("getEventsByHeightRange failed,the err:" + e);
+            log.error("getEventsByHeightRange failed,the err:" + e);
             throw e;
         }
         return result;
     }
 
     public CommonResponse getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side, int startIdx,
-            int limit) throws IOException {
+                                              int limit) throws IOException {
         CommonResponse response = null;
         try {
             response = vitej.commonMethod("dextrade_getOrdersFromMarket",
                     tradeTokenId, quoteTokenId, side, startIdx, limit).send();
         } catch (Exception e) {
-            logger.error("getEventsByHeightRange failed,the err:" + e);
+            log.error("getEventsByHeightRange failed,the err:" + e);
             throw e;
         }
         return response;

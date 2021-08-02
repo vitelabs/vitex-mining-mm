@@ -16,25 +16,24 @@ import org.vitej.core.protocol.methods.response.Vmlog;
 import java.math.BigDecimal;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 
 public interface OrderBook {
     // back-trace according to a event
-    public void revert(VmLogInfo e);
+    void revert(VmLogInfo e);
 
     // back-trace according to a event
-    public void deal(VmLogInfo e);
+    void deal(VmLogInfo e);
 
-    // init/**/
-    public void init(List<OrderModel> buys, List<OrderModel> sells);
+    // init method
+    void init(List<OrderModel> buys, List<OrderModel> sells);
 
-    public List<OrderModel> getBuys();
+    List<OrderModel> getBuys();
 
-    public List<OrderModel> getSells();
+    List<OrderModel> getSells();
 
-    public BigDecimal get1BuyPrice();
+    BigDecimal getBuy1Price();
 
-    public BigDecimal get1SellPrice();
+    BigDecimal getSell1Price();
 
     @Slf4j
     class Impl implements OrderBook {
@@ -44,14 +43,15 @@ public interface OrderBook {
         @Getter
         protected LinkedList<OrderModel> sells;
 
-        public Impl() {}
+        public Impl() {
+        }
 
-        // back trace according to an event
+        // backtrace according to an event
         public void revert(VmLogInfo e) {
             try {
                 Vmlog log = e.getVmlog();
-                EventType eventType = EventParserUtils.getEventType(log.getTopicsRaw());
                 byte[] event = log.getData();
+                EventType eventType = EventParserUtils.getEventType(log.getTopicsRaw());
 
                 switch (eventType) {
                     case NewOrder:
@@ -62,17 +62,8 @@ public interface OrderBook {
                         break;
                     case UpdateOrder:
                         DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
-                        // 1:pending 2:PartialExecuted 3:FullyExecuted 4:Cancelled
                         int status = orderUpdateInfo.getStatus();
-                        Long tableCode = 345L;
-                        OrderModel orderModel = null;
-                        Optional<OrderModel> dexOrderUpdate =
-                                queryNewOrder(Hex.toHexString(orderUpdateInfo.getId().toByteArray()), tableCode);
-                        if (!dexOrderUpdate.isPresent()) {
-                            return;
-                        }
-                        orderModel = dexOrderUpdate.get();
-
+                        OrderModel orderModel = OrderModel.assembleOrderByUpdateInfo(orderUpdateInfo);
                         if (status == OrderUpdateInfoStatus.FullyExecuted.getValue()
                                 || status == OrderUpdateInfoStatus.Cancelled.getValue()) {
                             if (orderModel.isSide()) {
@@ -88,14 +79,21 @@ public interface OrderBook {
                                     new BigDecimal((orderUpdateInfo.getExecutedAmount().toByteArray().toString()));
                             orderModel.setExecutedAmount(orderModel.getAmount().add(executedAmount));
                             orderModel.setExecutedQuantity(orderModel.getQuantity().add(executedQuantity));
-                            // todo update current order
+                            // update current order
                             if (orderModel.isSide()) {
-                                sells.add(orderModel);
+                                for (int i = 0; i < sells.size(); i++) {
+                                    if (sells.get(i).getId().equals(orderModel.getId())) {
+                                        sells.set(i, orderModel);
+                                    }
+                                }
                             } else {
-                                buys.add(orderModel);
+                                for (int i = 0; i < buys.size(); i++) {
+                                    if (buys.get(i).getId().equals(orderModel.getId())) {
+                                        buys.add(orderModel);
+                                    }
+                                }
                             }
                         }
-
                         break;
                 }
             } catch (Exception exception) {
@@ -125,43 +123,6 @@ public interface OrderBook {
             }
         }
 
-        /**
-         * query the order item from chain.dex_new_order table
-         *
-         * @param orderId
-         * @param tableCode the sub table code
-         * @return
-         */
-        public Optional<OrderModel> queryNewOrder(String orderId, long tableCode) {
-            OrderModel dexOrder = new OrderModel();
-            // TODO assemble the order object
-            //            dexOrder.setId("123456");
-            //            if (CollectionUtils.isNotEmpty(dexNewOrders)) {
-            //                OrderModel dexOrder = new OrderModel();
-            //                dexOrder.setId("aaa");
-            //                dexOrder.setOrderId(dexNewOrders.get(0).getOrderId());
-            //                dexOrder.setAddress(dexNewOrders.get(0).getAddress());
-            //                dexOrder.setTradeToken(dexNewOrders.get(0).getTradeTokenId());
-            //                dexOrder.setQuoteToken(dexNewOrders.get(0).getQuoteTokenId());
-            //                dexOrder.setSide(dexNewOrders.get(0).getOrderSide() == 1);
-            //                dexOrder.setOrderType(dexNewOrders.get(0).getOrderType());
-            //                dexOrder.setPrice(dexNewOrders.get(0).getPrice().toPlainString());
-            //                dexOrder.setQuantity(dexNewOrders.get(0).getQuantity().toPlainString());
-            //                dexOrder.setToAmount(dexNewOrders.get(0).getAmount().toPlainString());
-            //                dexOrder.setOrderTime(dexNewOrders.get(0).getOrderTime());
-            //                dexOrder.setTradeTokenDecimals(dexNewOrders.get(0).getTradeTokenDecimal());
-            //                dexOrder.setQuoteTokenDecimals(dexNewOrders.get(0).getQuoteTokenDecimal());
-            //                dexOrder.setLockedBuyFee(dexNewOrders.get(0).getLockedBuyFee().toPlainString());
-            //                dexOrder.setMakerFeeRate(dexNewOrders.get(0).getMakerFeeRate());
-            //                dexOrder.setTakerFeeRate(dexNewOrders.get(0).getTakerFeeRate());
-            //                dexOrder.setTakerBrokerFeeRate(dexNewOrders.get(0).getTakerBrokerFeeRate());
-            //                dexOrder.setMakerBrokerFeeRate(dexNewOrders.get(0).getMakerBrokerFeeRate());
-            //                dexOrder.setOrderHash(dexNewOrders.get(0).getOrderHash());
-            //                dexOrder.setAgent(dexNewOrders.get(0).getAgent());
-            return Optional.of(dexOrder);
-        }
-
-
         // back-trace according to a event
         @Override
         public void deal(VmLogInfo e) {
@@ -171,15 +132,12 @@ public interface OrderBook {
 
         @Override
         public void init(List<OrderModel> buys, List<OrderModel> sells) {
-            // todo
             this.buys = Lists.newLinkedList(buys);
             this.sells = Lists.newLinkedList(sells);
         }
 
-
-
         @Override
-        public BigDecimal get1BuyPrice() {
+        public BigDecimal getBuy1Price() {
             if (CollectionUtils.isEmpty(this.buys)) {
                 return null;
             }
@@ -187,7 +145,7 @@ public interface OrderBook {
         }
 
         @Override
-        public BigDecimal get1SellPrice() {
+        public BigDecimal getSell1Price() {
             if (CollectionUtils.isEmpty(this.sells)) {
                 return null;
             }

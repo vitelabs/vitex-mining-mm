@@ -9,8 +9,17 @@ import java.util.List;
 public class User {
     String address;
 
-    // the market mining total reward perDay
-    BigDecimal mmTotalReward;
+    // the perDay mm-reward for USDT market
+    BigDecimal mmRewardForUSDTMarket;
+
+    // the perDay mm-reward for BTC market
+    BigDecimal mmRewardForBTCMarket;
+
+    // the perDay mm-reward for ETH market
+    BigDecimal mmRewardForETHMarket;
+
+    // the perDay mm-reward for VITE market
+    BigDecimal mmRewardForVITEMarket;
 
     List<Order> orders;
 }

@@ -44,15 +44,5 @@ public class Order {
     OrderType type;
 
     // the perDay mm-reward for USDT market
-    BigDecimal mmRewardForUSDTMarket;
-
-    // the perDay mm-reward for BTC market
-    BigDecimal mmRewardForBTCMarket;
-
-    // the perDay mm-reward for ETH market
-    BigDecimal mmRewardForETHMarket;
-
-    // the perDay mm-reward for VITE market
-    BigDecimal mmRewardForVITEMarket;
-
+    BigDecimal mmRewardPerDay;
 }

@@ -1,5 +1,7 @@
 package org.vite.dex.mm.constant.enums;
 
+import lombok.Getter;
+
 public enum QuoteMarketType {
     USDTMarket(1, "usdt market"),
     BTCMarket(2, "btc market"),
@@ -11,15 +13,9 @@ public enum QuoteMarketType {
         this.desc = desc;
     }
 
-    // todo
-    private int value;
-    private String desc;
+    @Getter
+    private final int value;
+    @Getter
+    private final String desc;
 
-    public int getValue() {
-        return value;
-    }
-
-    public String getDesc() {
-        return desc;
-    }
 }

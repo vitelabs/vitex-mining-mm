@@ -1,5 +1,7 @@
 package org.vite.dex.mm.constant.enums;
 
+import lombok.Getter;
+
 public enum OrderUpdateInfoStatus {
     Pending(1, "pending"),
     PartialExecuted(2, "partial executed"),
@@ -11,15 +13,9 @@ public enum OrderUpdateInfoStatus {
         this.desc = desc;
     }
 
-    // todo
-    private int value;
-    private String desc;
+    @Getter
+    private final int value;
+    @Getter
+    private final String desc;
 
-    public int getValue() {
-        return value;
-    }
-
-    public String getDesc() {
-        return desc;
-    }
 }

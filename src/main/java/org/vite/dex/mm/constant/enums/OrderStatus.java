@@ -1,10 +1,11 @@
 package org.vite.dex.mm.constant.enums;
 
+import lombok.Getter;
+
 /**
  * order status
  */
 public enum OrderStatus {
-
     Unknown(0, "status unknown"),
     PendingReq(1, "Order submitted. A corresponding request transaction has been created on chain"),
     Received(2, "Order received"),
@@ -17,20 +18,14 @@ public enum OrderStatus {
     Failed(9, "Request failed"),
     Expired(10, "Order expired");
 
-    // todo
     OrderStatus(int value, String desc) {
         this.value = value;
         this.desc = desc;
     }
 
-    private int value;
-    private String desc;
+    @Getter
+    private final int value;
+    @Getter
+    private final String desc;
 
-    public int getValue() {
-        return value;
-    }
-
-    public String getDesc() {
-        return desc;
-    }
 }

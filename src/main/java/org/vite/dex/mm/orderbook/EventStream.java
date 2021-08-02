@@ -1,6 +1,6 @@
 package org.vite.dex.mm.orderbook;
 
-import org.vitej.core.protocol.methods.response.VmLogInfo;
+import org.vite.dex.mm.entity.OrderEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,13 +10,13 @@ import java.util.List;
  */
 public class EventStream {
 
-    private List<VmLogInfo> events = new ArrayList<>();
+    private List<OrderEvent> events = new ArrayList<>();
 
-    public List<VmLogInfo> getEvents() {
+    public List<OrderEvent> getEvents() {
         return events;
     }
 
-    public void addEvent(VmLogInfo event) {
+    public void addEvent(OrderEvent event) {
         events.add(event);
     }
 

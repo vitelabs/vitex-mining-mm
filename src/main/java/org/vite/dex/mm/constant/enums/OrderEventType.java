@@ -7,8 +7,8 @@ import lombok.Getter;
  */
 public enum OrderEventType {
     OrderNew(1, "new order event"),
-    OrderCancel(2, "cancel order event"),
-    OrderFill(3, "fill order event");
+    OrderUpdate(2, "update order event"),
+    OrderTX(3, "order transaction event");
 
     OrderEventType(int value, String desc) {
         this.value = value;
