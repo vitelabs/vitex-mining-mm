@@ -6,21 +6,28 @@ import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.constant.enums.OrderEventType;
 import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
-import org.vite.dex.mm.utils.EventParserUtils;
-import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.Vmlog;
 
-import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
+import java.util.List;
+
+import static org.vite.dex.mm.constant.constants.MMConst.*;
+import static org.vite.dex.mm.constant.enums.OrderEventType.OrderNew;
+import static org.vite.dex.mm.constant.enums.OrderEventType.OrderUpdate;
+import static org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus.*;
 
 @Data
 @NoArgsConstructor
 public class OrderEvent {
     private VmLogInfo vmLogInfo;
 
+    private OrderModel orderModel;
+
     private long timestamp;
 
     private OrderEventType type;
+
+    private boolean del = false;
 
     public OrderEvent(VmLogInfo vmLogInfo, long timestamp, OrderEventType type) {
         this.vmLogInfo = vmLogInfo;
@@ -32,30 +39,41 @@ public class OrderEvent {
         this.vmLogInfo = vmLogInfo;
     }
 
-
-
-    private boolean del = false;
-
     public String getOrderId() {
-        // todo
-        return "";
+        return getOrderModel().getId();
     }
 
-    // todo
-    public String getTp() {
-        return "";
+    public String getTradePairSymbol() {
+        return getOrderModel().getTradeToken() + UnderscoreStr + getOrderModel().getQuoteToken();
     }
 
     public OrderUpdateInfoStatus getStatus() {
-        return OrderUpdateInfoStatus.Cancelled;
+        if (getType() == OrderUpdate) {
+            int status = getOrderModel().getStatus();
+            switch (status) {
+                case 1:
+                    return Pending;
+                case 2:
+                    return PartialExecuted;
+                case 3:
+                    return FullyExecuted;
+                case 4:
+                    return Cancelled;
+                default:
+                    return Unknown;
+            }
+        }
+        return OrderUpdateInfoStatus.Unknown;
     }
 
-    public void markTimestamp(long timestamp) {
+    public void setTimestamp(long timestamp) {
         this.timestamp = timestamp;
     }
 
-    // todo from type
     public boolean ignore() {
+        if (!(getType() == OrderNew || getType() == OrderUpdate)) {
+            return false;
+        }
         return true;
     }
 
@@ -63,32 +81,23 @@ public class OrderEvent {
         return this.vmLogInfo.getAccountBlockHashRaw();
     }
 
-
     public void parse() {
         try {
             Vmlog vmlog = vmLogInfo.getVmlog();
             byte[] event = vmlog.getData();
-            EventType eventType = EventParserUtils.getEventType(vmlog.getTopicsRaw());
+            EventType eventType = getEventType(vmlog.getTopicsRaw());
 
             switch (eventType) {
                 case NewOrder:
                     DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                    String tradeTokenOfNewOrder =
-                            ViteDataDecodeUtils.getShowToken(dexOrder.getTradeToken().toByteArray());
-                    String quoteTokenOfNewOrder =
-                            ViteDataDecodeUtils.getShowToken(dexOrder.getQuoteToken().toByteArray());
-                    String tradePairOfNewOrder = tradeTokenOfNewOrder + UnderscoreStr + quoteTokenOfNewOrder;
-
+                    this.setType(OrderNew);
+                    orderModel = OrderModel.assembleOrderByNewInfo(dexOrder);
                     break;
-                // both cancel and fill order will emit the updateEvent
-                case UpdateOrder:
+                case UpdateOrder: // both cancel and fill order will emit the updateEvent
                     DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
-                    String tradeTokenOfUpdateOrder =
-                            ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getTradeToken().toByteArray());
-                    String quoteTokenOfUpdateOrder =
-                            ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getQuoteToken().toByteArray());
+                    this.setType(OrderUpdate);
+                    orderModel = OrderModel.assembleOrderByUpdateInfo(orderUpdateInfo);
                     break;
-                //why should parse this ones?
                 case TX:
                 case Unknown:
                     break;
@@ -100,4 +109,18 @@ public class OrderEvent {
         }
     }
 
+    public EventType getEventType(List<String> topics) {
+        for (String topic : topics) {
+            if (TX_EVENT_TOPIC.equals(topic)) {
+                return EventType.TX;
+            }
+            if (ORDER_NEW_EVENT_TOPIC.equals(topic)) {
+                return EventType.NewOrder;
+            }
+            if (ORDER_UPDATE_EVENT_TOPIC.equals(topic)) {
+                return EventType.UpdateOrder;
+            }
+        }
+        return EventType.Unknown;
+    }
 }

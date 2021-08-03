@@ -6,7 +6,8 @@ public enum OrderUpdateInfoStatus {
     Pending(1, "pending"),
     PartialExecuted(2, "partial executed"),
     FullyExecuted(3, "fully executed"),
-    Cancelled(4, "cancel");
+    Cancelled(4, "cancel"),
+    Unknown(5, "unknown");
 
     OrderUpdateInfoStatus(int value, String desc) {
         this.value = value;

@@ -50,13 +50,17 @@ public class OrderModel {
     }
 
     /**
-     * @param orderUpdateInfo TODO can`t assemble order object from update event.how to solve it ?
+     * @param orderUpdateInfo TODO have big problem:can`t assemble order object from update event.how to solve it ?
      * @return
      */
     public static OrderModel assembleOrderByUpdateInfo(DexTradeEvent.OrderUpdateInfo orderUpdateInfo) {
         OrderModel orderModel = new OrderModel();
         orderModel.setId(Hex.toHexString(orderUpdateInfo.getId().toByteArray()));
         orderModel.setStatus(orderUpdateInfo.getStatus());
+        orderModel.setTradeToken(ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getTradeToken().toByteArray()));
+        orderModel.setQuoteToken(ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getQuoteToken().toByteArray()));
+        orderModel.setExecutedQuantity(new BigDecimal(orderUpdateInfo.getExecutedQuantity().toByteArray().toString()));
+        orderModel.setExecutedAmount(new BigDecimal(orderUpdateInfo.getExecutedAmount().toByteArray().toString()));
         return orderModel;
     }
 

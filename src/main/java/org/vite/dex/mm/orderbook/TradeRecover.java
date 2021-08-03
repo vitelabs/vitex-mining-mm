@@ -4,8 +4,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.vite.dex.mm.entity.OrderEvent;
@@ -18,13 +16,8 @@ import org.vitej.core.protocol.methods.response.CommonResponse;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
-
-import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
 
 /**
  * 1. prepare order book, get the current order book
@@ -36,14 +29,12 @@ import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
 @Service
 @Slf4j
 public class TradeRecover {
-    private static final Logger logger = LoggerFactory.getLogger(TradeRecover.class);
-    private Map<String, EventStream> eventStreams; //<TradePairStr,EventStream>
-    private Map<String, OrderBook> orderBooks; //<TradePairStr,OrderBook>
-    private Map<String, AccountBlock> accountBlockMap; //<BlockHash,AccountBlock>
+    private Map<String, EventStream> eventStreams; //<TradePairSymbol,EventStream>
+    private Map<String, OrderBook> orderBooks; //<TradePairSymbol,OrderBook>
+    private Map<String, AccountBlock> accountBlockMap = new HashMap<>(); //<Hash,AccountBlock>
 
     // TODO create a method to query from Trade Contract to get all trade-pairs
     private List<TradePair> tradePairs = new ArrayList<>();
-
 
     @Autowired
     ViteCli viteCli;
@@ -57,14 +48,13 @@ public class TradeRecover {
         try {
             for (TradePair tp : tradePairs) {
                 OrderBook orderBook = new OrderBook.Impl();
-                String tradePair = tp.getTradeTokenId() + UnderscoreStr + tp.getQuoteTokenId();
+                String tradePairSymbol = tp.getTradePairSymbol();
                 // get the sell orders of the trade-pair
                 List<OrderModel> sellOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), true);
                 // get the buy orders of the trade-pair
-                // how to ensure that the sellOrders and buysOrders are taken at the same time?
                 List<OrderModel> buysOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false);
                 orderBook.init(buysOrders, sellOrders);
-                this.orderBooks.put(tradePair, orderBook);
+                this.orderBooks.put(tradePairSymbol, orderBook);
             }
         } catch (Exception e) {
             log.error("prepareOrderBooks occurs exception,the err:", e);
@@ -113,23 +103,24 @@ public class TradeRecover {
         // 1. get all events
         AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
         Hash currentHash = latestAccountBlock.getHash();
-        AccountBlock cycleStartBlock = getCycleStartAccountBlock(currentHash, startTime);
-        // todo null check
+        AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, currentHash);
+        if (cycleStartBlock == null) {
+            return;
+        }
         Long startHeight = cycleStartBlock.getHeight();
         Long endHeight = latestAccountBlock.getHeight();
-        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 50);
+        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
 
         // 2. parse vmLogs and group these vmLogs by trade-pair
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
             OrderEvent orderEvent = new OrderEvent(vmLogInfo);
             orderEvent.parse();
-            orderEvent.markTimestamp(accountBlockMap.get(orderEvent.getBlockHash()).getTimestampRaw());
+            orderEvent.setTimestamp(accountBlockMap.get(orderEvent.getBlockHash()).getTimestampRaw());
             if (!orderEvent.ignore()) {
-                eventStreams.getOrDefault(orderEvent.getTp(), new EventStream()).addEvent(orderEvent);
+                eventStreams.getOrDefault(orderEvent.getTradePairSymbol(), new EventStream()).addEvent(orderEvent);
             }
         }
     }
-
 
     public void filterEvents() {
         tradePairs.forEach(tp -> {
@@ -138,31 +129,29 @@ public class TradeRecover {
     }
 
     private void filterEvents(TradePair tp) {
-        EventStream events = eventStreams.get(tp.getTp());
-        OrderBook orderBook = orderBooks.get(tp.getTp());
+        EventStream events = eventStreams.get(tp.getTradePairSymbol());
+        OrderBook orderBook = orderBooks.get(tp.getTradePairSymbol());
         events.filter(orderBook);
     }
 
     /**
      * get the start account block
      *
-     * @param currentHash
      * @param startTime
+     * @param currentHash
      * @return
      * @throws IOException
      */
-    private AccountBlock getCycleStartAccountBlock(Hash currentHash, long startTime) throws IOException {
+    private AccountBlock getLastCycleStartAccountBlock(long startTime, Hash currentHash) throws IOException {
         if (currentHash == null) {
             return null;
         }
 
         List<AccountBlock> blocks = getAccountBlocks(startTime, currentHash);
-
-        this.accountBlockMap = blocks.stream().collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block));
-
         if (CollectionUtils.isEmpty(blocks)) {
             return null;
         }
+        this.accountBlockMap = blocks.stream().collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block));
         return blocks.get(blocks.size() - 1);
     }
 
@@ -176,7 +165,6 @@ public class TradeRecover {
             }
             // sort blocks in descending order of height
             result.sort((block0, block1) -> block1.getHeight().compareTo(block0.getHeight()));
-
             for (AccountBlock aBlock : result) {
                 if (!aBlock.getTimestamp().isBefore(startTime)) {
                     blocks.add(aBlock);
@@ -195,11 +183,11 @@ public class TradeRecover {
      */
     public void recoverOrderBooks() {
         for (TradePair tp : tradePairs) {
-            String tradePair = tp.getTradeTokenId() + UnderscoreStr + tp.getQuoteTokenId();
+            String tradePair = tp.getTradePairSymbol();
             OrderBook orderBook = orderBooks.get(tradePair);
             EventStream eventStream = eventStreams.get(tradePair);
             for (OrderEvent event : eventStream.getEvents()) {
-                orderBook.revert(event.getVmLogInfo());
+                orderBook.revert(event);
             }
         }
     }

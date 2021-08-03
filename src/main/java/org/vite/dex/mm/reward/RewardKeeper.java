@@ -4,17 +4,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.vite.dex.mm.constant.enums.EventType;
+import org.vite.dex.mm.constant.enums.OrderEventType;
 import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
-import org.vite.dex.mm.model.proto.DexTradeEvent;
 import org.vite.dex.mm.orderbook.EventStream;
 import org.vite.dex.mm.orderbook.OrderBook;
 import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.reward.bean.MiningRewardCfg;
 import org.vite.dex.mm.reward.bean.RewardOrder;
-import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -23,8 +21,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.vite.dex.mm.constant.constants.MMConst.OrderIdBytesLength;
-import static org.vite.dex.mm.utils.EventParserUtils.getEventType;
-import static org.vite.dex.mm.utils.decode.DexPrice.bytes2Double;
 
 @Service
 public class RewardKeeper {
@@ -52,17 +48,12 @@ public class RewardKeeper {
             List<OrderModel> sells = originOrderBook.getSells();
             BigDecimal sell1Price = originOrderBook.getSell1Price();
             BigDecimal buy1Price = originOrderBook.getBuy1Price();
-
             // when an event coming, update the orderBook and top1 price
             try {
-                Vmlog log = e.getVmLogInfo().getVmlog();
-                EventType eventType = getEventType(log.getTopicsRaw());
-                byte[] event = log.getData();
-
-                switch (eventType) {
-                    case NewOrder:
-                        DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                        OrderModel orderModel = OrderModel.assembleOrderByNewInfo(dexOrder);
+                OrderModel orderModel = e.getOrderModel();
+                OrderEventType type = e.getType();
+                switch (type) {
+                    case OrderNew:
                         if (e.getTimestamp() > endTime) {
                             return orderRewards;
                         }
@@ -89,11 +80,9 @@ public class RewardKeeper {
                         //sort after add so as to update the topPrice
                         sells.add(orderModel);
                         break;
-                    case UpdateOrder:
-                        DexTradeEvent.OrderUpdateInfo updateOrder = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
-                        OrderModel model = OrderModel.assembleOrderByUpdateInfo(updateOrder);
-                        int status = updateOrder.getStatus();
-                        boolean side = getOrderSideByParseOrderId(updateOrder.getId().toByteArray());
+                    case OrderUpdate:
+                        int status = orderModel.getStatus();
+                        boolean side = getOrderSideByParseOrderId(orderModel.getId().getBytes());
                         if (status == OrderUpdateInfoStatus.Cancelled.getValue() ||
                                 status == OrderUpdateInfoStatus.FullyExecuted.getValue()) {
                             for (OrderModel order : buys) {
@@ -117,21 +106,21 @@ public class RewardKeeper {
                             }
 
                             if (side) {
-                                sells.remove(model);
+                                sells.remove(orderModel);
                             } else {
-                                buys.remove(model);
+                                buys.remove(orderModel);
                             }
 
                         } else if (status == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
                             // just update order quantity,have no effect on top1 price
                             for (OrderModel o : buys) {
                                 if (o.getId().equals(o.getId())) {
-                                    o.setExecutedAmount(new BigDecimal(bytes2Double(updateOrder.getExecutedQuantity().toByteArray())));
+                                    o.setExecutedAmount(orderModel.getExecutedQuantity());
                                 }
                             }
                             for (OrderModel o : sells) {
                                 if (o.getId().equals(o.getId())) {
-                                    o.setExecutedAmount(new BigDecimal(bytes2Double(updateOrder.getExecutedQuantity().toByteArray())));
+                                    o.setExecutedAmount(orderModel.getExecutedQuantity());
                                 }
                             }
                         }

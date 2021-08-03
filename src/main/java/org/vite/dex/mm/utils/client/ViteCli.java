@@ -71,7 +71,7 @@ public class ViteCli {
         int round = 0;
         while (true) {
             long from = startHeight + round * pageSize;
-            long to = (round + 1) * pageSize;
+            long to = from + (round + 1) * pageSize;
             if (to > endHeight) {
                 to = endHeight;
             }
@@ -106,7 +106,7 @@ public class ViteCli {
     }
 
     public CommonResponse getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side, int startIdx,
-            int limit) throws IOException {
+                                              int limit) throws IOException {
         CommonResponse response = null;
         try {
             response = vitej.commonMethod("dextrade_getOrdersFromMarket",

@@ -20,7 +20,7 @@ public class TradePair {
     // the effective interval of distance when market mining
     Double effectiveInterval;
 
-    public String getTp() {
+    public String getTradePairSymbol() {
         return getTradeTokenId() + UnderscoreStr + getQuoteTokenId();
     }
 }

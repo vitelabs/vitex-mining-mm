@@ -25,8 +25,6 @@ public class EventStream {
         events.add(event);
     }
 
-
-
     public void filter(OrderBook orderBook) {
         Map<String, OrderModel> orders = new HashMap<>();
         orderBook.getBuys().forEach(order -> {
@@ -39,32 +37,24 @@ public class EventStream {
         Map<String, List<OrderEvent>> blockHashEventMap =
                 events.stream().collect(Collectors.groupingBy(event -> event.getVmLogInfo().getAccountBlockHashRaw()));
 
-
-
         int len = orders.size();
-
-
         for (int i = len - 1; i >= 0; i--) {
             OrderEvent event = events.get(i);
             if (event.getType() == OrderEventType.OrderNew) {
                 if (!orders.containsKey(event.getOrderId())) {
                     event.setDel(true);
-                    continue;
                 }
             } else if (event.getType() == OrderEventType.OrderUpdate) {
                 if (event.getStatus() == OrderUpdateInfoStatus.Cancelled && orders.containsKey(event.getOrderId())) {
                     event.setDel(true);
-                    continue;
                 } else if (event.getStatus() == OrderUpdateInfoStatus.FullyExecuted
                         && orders.containsKey(event.getOrderId())) {
                     event.setDel(true);
-                    continue;
                 } else if (event.getStatus() == OrderUpdateInfoStatus.PartialExecuted) {
                     List<OrderEvent> orderEvents = blockHashEventMap.get(event.getVmLogInfo().getAccountBlockHashRaw());
                     OrderEvent orderEvent = findNewOrder(orderEvents);
                     if (!orders.containsKey(orderEvent.getOrderId())) {
                         event.setDel(true);
-                        continue;
                     }
                 }
             }
