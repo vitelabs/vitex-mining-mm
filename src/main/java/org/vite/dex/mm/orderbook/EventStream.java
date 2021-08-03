@@ -28,10 +28,10 @@ public class EventStream {
     public void filter(OrderBook orderBook) {
         Map<String, OrderModel> orders = new HashMap<>();
         orderBook.getBuys().forEach(order -> {
-            orders.put(order.getId(), order);
+            orders.put(order.getOrderId(), order);
         });
         orderBook.getSells().forEach(order -> {
-            orders.put(order.getId(), order);
+            orders.put(order.getOrderId(), order);
         });
 
         Map<String, List<OrderEvent>> blockHashEventMap =

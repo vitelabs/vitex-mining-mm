@@ -49,9 +49,9 @@ public class TradeRecover {
             for (TradePair tp : tradePairs) {
                 OrderBook orderBook = new OrderBook.Impl();
                 String tradePairSymbol = tp.getTradePairSymbol();
-                // get the sell orders of the trade-pair
+                // get sell orders of the trade-pair
                 List<OrderModel> sellOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), true);
-                // get the buy orders of the trade-pair
+                // get buy orders of the trade-pair
                 List<OrderModel> buysOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false);
                 orderBook.init(buysOrders, sellOrders);
                 this.orderBooks.put(tradePairSymbol, orderBook);
@@ -93,10 +93,7 @@ public class TradeRecover {
 
     /**
      * 1. get trade contract vmLogs
-     * 2. parse vmLogs
-     * 3. mark timestamp for vm log
-     * 4. category
-     *
+     * 2. parse and group vmLogs
      * @param startTime
      */
     public void prepareEvents(long startTime) throws IOException {
@@ -117,7 +114,7 @@ public class TradeRecover {
             orderEvent.parse();
             orderEvent.setTimestamp(accountBlockMap.get(orderEvent.getBlockHash()).getTimestampRaw());
             if (!orderEvent.ignore()) {
-                eventStreams.getOrDefault(orderEvent.getTradePairSymbol(), new EventStream()).addEvent(orderEvent);
+                eventStreams.putIfAbsent(orderEvent.getTradePairSymbol(), new EventStream()).addEvent(orderEvent);
             }
         }
     }
@@ -181,11 +178,11 @@ public class TradeRecover {
     /**
      * recover order book of all trade pair to the previous cycle
      */
-    public void recoverOrderBooks() {
+    public void revertOrderBooks() {
         for (TradePair tp : tradePairs) {
-            String tradePair = tp.getTradePairSymbol();
-            OrderBook orderBook = orderBooks.get(tradePair);
-            EventStream eventStream = eventStreams.get(tradePair);
+            String tradePairSymbol = tp.getTradePairSymbol();
+            OrderBook orderBook = orderBooks.get(tradePairSymbol);
+            EventStream eventStream = eventStreams.get(tradePairSymbol);
             for (OrderEvent event : eventStream.getEvents()) {
                 orderBook.revert(event);
             }
@@ -196,6 +193,6 @@ public class TradeRecover {
         prepareOrderBooks();
         prepareEvents(pointTime);
         filterEvents();
-        recoverOrderBooks();
+        revertOrderBooks();
     }
 }

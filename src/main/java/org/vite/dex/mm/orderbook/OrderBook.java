@@ -7,18 +7,19 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.vite.dex.mm.constant.enums.OrderEventType;
 import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
 import org.vite.dex.mm.entity.OrderEvent;
+import org.vite.dex.mm.entity.OrderLog;
 import org.vite.dex.mm.entity.OrderModel;
 
 import java.math.BigDecimal;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public interface OrderBook {
     // back-trace according to a event
     void revert(OrderEvent event);
 
-    // back-trace according to a event
-    void deal(OrderEvent event);
+    // front-trace according to a event
+    void onward(OrderEvent event);
 
     // init method
     void init(List<OrderModel> buys, List<OrderModel> sells);
@@ -39,6 +40,8 @@ public interface OrderBook {
         @Getter
         protected LinkedList<OrderModel> sells;
 
+        protected Map<String, OrderModel> orders = new HashMap<>();
+
         public Impl() {
         }
 
@@ -46,36 +49,33 @@ public interface OrderBook {
         public void revert(OrderEvent event) {
             try {
                 OrderEventType type = event.getType();
-                OrderModel orderModel = event.getOrderModel();
+                OrderLog orderLog = event.getOrderLog();
                 switch (type) {
                     case OrderNew:
-                        revertByRemoveOrder(orderModel.getId(), orderModel.isSide());
+                        revertByRemoveOrder(orderLog.getOrderId(), orderLog.isSide());
                         break;
                     case OrderUpdate:
-                        if (orderModel.getStatus() == OrderUpdateInfoStatus.FullyExecuted.getValue()
-                                || orderModel.getStatus() == OrderUpdateInfoStatus.Cancelled.getValue()) {
-                            if (orderModel.isSide()) {
+                        if (orderLog.getStatus() == OrderUpdateInfoStatus.FullyExecuted.getValue()
+                                || orderLog.getStatus() == OrderUpdateInfoStatus.Cancelled.getValue()) {
+                            OrderModel orderModel = OrderModel.fromOrderLog(orderLog);
+                            if (orderLog.isSide()) {
                                 sells.add(orderModel);
                             } else {
                                 buys.add(orderModel);
                             }
-                        } else if (orderModel.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
-                            BigDecimal executedQuantity = orderModel.getExecutedQuantity();
-                            BigDecimal executedAmount = orderModel.getExecutedAmount();
-                            orderModel.setExecutedAmount(orderModel.getAmount().add(executedAmount));
-                            orderModel.setExecutedQuantity(orderModel.getQuantity().add(executedQuantity));
+
+                        } else if (orderLog.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
                             // update current order
-                            if (orderModel.isSide()) {
-                                for (int i = 0; i < sells.size(); i++) {
-                                    if (sells.get(i).getId().equals(orderModel.getId())) {
-                                        sells.set(i, orderModel);
-                                    }
+                            for (int i = 0; i < sells.size(); i++) {
+                                OrderModel order = sells.get(i);
+                                if (order.getOrderId().equals(orderLog.getOrderId())) {
+                                    order.revert(orderLog);
                                 }
-                            } else {
-                                for (int i = 0; i < buys.size(); i++) {
-                                    if (buys.get(i).getId().equals(orderModel.getId())) {
-                                        buys.add(orderModel);
-                                    }
+                            }
+                            for (int i = 0; i < buys.size(); i++) {
+                                OrderModel order = buys.get(i);
+                                if (order.getOrderId().equals(orderLog.getOrderId())) {
+                                    order.revert(orderLog);
                                 }
                             }
                         }
@@ -94,31 +94,64 @@ public interface OrderBook {
             if (!side) {
                 //remove from sells if the new order is sellOrder
                 for (int i = 0; i < sells.size(); i++) {
-                    if (sells.get(i).getId().equals(orderId)) {
+                    if (sells.get(i).getOrderId().equals(orderId)) {
                         sells.remove(i);
                     }
                 }
             } else {
                 //remove from buys if order is buy_order
                 for (int i = 0; i < buys.size(); i++) {
-                    if (buys.get(i).getId().equals(orderId)) {
+                    if (buys.get(i).getOrderId().equals(orderId)) {
                         buys.remove(i);
                     }
                 }
             }
         }
 
-        // back-trace according to a event
+        // front-trace according to a event
         @Override
-        public void deal(OrderEvent event) {
-            // curEventId == e.id - 1
-            // buys.0, sells.0
+        public void onward(OrderEvent event) {
+            OrderModel orderModel;
+            OrderEventType type = event.getType();
+            OrderLog orderLog = event.getOrderLog();
+            switch (type) {
+                case OrderNew:
+                    orderModel = OrderModel.fromOrderLog(event.getOrderLog());
+                    orders.put(orderModel.getOrderId(), orderModel);
+                    if (orderModel.isSide()) { // sell
+                        this.sells.add(orderModel);
+                    } else {
+                        this.buys.add(orderModel);
+                    }
+                    break;
+                case OrderUpdate:
+                    if (orderLog.getStatus() == OrderUpdateInfoStatus.FullyExecuted.getValue()
+                            || orderLog.getStatus() == OrderUpdateInfoStatus.Cancelled.getValue()) {
+                        orderModel = orders.get(orderLog.getOrderId());
+                        orderModel.onward(orderLog);
+                        orders.remove(orderLog.getOrderId());
+                        if (orderLog.isSide()) {
+                            sells.remove(orderModel);
+                        } else {
+                            buys.remove(orderModel);
+                        }
+                    } else if (orderLog.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
+                        // update current order
+                        orderModel = orders.get(orderLog.getOrderId());
+                        orderModel.onward(orderLog);
+                    }
+                    break;
+            }
         }
 
         @Override
         public void init(List<OrderModel> buys, List<OrderModel> sells) {
             this.buys = Lists.newLinkedList(buys);
             this.sells = Lists.newLinkedList(sells);
+            Map<String, OrderModel> buyMap = buys.stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+            Map<String, OrderModel> sellMap = sells.stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+            this.orders.putAll(buyMap);
+            this.orders.putAll(sellMap);
         }
 
         @Override
@@ -126,7 +159,7 @@ public interface OrderBook {
             if (CollectionUtils.isEmpty(this.buys)) {
                 return null;
             }
-            return this.buys.getLast().getPrice();
+            return this.buys.stream().max(Comparator.comparing(OrderModel::getPrice)).get().getPrice();
         }
 
         @Override
@@ -134,7 +167,7 @@ public interface OrderBook {
             if (CollectionUtils.isEmpty(this.sells)) {
                 return null;
             }
-            return this.sells.getLast().getPrice();
+            return this.sells.stream().min(Comparator.comparing(OrderModel::getPrice)).get().getPrice();
         }
     }
 }

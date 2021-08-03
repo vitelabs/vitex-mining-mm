@@ -21,13 +21,14 @@ import static org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus.*;
 public class OrderEvent {
     private VmLogInfo vmLogInfo;
 
-    private OrderModel orderModel;
+    private OrderLog orderLog;
 
     private long timestamp;
 
     private OrderEventType type;
 
     private boolean del = false;
+
 
     public OrderEvent(VmLogInfo vmLogInfo, long timestamp, OrderEventType type) {
         this.vmLogInfo = vmLogInfo;
@@ -40,16 +41,16 @@ public class OrderEvent {
     }
 
     public String getOrderId() {
-        return getOrderModel().getId();
+        return orderLog.getOrderId();
     }
 
     public String getTradePairSymbol() {
-        return getOrderModel().getTradeToken() + UnderscoreStr + getOrderModel().getQuoteToken();
+        return orderLog.getTradePair();
     }
 
     public OrderUpdateInfoStatus getStatus() {
         if (getType() == OrderUpdate) {
-            int status = getOrderModel().getStatus();
+            int status = orderLog.getStatus();
             switch (status) {
                 case 1:
                     return Pending;
@@ -91,12 +92,13 @@ public class OrderEvent {
                 case NewOrder:
                     DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
                     this.setType(OrderNew);
-                    orderModel = OrderModel.assembleOrderByNewInfo(dexOrder);
+                    this.orderLog = OrderLog.fromNewOrder(dexOrder);
                     break;
-                case UpdateOrder: // both cancel and fill order will emit the updateEvent
+                case UpdateOrder:
+                    // both cancel and filled order will emit the updateEvent
                     DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
                     this.setType(OrderUpdate);
-                    orderModel = OrderModel.assembleOrderByUpdateInfo(orderUpdateInfo);
+                    this.orderLog = OrderLog.fromUpdateOrder(orderUpdateInfo);
                     break;
                 case TX:
                 case Unknown:
