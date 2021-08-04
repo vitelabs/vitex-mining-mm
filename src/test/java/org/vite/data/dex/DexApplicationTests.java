@@ -18,6 +18,7 @@ class DexApplicationTests {
     void contextLoads() {
     }
 
+    // test yubikey
     @Test
     public void testOrderBooks() throws IOException {
         tradeRecover.prepareOrderBooks();
