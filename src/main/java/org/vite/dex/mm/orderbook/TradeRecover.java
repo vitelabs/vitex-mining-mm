@@ -15,6 +15,7 @@ import org.vitej.core.protocol.methods.response.AccountBlock;
 import org.vitej.core.protocol.methods.response.CommonResponse;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 
+import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -34,10 +35,20 @@ public class TradeRecover {
     private Map<String, AccountBlock> accountBlockMap = new HashMap<>(); //<Hash,AccountBlock>
 
     // TODO create a method to query from Trade Contract to get all trade-pairs
-    private List<TradePair> tradePairs = new ArrayList<>();
+    private static List<TradePair> tradePairs = getAllTradePairs();
 
-    @Autowired
+    @Resource
     ViteCli viteCli;
+
+
+    public static List<TradePair> getAllTradePairs() {
+        List<TradePair> res = new ArrayList<>();
+        TradePair tp = new TradePair();
+        tp.setTradeTokenId("tti_687d8a93915393b219212c73");
+        tp.setQuoteTokenId("tti_80f3751485e4e83456059473");
+        res.add(tp);
+        return res;
+    }
 
     /**
      * prepare order book, get the current order book
@@ -94,6 +105,7 @@ public class TradeRecover {
     /**
      * 1. get trade contract vmLogs
      * 2. parse and group vmLogs
+     *
      * @param startTime
      */
     public void prepareEvents(long startTime) throws IOException {
