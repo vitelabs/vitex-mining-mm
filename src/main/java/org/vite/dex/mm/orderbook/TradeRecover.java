@@ -2,13 +2,16 @@ package org.vite.dex.mm.orderbook;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
+import org.vite.dex.mm.reward.bean.MiningRewardCfg;
+import org.vite.dex.mm.reward.bean.RewardOrder;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.response.AccountBlock;
@@ -18,6 +21,9 @@ import org.vitej.core.protocol.methods.response.VmLogInfo;
 import javax.annotation.Resource;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -30,9 +36,9 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 public class TradeRecover {
-    private Map<String, EventStream> eventStreams; //<TradePairSymbol,EventStream>
-    private Map<String, OrderBook> orderBooks; //<TradePairSymbol,OrderBook>
-    private Map<String, AccountBlock> accountBlockMap = new HashMap<>(); //<Hash,AccountBlock>
+    private Map<String, EventStream> eventStreams = Maps.newHashMap(); //<TradePairSymbol,EventStream>
+    private Map<String, OrderBook> orderBooks = Maps.newHashMap(); //<TradePairSymbol,OrderBook>
+    private Map<String, AccountBlock> accountBlockMap = Maps.newHashMap(); //<Hash,AccountBlock>
 
     // TODO create a method to query from Trade Contract to get all trade-pairs
     private static List<TradePair> tradePairs = getAllTradePairs();
@@ -40,12 +46,14 @@ public class TradeRecover {
     @Resource
     ViteCli viteCli;
 
-
     public static List<TradePair> getAllTradePairs() {
         List<TradePair> res = new ArrayList<>();
         TradePair tp = new TradePair();
+        tp.setTradeTokenSymbol("vite");
+        tp.setQuoteTokenSymbol("BTC-000");
         tp.setTradeTokenId("tti_687d8a93915393b219212c73");
         tp.setQuoteTokenId("tti_80f3751485e4e83456059473");
+        tp.setEffectiveInterval(0.2);
         res.add(tp);
         return res;
     }
@@ -84,9 +92,10 @@ public class TradeRecover {
      */
     private List<OrderModel> getSingleSideOrders(String tradeTokenId, String quoteTokenId, boolean side)
             throws IOException {
-        List<OrderModel> singleSideOrders = new LinkedList<>();
+        List<OrderModel> singleSideOrders = Lists.newLinkedList();
+        ;
+        int round = 0;
         while (true) {
-            int round = 0;
             CommonResponse response =
                     viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, 100 * round, 100 * (round + 1));
             String mapStrSell = JSON.toJSONString(response.getResult());
@@ -124,9 +133,15 @@ public class TradeRecover {
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
             OrderEvent orderEvent = new OrderEvent(vmLogInfo);
             orderEvent.parse();
-            orderEvent.setTimestamp(accountBlockMap.get(orderEvent.getBlockHash()).getTimestampRaw());
+
             if (!orderEvent.ignore()) {
-                eventStreams.putIfAbsent(orderEvent.getTradePairSymbol(), new EventStream()).addEvent(orderEvent);
+                AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
+                if (block != null) {
+                    orderEvent.setTimestamp(block.getTimestampRaw());
+                }
+                EventStream eventStream = eventStreams.getOrDefault(orderEvent.getTradePairSymbol(), new EventStream());
+                eventStream.addEvent(orderEvent);
+                eventStreams.put(orderEvent.getTradePairSymbol(), eventStream);
             }
         }
     }
@@ -140,6 +155,9 @@ public class TradeRecover {
     private void filterEvents(TradePair tp) {
         EventStream events = eventStreams.get(tp.getTradePairSymbol());
         OrderBook orderBook = orderBooks.get(tp.getTradePairSymbol());
+        if (events == null) {
+            return;
+        }
         events.filter(orderBook);
     }
 
@@ -160,22 +178,26 @@ public class TradeRecover {
         if (CollectionUtils.isEmpty(blocks)) {
             return null;
         }
+        blocks = blocks.stream().collect(
+                Collectors.collectingAndThen(Collectors.toCollection(
+                        () -> new TreeSet<>(Comparator.comparing(o -> o.getHeight()))), ArrayList::new));
         this.accountBlockMap = blocks.stream().collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block));
-        return blocks.get(blocks.size() - 1);
+        return blocks.get(0);
     }
 
     private List<AccountBlock> getAccountBlocks(long startTime, Hash endHash) throws IOException {
-        List<AccountBlock> blocks = new ArrayList<>();
+        List<AccountBlock> blocks = Lists.newArrayList();
         while (true) {
-            // todo [] () 
+            // the result contains the endHash block [startHash, endHash]
             List<AccountBlock> result = viteCli.getAccountBlocksBelowCurrentHash(endHash, 200);
             if (CollectionUtils.isEmpty(result)) {
                 break;
             }
+
             // sort blocks in descending order of height
             result.sort((block0, block1) -> block1.getHeight().compareTo(block0.getHeight()));
             for (AccountBlock aBlock : result) {
-                if (!aBlock.getTimestamp().isBefore(startTime)) {
+                if (aBlock.getTimestampRaw() >= startTime) {
                     blocks.add(aBlock);
                     endHash = aBlock.getHash();
                 } else {
@@ -198,7 +220,27 @@ public class TradeRecover {
             for (OrderEvent event : eventStream.getEvents()) {
                 orderBook.revert(event);
             }
+
+
+            Map<String, OrderModel> buyMap = orderBook.getBuys().stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+            Map<String, OrderModel> sellMap = orderBook.getSells().stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+            orderBook.getOrders().putAll(buyMap);
+            orderBook.getOrders().putAll(sellMap);
+            // put the origin orderbook to map
+            orderBooks.put(tradePairSymbol, orderBook);
         }
+    }
+
+    public Map<String, EventStream> getEventStreams() {
+        return eventStreams;
+    }
+
+    public Map<String, OrderBook> getOrderBooks() {
+        return orderBooks;
+    }
+
+    public Map<String, AccountBlock> getAccountBlockMap() {
+        return accountBlockMap;
     }
 
     public void run(long pointTime) throws IOException {

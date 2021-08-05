@@ -6,5 +6,5 @@ import lombok.Data;
 public class MiningRewardCfg {
     int marketId;
     String tradePairSymbol;
-    double effectiveDistance = 0.1;
+    double effectiveDistance = 0.2;
 }

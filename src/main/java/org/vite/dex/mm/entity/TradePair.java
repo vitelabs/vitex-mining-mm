@@ -23,4 +23,23 @@ public class TradePair {
     public String getTradePairSymbol() {
         return getTradeTokenId() + UnderscoreStr + getQuoteTokenId();
     }
+
+    public int getMarket() {
+        int market = 0;
+        switch (quoteTokenSymbol) {
+            case "BTC-000":
+                market = 1;
+                break;
+            case "ETH-000":
+                market = 2;
+                break;
+            case "VITE":
+                market = 3;
+                break;
+            case "USDT—000":
+                market = 4;
+                break;
+        }
+        return market;
+    }
 }

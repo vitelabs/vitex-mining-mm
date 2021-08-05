@@ -4,6 +4,7 @@ import lombok.Data;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
+import org.vite.dex.mm.utils.decode.DexPrice;
 
 import java.math.BigDecimal;
 
@@ -31,10 +32,10 @@ public class OrderLog {
         String tradeToken = ViteDataDecodeUtils.getShowToken(dexOrder.getTradeToken().toByteArray());
         String quoteToken = ViteDataDecodeUtils.getShowToken(dexOrder.getQuoteToken().toByteArray());
         result.setTradePair(tradeToken + UnderscoreStr + quoteToken);
-        result.setChangeQuantity(new BigDecimal(dexOrder.getOrder().getQuantity().toByteArray().toString()));
-        result.setChangeAmount(new BigDecimal(dexOrder.getOrder().getAmount().toByteArray().toString()));
+        result.setChangeQuantity(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getQuantity().toByteArray()));
+        result.setChangeAmount(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getAmount().toByteArray()));
         result.setAddress(ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray()));
-        result.setPrice(new BigDecimal(dexOrder.getOrder().getPrice().toByteArray().toString()));
+        result.setPrice(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getPrice().toByteArray()));
 
         return result;
     }
@@ -47,8 +48,8 @@ public class OrderLog {
         String tradeToken = ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getTradeToken().toByteArray());
         String quoteToken = ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getQuoteToken().toByteArray());
         result.setTradePair(tradeToken + UnderscoreStr + quoteToken);
-        result.setChangeQuantity(new BigDecimal(orderUpdateInfo.getExecutedQuantity().toByteArray().toString()));
-        result.setChangeAmount(new BigDecimal(orderUpdateInfo.getExecutedAmount().toByteArray().toString()));
+        result.setChangeQuantity(DexPrice.bytesToBigDecimal(orderUpdateInfo.getExecutedQuantity().toByteArray()));
+        result.setChangeAmount(DexPrice.bytesToBigDecimal(orderUpdateInfo.getExecutedAmount().toByteArray()));
         result.setAddress(""); // TODO:
         result.setPrice(getPriceByParseOrderId(orderIdBytes));
         result.setSide(getOrderSideByParseOrderId(orderIdBytes));

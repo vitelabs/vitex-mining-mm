@@ -50,6 +50,6 @@ public class ViteDataDecodeUtils {
                 price[i] = (byte) ~price[i];
             }
         }
-        return new BigDecimal(DexPrice.bytes2Double(price));
+        return DexPrice.bytesToBigDecimal(price);
     }
 }

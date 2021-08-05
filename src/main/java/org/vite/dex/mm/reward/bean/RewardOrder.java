@@ -14,7 +14,15 @@ public class RewardOrder {
 
     private long timestamp;
     private int market;
-    private BigDecimal totalFactor;
+    private BigDecimal totalFactor = BigDecimal.ZERO;
+
+    public double getTotalFactorDouble(){
+        return totalFactor.doubleValue();
+    }
+
+    public String getOrderAddress(){
+        return orderModel.getAddress();
+    }
 
     public void deal(MiningRewardCfg cfg, OrderEvent event, BigDecimal topPrice) {
         long startTime = timestamp;
@@ -23,20 +31,20 @@ public class RewardOrder {
         BigDecimal dist = null;
         BigDecimal factor = BigDecimal.ZERO;
         if (orderModel.isSide()) {
-            dist = (orderModel.getPrice().subtract(topPrice)).divide(topPrice);
+            dist = (orderModel.getPrice().subtract(topPrice)).divide(topPrice, 4, BigDecimal.ROUND_HALF_UP);
         } else {
-            dist = (topPrice.subtract(orderModel.getPrice())).divide(topPrice);
+            dist = (topPrice.subtract(orderModel.getPrice())).divide(topPrice, 4, BigDecimal.ROUND_HALF_UP);
         }
 
         double effectiveDistance = cfg.getEffectiveDistance();
-        if (dist.compareTo(new BigDecimal(String.valueOf(effectiveDistance))) < 0) {
+        if (dist.compareTo(BigDecimal.valueOf(effectiveDistance)) < 0) {
             double coefficient = Math.pow(0.6, (1 + 9 * dist.doubleValue()) / effectiveDistance);
             factor = orderModel.getAmount().multiply(BigDecimal.valueOf(endTime - startTime)).
                     multiply(BigDecimal.valueOf(coefficient));
 
-            this.timestamp = event.getTimestamp(); // update timestamp
         }
 
+        this.timestamp = event.getTimestamp(); // update timestamp
         totalFactor = totalFactor.add(factor);
     }
 }

@@ -1,18 +1,25 @@
 package org.vite.dex.mm.entity;
 
+import com.alibaba.fastjson.annotation.JSONField;
 import lombok.Data;
 
 import java.math.BigDecimal;
 
 @Data
 public class OrderModel {
-    // order base
+    @JSONField(name="Id")
     private String orderId;
+
     private BigDecimal amount;
+
     private BigDecimal quantity;
+
     private BigDecimal price;
+
     private String address;
+
     private boolean side;
+
     private String tradePair;
 
     public static OrderModel fromOrderLog(OrderLog orderLog) {

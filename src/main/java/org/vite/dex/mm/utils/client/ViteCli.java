@@ -1,21 +1,15 @@
 package org.vite.dex.mm.utils.client;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 import org.vitej.core.protocol.HttpService;
 import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.request.VmLogFilter;
-import org.vitej.core.protocol.methods.response.AccountBlock;
-import org.vitej.core.protocol.methods.response.AccountBlockResponse;
-import org.vitej.core.protocol.methods.response.AccountBlocksResponse;
-import org.vitej.core.protocol.methods.response.CommonResponse;
-import org.vitej.core.protocol.methods.response.VmLogInfo;
-import org.vitej.core.protocol.methods.response.VmlogInfosResponse;
+import org.vitej.core.protocol.methods.response.*;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,7 +18,7 @@ import java.util.List;
 import static org.vite.dex.mm.constant.constants.MMConst.NODE_SERVER_URL;
 import static org.vite.dex.mm.constant.constants.MMConst.TRADE_CONTRACT_ADDRESS;
 
-@Resource
+@Component
 @Slf4j
 public class ViteCli {
 
@@ -71,13 +65,16 @@ public class ViteCli {
         int round = 0;
         while (true) {
             long from = startHeight + round * pageSize;
-            long to = from + (round + 1) * pageSize;
-            if (to > endHeight) {
-                to = endHeight;
+            long to = startHeight + (round + 1) * pageSize;
+            if (from > endHeight) {
+                return events;
+            }
+            if (to > endHeight + 1) {
+                to = endHeight + 1;
             }
 
-            // todo [] () [) (]
-            VmLogFilter filter = new VmLogFilter(new Address(TRADE_CONTRACT_ADDRESS), from, to);
+            // [from,to)
+            VmLogFilter filter = new VmLogFilter(new Address(TRADE_CONTRACT_ADDRESS), from, to - 1);
             VmlogInfosResponse resp = vitej.getVmlogsByFilter(filter).send();
             List<VmLogInfo> eventsByPage = resp.getResult();
             if (eventsByPage == null || eventsByPage.isEmpty()) {
