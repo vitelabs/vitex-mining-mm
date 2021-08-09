@@ -121,6 +121,9 @@ public interface OrderBook {
         }
 
         private void addOrder(OrderModel orderModel) {
+            if (orders.keySet().contains(orderModel.getOrderId())) {
+                throw new RuntimeException(String.format("order %s exist", orderModel.getOrderId()));
+            }
             orders.put(orderModel.getOrderId(), orderModel);
             if (orderModel.isSide()) { // sell
                 this.sells.add(orderModel);
@@ -130,6 +133,9 @@ public interface OrderBook {
         }
 
         private void removeOrder(OrderModel orderModel) {
+            if (!orders.keySet().contains(orderModel.getOrderId())) {
+                throw new RuntimeException(String.format("order %s not exist", orderModel.getOrderId()));
+            }
             orders.remove(orderModel.getOrderId());
             if (orderModel.isSide()) {
                 sells.remove(orderModel);
