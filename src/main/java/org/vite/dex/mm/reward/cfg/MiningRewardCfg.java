@@ -1,4 +1,4 @@
-package org.vite.dex.mm.reward.bean;
+package org.vite.dex.mm.reward.cfg;
 
 import lombok.Data;
 

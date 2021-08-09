@@ -6,24 +6,21 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
-import org.springframework.stereotype.Service;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
-import org.vite.dex.mm.reward.bean.MiningRewardCfg;
-import org.vite.dex.mm.reward.bean.RewardOrder;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.response.AccountBlock;
 import org.vitej.core.protocol.methods.response.CommonResponse;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 
-import javax.annotation.Resource;
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
@@ -33,18 +30,20 @@ import java.util.stream.Collectors;
  * 4. mm mining, calculate the market making mining rewards
  */
 
-@Service
 @Slf4j
 public class TradeRecover {
-    private Map<String, EventStream> eventStreams = Maps.newHashMap(); //<TradePairSymbol,EventStream>
-    private Map<String, OrderBook> orderBooks = Maps.newHashMap(); //<TradePairSymbol,OrderBook>
+    private final Map<String, EventStream> eventStreams = Maps.newHashMap(); //<TradePairSymbol,EventStream>
+    private final Map<String, OrderBook> orderBooks = Maps.newHashMap(); //<TradePairSymbol,OrderBook>
     private Map<String, AccountBlock> accountBlockMap = Maps.newHashMap(); //<Hash,AccountBlock>
 
     // TODO create a method to query from Trade Contract to get all trade-pairs
-    private static List<TradePair> tradePairs = getAllTradePairs();
+    private final static List<TradePair> tradePairs = getAllTradePairs();
 
-    @Resource
-    ViteCli viteCli;
+    private final ViteCli viteCli;
+
+    public TradeRecover(ViteCli viteCli) {
+        this.viteCli = viteCli;
+    }
 
     public static List<TradePair> getAllTradePairs() {
         List<TradePair> res = new ArrayList<>();
@@ -92,8 +91,7 @@ public class TradeRecover {
      */
     private List<OrderModel> getSingleSideOrders(String tradeTokenId, String quoteTokenId, boolean side)
             throws IOException {
-        List<OrderModel> singleSideOrders = Lists.newLinkedList();
-        ;
+        List<OrderModel> singleSideOrders = Lists.newLinkedList();;
         int round = 0;
         while (true) {
             CommonResponse response =
@@ -102,7 +100,7 @@ public class TradeRecover {
             Map<String, Object> resMap = JSON.parseObject(mapStrSell, Map.class);
             String jsonString = JSONObject.toJSONString(resMap.get("orders"));
             List<OrderModel> orders = JSON.parseArray(jsonString, OrderModel.class);
-            if (orders == null || orders.size() == 0) {
+            if (orders == null || orders.isEmpty()) {
                 break;
             }
             singleSideOrders.addAll(orders);
@@ -220,14 +218,6 @@ public class TradeRecover {
             for (OrderEvent event : eventStream.getEvents()) {
                 orderBook.revert(event);
             }
-
-
-            Map<String, OrderModel> buyMap = orderBook.getBuys().stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
-            Map<String, OrderModel> sellMap = orderBook.getSells().stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
-            orderBook.getOrders().putAll(buyMap);
-            orderBook.getOrders().putAll(sellMap);
-            // put the origin orderbook to map
-            orderBooks.put(tradePairSymbol, orderBook);
         }
     }
 

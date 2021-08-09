@@ -3,8 +3,6 @@ package org.vite.dex.mm.reward;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
 import org.vite.dex.mm.entity.OrderEvent;
@@ -14,10 +12,11 @@ import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.orderbook.EventStream;
 import org.vite.dex.mm.orderbook.OrderBook;
 import org.vite.dex.mm.orderbook.TradeRecover;
-import org.vite.dex.mm.reward.bean.MiningRewardCfg;
 import org.vite.dex.mm.reward.bean.RewardOrder;
+import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 
@@ -25,12 +24,14 @@ import static java.util.stream.Collectors.groupingBy;
 import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
 import static org.vite.dex.mm.constant.enums.EventType.UpdateOrder;
 
-@Service
 @Slf4j
 public class RewardKeeper {
 
-    @Autowired
-    TradeRecover tradeRecover;
+    private final TradeRecover tradeRecover;
+
+    public RewardKeeper(TradeRecover tradeRecover) {
+        this.tradeRecover = tradeRecover;
+    }
 
     /**
      * calculate the mm-reward of orders which located in the specified orderBook
@@ -45,7 +46,7 @@ public class RewardKeeper {
      * @return
      */
     public Map<String, RewardOrder> mmMining(EventStream eventStream, OrderBook originOrderBook, MiningRewardCfg cfg,
-                                             long startTime, long endTime) {
+            long startTime, long endTime) {
         List<OrderEvent> events = eventStream.getEvents();
         Map<String, RewardOrder> orderRewards = Maps.newHashMap();//<orderId,RewardOrder>
 
@@ -86,7 +87,7 @@ public class RewardKeeper {
     }
 
     private RewardOrder getOrInitRewardOrder(Map<String, RewardOrder> rewardOrderMap, OrderModel orderModel,
-                                             MiningRewardCfg cfg, long startTime) {
+            MiningRewardCfg cfg, long startTime) {
         RewardOrder rewardOrder = rewardOrderMap.get(orderModel.getOrderId());
         if (rewardOrder == null) {
             rewardOrder = new RewardOrder();
@@ -112,7 +113,8 @@ public class RewardKeeper {
      * @param endTime
      * @return
      */
-    public Map<String, Map<Integer, Double>> calculateAddressReward(double totalReleasedViteAmount,long startTime,long endTime) {
+    public Map<String, Map<Integer, Double>> calculateAddressReward(double totalReleasedViteAmount, long startTime,
+            long endTime) {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap();
         // 1. mmMining for each of origin order-book
         for (TradePair tp : TradeRecover.getAllTradePairs()) {
@@ -123,7 +125,7 @@ public class RewardKeeper {
             miningRewardCfg.setMarketId(tp.getMarket());
             miningRewardCfg.setEffectiveDistance(tp.getEffectiveInterval());
             Map<String, RewardOrder> rewardOrders = mmMining(eventStream, orderBook,
-                    miningRewardCfg, startTime,endTime);
+                    miningRewardCfg, startTime, endTime);
             totalRewardOrders.putAll(rewardOrders);
         }
         // 2. group RewardOrder by market
@@ -134,6 +136,7 @@ public class RewardKeeper {
         List<RewardOrder> totalMarketRewards = Lists.newArrayList();
         totalRewardOrders.forEach((key, value) -> {
             totalMarketRewards.add(value);
+            // TODO switch
             if (value.getMarket() == 1) {
                 btcMarketRewards.add(value);
             } else if (value.getMarket() == 2) {
@@ -152,8 +155,8 @@ public class RewardKeeper {
         double usdtMarketSum = usdtMarketRewards.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
 
         //4. <Address, <Market,<RewardOrder>>>
-        Map<String, Map<Integer, List<RewardOrder>>> addressRewardOrderMap = totalMarketRewards.stream().
-                collect(groupingBy(RewardOrder::getOrderAddress, groupingBy(RewardOrder::getMarket)));
+        Map<String, Map<Integer, List<RewardOrder>>> addressRewardOrderMap = totalMarketRewards.stream()
+                .collect(groupingBy(RewardOrder::getOrderAddress, groupingBy(RewardOrder::getMarket)));
 
         //5. <Address, <Market,FinalReward>>
         Map<String, Map<Integer, Double>> finalRes = Maps.newHashMap();
@@ -180,5 +183,9 @@ public class RewardKeeper {
             finalRes.put(address, m);
         });
         return finalRes;
+    }
+
+    private BigDecimal cal(BigDecimal factor, BigDecimal sum, BigDecimal amount, BigDecimal rate) {
+        return factor.divide(sum, RoundingMode.FLOOR).multiply(amount).multiply(rate);
     }
 }

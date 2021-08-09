@@ -4,6 +4,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
+import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
 import java.math.BigDecimal;
 
@@ -44,8 +45,8 @@ public class RewardOrder {
         double effectiveDistance = cfg.getEffectiveDistance();
         if (dist.compareTo(BigDecimal.valueOf(effectiveDistance)) < 0) {
             double coefficient = Math.pow(0.6, (1 + 9 * dist.doubleValue()) / effectiveDistance);
-            factor = orderModel.getAmount().multiply(BigDecimal.valueOf(endTime - startTime)).
-                    multiply(BigDecimal.valueOf(coefficient));
+            factor = orderModel.getAmount().multiply(BigDecimal.valueOf(endTime - startTime))
+                    .multiply(BigDecimal.valueOf(coefficient));
 
         }
 

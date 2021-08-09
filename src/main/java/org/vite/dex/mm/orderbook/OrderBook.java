@@ -16,6 +16,7 @@ import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public interface OrderBook {
     // back-trace according to a event
@@ -48,71 +49,39 @@ public interface OrderBook {
         @Getter
         protected Map<String, OrderModel> orders = Maps.newHashMap();
 
-        public Impl() {
-        }
+        public Impl() {}
 
         // backtrace according to an event
+        @Override
         public void revert(OrderEvent event) {
             try {
+                OrderModel orderModel;
                 EventType type = event.getType();
                 OrderLog orderLog = event.getOrderLog();
                 switch (type) {
                     case NewOrder:
-                        revertByRemoveOrder(orderLog.getOrderId(), orderLog.isSide());
+                        orderModel = orders.get(orderLog.getOrderId());
+                        this.removeOrder(orderModel);
                         break;
                     case UpdateOrder:
                         if (orderLog.getStatus() == OrderUpdateInfoStatus.FullyExecuted.getValue()
                                 || orderLog.getStatus() == OrderUpdateInfoStatus.Cancelled.getValue()) {
-                            OrderModel orderModel = OrderModel.fromOrderLog(orderLog);
-                            if (orderLog.isSide()) {
-                                sells.add(orderModel);
-                            } else {
-                                buys.add(orderModel);
-                            }
+                            orderModel = OrderModel.fromOrderLog(orderLog);
+                            this.addOrder(orderModel);
                         } else if (orderLog.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
                             // update
-                            for (int i = 0; i < sells.size(); i++) {
-                                OrderModel order = sells.get(i);
-                                if (order.getOrderId().equals(orderLog.getOrderId())) {
-                                    order.revert(orderLog);
-                                    break;
-                                }
-                            }
-                            for (int i = 0; i < buys.size(); i++) {
-                                OrderModel order = buys.get(i);
-                                if (order.getOrderId().equals(orderLog.getOrderId())) {
-                                    order.revert(orderLog);
-                                    break;
-                                }
-                            }
+                            orderModel = orders.get(orderLog.getOrderId());
+                            orderModel.revert(orderLog);
                         }
+                    case TX:
+                        break;
+                    case Unknown:
+                        break;
+                    default:
+                        throw new AssertionError(type.name());
                 }
             } catch (Exception exception) {
                 log.error("revert failed,the err is :" + exception);
-            }
-        }
-
-        private void revertByRemoveOrder(String orderId, boolean side) {
-            if (orderId == null) {
-                return;
-            }
-
-            if (!side) {
-                //remove from sells if the new order is sellOrder
-                for (int i = 0; i < sells.size(); i++) {
-                    if (sells.get(i).getOrderId().equals(orderId)) {
-                        sells.remove(i);
-                        break;
-                    }
-                }
-            } else {
-                //remove from buys if order is buy_order
-                for (int i = 0; i < buys.size(); i++) {
-                    if (buys.get(i).getOrderId().equals(orderId)) {
-                        buys.remove(i);
-                        break;
-                    }
-                }
             }
         }
 
@@ -122,46 +91,62 @@ public interface OrderBook {
          */
         @Override
         public void onward(OrderEvent event) {
-            OrderModel orderModel = null;
+            OrderModel orderModel;
             EventType type = event.getType();
             OrderLog orderLog = event.getOrderLog();
             switch (type) {
                 case NewOrder:
                     orderModel = OrderModel.fromOrderLog(orderLog);
-                    orders.put(orderModel.getOrderId(), orderModel);
-                    if (orderModel.isSide()) { // sell
-                        this.sells.add(orderModel);
-                    } else {
-                        this.buys.add(orderModel);
-                    }
+                    this.addOrder(orderModel);
                     break;
                 case UpdateOrder:
                     if (orderLog.getStatus() == OrderUpdateInfoStatus.FullyExecuted.getValue()
                             || orderLog.getStatus() == OrderUpdateInfoStatus.Cancelled.getValue()) {
                         orderModel = orders.get(orderLog.getOrderId());
-                        orders.remove(orderLog.getOrderId());
-                        if (orderLog.isSide()) {
-                            sells.remove(orderModel);
-                        } else {
-                            buys.remove(orderModel);
-                        }
+                        this.removeOrder(orderModel);
                     } else if (orderLog.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
                         // update current order
+
                         orderModel = orders.get(orderLog.getOrderId());
                         orderModel.onward(orderLog);
                     }
                     break;
+                case TX:
+                    break;
+                case Unknown:
+                    break;
+                default:
+                    throw new AssertionError(type.name());
             }
         }
+
+        private void addOrder(OrderModel orderModel) {
+            orders.put(orderModel.getOrderId(), orderModel);
+            if (orderModel.isSide()) { // sell
+                this.sells.add(orderModel);
+            } else {
+                this.buys.add(orderModel);
+            }
+        }
+
+        private void removeOrder(OrderModel orderModel) {
+            orders.remove(orderModel.getOrderId());
+            if (orderModel.isSide()) {
+                sells.remove(orderModel);
+            } else {
+                buys.remove(orderModel);
+            }
+        }
+
 
         @Override
         public void init(List<OrderModel> buys, List<OrderModel> sells) {
             this.buys = Lists.newLinkedList(buys);
             this.sells = Lists.newLinkedList(sells);
-//            Map<String, OrderModel> buyMap = buys.stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
-//            Map<String, OrderModel> sellMap = sells.stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
-//            this.orders.putAll(buyMap);
-//            this.orders.putAll(sellMap);
+            Map<String, OrderModel> buyMap = buys.stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+            Map<String, OrderModel> sellMap = sells.stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+            this.orders.putAll(buyMap);
+            this.orders.putAll(sellMap);
         }
 
         @Override
@@ -169,8 +154,8 @@ public interface OrderBook {
             if (CollectionUtils.isEmpty(this.buys)) {
                 return null;
             }
-//            return this.buys.stream().max(Comparator.comparing(OrderModel::getPrice)).get().getPrice();
-            return this.buys.get(0).getPrice();
+            return this.buys.stream().max(Comparator.comparing(OrderModel::getPrice)).get().getPrice();
+            // return this.buys.get(0).getPrice();
         }
 
         @Override
