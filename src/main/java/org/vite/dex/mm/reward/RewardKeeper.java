@@ -40,10 +40,12 @@ public class RewardKeeper {
      * @param eventStream
      * @param originOrderBook
      * @param cfg
+     * @param startTime
+     * @param endTime
      * @return
      */
     public Map<String, RewardOrder> mmMining(EventStream eventStream, OrderBook originOrderBook, MiningRewardCfg cfg,
-                                             long endTime) {
+                                             long startTime, long endTime) {
         List<OrderEvent> events = eventStream.getEvents();
         Map<String, RewardOrder> orderRewards = Maps.newHashMap();//<orderId,RewardOrder>
 
@@ -65,11 +67,11 @@ public class RewardKeeper {
                 boolean canceledOrder = (type == UpdateOrder && status == OrderUpdateInfoStatus.Cancelled.getValue());
                 if (newOrder || canceledOrder) {
                     for (OrderModel order : buys) {
-                        RewardOrder rewardOrder = getOrInitRewardOrder(orderRewards, order, e, cfg);
+                        RewardOrder rewardOrder = getOrInitRewardOrder(orderRewards, order, cfg, startTime);
                         rewardOrder.deal(cfg, e, sell1Price);
                     }
                     for (OrderModel order : sells) {
-                        RewardOrder rewardOrder = getOrInitRewardOrder(orderRewards, order, e, cfg);
+                        RewardOrder rewardOrder = getOrInitRewardOrder(orderRewards, order, cfg, startTime);
                         rewardOrder.deal(cfg, e, buy1Price);
                     }
                 }
@@ -84,13 +86,15 @@ public class RewardKeeper {
     }
 
     private RewardOrder getOrInitRewardOrder(Map<String, RewardOrder> rewardOrderMap, OrderModel orderModel,
-                                             OrderEvent event, MiningRewardCfg cfg) {
+                                             MiningRewardCfg cfg, long startTime) {
         RewardOrder rewardOrder = rewardOrderMap.get(orderModel.getOrderId());
         if (rewardOrder == null) {
             rewardOrder = new RewardOrder();
             rewardOrder.setOrderModel(orderModel);
-            rewardOrder.setTimestamp(event.getTimestamp());
+            // the previous cycle`s start time
+            rewardOrder.setTimestamp(startTime);
             rewardOrder.setMarket(cfg.getMarketId());
+            rewardOrder.setFirstGap5min(true);
             rewardOrderMap.put(orderModel.getOrderId(), rewardOrder);
         }
         return rewardOrder;
@@ -104,9 +108,11 @@ public class RewardKeeper {
      * calculate vx reward of each address in the market dimension
      *
      * @param totalReleasedViteAmount
+     * @param startTime
+     * @param endTime
      * @return
      */
-    public Map<String, Map<Integer, Double>> calculateAddressReward(double totalReleasedViteAmount) {
+    public Map<String, Map<Integer, Double>> calculateAddressReward(double totalReleasedViteAmount,long startTime,long endTime) {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap();
         // 1. mmMining for each of origin order-book
         for (TradePair tp : TradeRecover.getAllTradePairs()) {
@@ -117,7 +123,7 @@ public class RewardKeeper {
             miningRewardCfg.setMarketId(tp.getMarket());
             miningRewardCfg.setEffectiveDistance(tp.getEffectiveInterval());
             Map<String, RewardOrder> rewardOrders = mmMining(eventStream, orderBook,
-                    miningRewardCfg, System.currentTimeMillis() / 1000);
+                    miningRewardCfg, startTime,endTime);
             totalRewardOrders.putAll(rewardOrders);
         }
         // 2. group RewardOrder by market
@@ -154,22 +160,22 @@ public class RewardKeeper {
         addressRewardOrderMap.forEach((address, marketRewardOrderMap) -> {
             Map<Integer, Double> m = Maps.newHashMap();
             marketRewardOrderMap.forEach((market, rewardOrders) -> {
-                double viteReward = 0.0;
+                double vxReward = 0.0;
                 double marketTotalFactor = rewardOrders.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
                 switch (market) {
                     case 1:
-                        viteReward = marketTotalFactor / btcMarketSum * totalReleasedViteAmount * 0.1;
+                        vxReward = marketTotalFactor / btcMarketSum * totalReleasedViteAmount * 0.05;
                         break;
                     case 2:
-                        viteReward = marketTotalFactor / ethMarketSum * totalReleasedViteAmount * 0.2;
+                        vxReward = marketTotalFactor / ethMarketSum * totalReleasedViteAmount * 0.015;
                         break;
                     case 3:
-                        viteReward = marketTotalFactor / viteMarketSum * totalReleasedViteAmount * 0.2;
+                        vxReward = marketTotalFactor / viteMarketSum * totalReleasedViteAmount * 0.015;
                         break;
                     case 4:
-                        viteReward = marketTotalFactor / usdtMarketSum * totalReleasedViteAmount * 0.5;
+                        vxReward = marketTotalFactor / usdtMarketSum * totalReleasedViteAmount * 0.02;
                 }
-                m.put(market, viteReward);
+                m.put(market, vxReward);
             });
             finalRes.put(address, m);
         });

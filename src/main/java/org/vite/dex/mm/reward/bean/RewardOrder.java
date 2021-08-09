@@ -15,18 +15,23 @@ public class RewardOrder {
     private long timestamp;
     private int market;
     private BigDecimal totalFactor = BigDecimal.ZERO;
+    private boolean firstGap5min;
 
-    public double getTotalFactorDouble(){
+    public double getTotalFactorDouble() {
         return totalFactor.doubleValue();
     }
 
-    public String getOrderAddress(){
+    public String getOrderAddress() {
         return orderModel.getAddress();
     }
 
     public void deal(MiningRewardCfg cfg, OrderEvent event, BigDecimal topPrice) {
         long startTime = timestamp;
         long endTime = event.getTimestamp();
+        // ignored when the first time the gap timestamp is less than 300
+        if (firstGap5min && endTime - startTime < 300) {
+            return;
+        }
 
         BigDecimal dist = null;
         BigDecimal factor = BigDecimal.ZERO;
@@ -44,6 +49,7 @@ public class RewardOrder {
 
         }
 
+        this.firstGap5min = false;
         this.timestamp = event.getTimestamp(); // update timestamp
         totalFactor = totalFactor.add(factor);
     }

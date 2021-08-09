@@ -50,7 +50,7 @@ public class OrderLog {
         result.setTradePair(tradeToken + UnderscoreStr + quoteToken);
         result.setChangeQuantity(DexPrice.bytesToBigDecimal(orderUpdateInfo.getExecutedQuantity().toByteArray()));
         result.setChangeAmount(DexPrice.bytesToBigDecimal(orderUpdateInfo.getExecutedAmount().toByteArray()));
-        result.setAddress(""); // TODO:
+        result.setAddress(""); // TODO: request "getAddressByOrderId" api
         result.setPrice(getPriceByParseOrderId(orderIdBytes));
         result.setSide(getOrderSideByParseOrderId(orderIdBytes));
         result.setStatus(orderUpdateInfo.getStatus());
