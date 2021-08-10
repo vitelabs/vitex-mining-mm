@@ -16,11 +16,7 @@ import org.vitej.core.protocol.methods.response.CommonResponse;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -91,7 +87,7 @@ public class TradeRecover {
      */
     private List<OrderModel> getSingleSideOrders(String tradeTokenId, String quoteTokenId, boolean side)
             throws IOException {
-        List<OrderModel> singleSideOrders = Lists.newLinkedList();;
+        List<OrderModel> singleSideOrders = Lists.newLinkedList();
         int round = 0;
         while (true) {
             CommonResponse response =
@@ -215,6 +211,10 @@ public class TradeRecover {
             String tradePairSymbol = tp.getTradePairSymbol();
             OrderBook orderBook = orderBooks.get(tradePairSymbol);
             EventStream eventStream = eventStreams.get(tradePairSymbol);
+            if (orderBook == null || eventStream == null) {
+                continue;
+            }
+
             for (OrderEvent event : eventStream.getEvents()) {
                 orderBook.revert(event);
             }

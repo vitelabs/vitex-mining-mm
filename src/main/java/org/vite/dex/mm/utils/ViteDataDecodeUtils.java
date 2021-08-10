@@ -6,6 +6,7 @@ import org.vite.dex.mm.utils.decode.ViteAddress;
 import org.vite.dex.mm.utils.decode.ViteToken;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 
 import static org.vite.dex.mm.constant.constants.MMConst.OrderIdBytesLength;
 
@@ -29,7 +30,7 @@ public class ViteDataDecodeUtils {
         return address.hex();
     }
 
-    // parsing orderId and get order side
+    // get order side by parsing orderId
     public static boolean getOrderSideByParseOrderId(byte[] idBytes) {
         if (idBytes.length != OrderIdBytesLength) {
             throw new RuntimeException("the orderId is illegal");
@@ -37,7 +38,7 @@ public class ViteDataDecodeUtils {
         return (int) idBytes[3] == 1;
     }
 
-    // parsing orderId and get order side
+    // get order price by parsing orderId
     public static BigDecimal getPriceByParseOrderId(byte[] idBytes) {
         if (idBytes.length != OrderIdBytesLength) {
             throw new RuntimeException("the orderId is illegal");
@@ -51,5 +52,23 @@ public class ViteDataDecodeUtils {
             }
         }
         return DexPrice.bytesToBigDecimal(price);
+    }
+
+    // parsing order create time by parsing orderId
+    public static long getOrderCTimeByParseOrderId(byte[] idBytes) {
+        if (idBytes.length != OrderIdBytesLength) {
+            throw new RuntimeException("the orderId is illegal");
+        }
+        byte[] timestampBytes = new byte[8];
+        System.arraycopy(idBytes, 14, timestampBytes, 3, 5);
+        long timestamp = bytesToLong(timestampBytes);
+        return timestamp;
+    }
+
+    public static long bytesToLong(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.allocate(8);
+        buffer.put(bytes, 0, bytes.length);
+        buffer.flip();//need flip
+        return buffer.getLong();
     }
 }

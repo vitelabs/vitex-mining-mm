@@ -12,11 +12,9 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 public class RewardOrder {
     private OrderModel orderModel;
-
-    private long timestamp;
+    private long calculateStartTime; // the start time of each calculate interval
     private int market;
     private BigDecimal totalFactor = BigDecimal.ZERO;
-    private boolean firstGap5min;
 
     public double getTotalFactorDouble() {
         return totalFactor.doubleValue();
@@ -27,10 +25,9 @@ public class RewardOrder {
     }
 
     public void deal(MiningRewardCfg cfg, OrderEvent event, BigDecimal topPrice) {
-        long startTime = timestamp;
+        long startTime = calculateStartTime;
         long endTime = event.getTimestamp();
-        // ignored when the first time the gap timestamp is less than 300
-        if (firstGap5min && endTime - startTime < 300) {
+        if (endTime - this.orderModel.getTimestamp() < 300) {
             return;
         }
 
@@ -50,8 +47,7 @@ public class RewardOrder {
 
         }
 
-        this.firstGap5min = false;
-        this.timestamp = event.getTimestamp(); // update timestamp
+        this.calculateStartTime = event.getTimestamp(); // update timestamp
         totalFactor = totalFactor.add(factor);
     }
 }

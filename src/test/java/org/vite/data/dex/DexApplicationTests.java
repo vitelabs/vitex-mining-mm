@@ -10,11 +10,12 @@ import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.reward.RewardKeeper;
 import org.vite.dex.mm.reward.bean.RewardOrder;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
+import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 
 import javax.annotation.Resource;
-
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @SpringBootTest(classes = DexApplication.class)
@@ -24,7 +25,8 @@ class DexApplicationTests {
     private ViteCli viteCli;
 
     @Test
-    void contextLoads() {}
+    void contextLoads() {
+    }
 
     // test yubikey
     @Test
@@ -43,7 +45,7 @@ class DexApplicationTests {
     @Test
     public void testRevertOrderBooks() throws IOException {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
-        long startTime = System.currentTimeMillis() / 1000 - 120 * 60;
+        long startTime = System.currentTimeMillis() / 1000 - 240 * 60;
         tradeRecover.prepareOrderBooks();
         tradeRecover.prepareEvents(startTime);
         tradeRecover.filterEvents();
@@ -85,5 +87,12 @@ class DexApplicationTests {
         Map<String, Map<Integer, Double>> finalRes =
                 rewardKeeper.calculateAddressReward(totalReleasedViteAmount, startTime, endTime);
         System.out.println("the final result is:" + finalRes);
+    }
+
+    @Test
+    public void testDecomposeOrderId() throws IOException {
+        String sellOrder = "000003010000000c4ddf84758000006112302c000032";
+        byte[] orderBytes = sellOrder.getBytes(StandardCharsets.UTF_8);
+        System.out.println(ViteDataDecodeUtils.getOrderSideByParseOrderId(orderBytes));
     }
 }

@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 
 @Data
 public class OrderModel {
-    @JSONField(name="Id")
+    @JSONField(name = "Id")
     private String orderId;
 
     private BigDecimal amount;
@@ -22,16 +22,20 @@ public class OrderModel {
 
     private String tradePair;
 
+    // order created time
+    private long timestamp;
+
     public static OrderModel fromOrderLog(OrderLog orderLog) {
-        OrderModel result = new OrderModel();
-        result.orderId = orderLog.getOrderId();
-        result.amount = orderLog.getChangeAmount();
-        result.quantity = orderLog.getChangeQuantity();
-        result.price = orderLog.getPrice();
-        result.address = orderLog.getAddress();
-        result.side = orderLog.isSide();
-        result.tradePair = orderLog.getTradePair();
-        return result;
+        OrderModel orderModel = new OrderModel();
+        orderModel.orderId = orderLog.getOrderId();
+        orderModel.amount = orderLog.getChangeAmount();
+        orderModel.quantity = orderLog.getChangeQuantity();
+        orderModel.price = orderLog.getPrice();
+        orderModel.address = orderLog.getAddress();
+        orderModel.side = orderLog.isSide();
+        orderModel.tradePair = orderLog.getTradePair();
+        orderModel.timestamp = orderLog.getOrderCreateTime();
+        return orderModel;
     }
 
     public void onward(OrderLog orderLog) {

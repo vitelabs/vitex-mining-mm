@@ -9,13 +9,12 @@ import org.vite.dex.mm.utils.decode.DexPrice;
 import java.math.BigDecimal;
 
 import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
-import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getOrderSideByParseOrderId;
-import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getPriceByParseOrderId;
+import static org.vite.dex.mm.utils.ViteDataDecodeUtils.*;
 
 @Data
 public class OrderLog {
     private String logId;  //optional
-    private Long timestamp;
+    private Long orderCreateTime;
     private String orderId;
     private BigDecimal price;
     private BigDecimal changeAmount;   // for order book
@@ -27,16 +26,18 @@ public class OrderLog {
 
     public static OrderLog fromNewOrder(DexTradeEvent.NewOrderInfo dexOrder) {
         OrderLog result = new OrderLog();
-        result.setOrderId(Hex.toHexString(dexOrder.getOrder().getId().toByteArray()));
+        byte[] orderIdBytes = dexOrder.getOrder().getId().toByteArray();
+        result.setOrderId(Hex.toHexString(orderIdBytes));
         result.setSide(dexOrder.getOrder().getSide());
         String tradeToken = ViteDataDecodeUtils.getShowToken(dexOrder.getTradeToken().toByteArray());
         String quoteToken = ViteDataDecodeUtils.getShowToken(dexOrder.getQuoteToken().toByteArray());
         result.setTradePair(tradeToken + UnderscoreStr + quoteToken);
+        //todo should process the unit of price、amount and quantity
         result.setChangeQuantity(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getQuantity().toByteArray()));
         result.setChangeAmount(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getAmount().toByteArray()));
         result.setAddress(ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray()));
         result.setPrice(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getPrice().toByteArray()));
-
+        result.setOrderCreateTime(getOrderCTimeByParseOrderId(orderIdBytes));
         return result;
     }
 
@@ -48,12 +49,14 @@ public class OrderLog {
         String tradeToken = ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getTradeToken().toByteArray());
         String quoteToken = ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getQuoteToken().toByteArray());
         result.setTradePair(tradeToken + UnderscoreStr + quoteToken);
+        //todo should process the unit of price、amount and quantity
         result.setChangeQuantity(DexPrice.bytesToBigDecimal(orderUpdateInfo.getExecutedQuantity().toByteArray()));
         result.setChangeAmount(DexPrice.bytesToBigDecimal(orderUpdateInfo.getExecutedAmount().toByteArray()));
-        result.setAddress(""); // TODO: request "getAddressByOrderId" api
+        result.setAddress(""); // TODO: a little difficult
         result.setPrice(getPriceByParseOrderId(orderIdBytes));
         result.setSide(getOrderSideByParseOrderId(orderIdBytes));
         result.setStatus(orderUpdateInfo.getStatus());
+        result.setOrderCreateTime(getOrderCTimeByParseOrderId(orderIdBytes));
         return result;
     }
 }

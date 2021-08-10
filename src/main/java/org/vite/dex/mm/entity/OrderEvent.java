@@ -22,6 +22,7 @@ public class OrderEvent {
 
     private OrderLog orderLog;
 
+    // the order event emit timestamp
     private long timestamp;
 
     private EventType type;

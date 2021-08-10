@@ -46,7 +46,7 @@ public class RewardKeeper {
      * @return
      */
     public Map<String, RewardOrder> mmMining(EventStream eventStream, OrderBook originOrderBook, MiningRewardCfg cfg,
-            long startTime, long endTime) {
+                                             long startTime, long endTime) {
         List<OrderEvent> events = eventStream.getEvents();
         Map<String, RewardOrder> orderRewards = Maps.newHashMap();//<orderId,RewardOrder>
 
@@ -87,15 +87,13 @@ public class RewardKeeper {
     }
 
     private RewardOrder getOrInitRewardOrder(Map<String, RewardOrder> rewardOrderMap, OrderModel orderModel,
-            MiningRewardCfg cfg, long startTime) {
+                                             MiningRewardCfg cfg, long startTime) {
         RewardOrder rewardOrder = rewardOrderMap.get(orderModel.getOrderId());
         if (rewardOrder == null) {
             rewardOrder = new RewardOrder();
             rewardOrder.setOrderModel(orderModel);
-            // the previous cycle`s start time
-            rewardOrder.setTimestamp(startTime);
+            rewardOrder.setCalculateStartTime(startTime);
             rewardOrder.setMarket(cfg.getMarketId());
-            rewardOrder.setFirstGap5min(true);
             rewardOrderMap.put(orderModel.getOrderId(), rewardOrder);
         }
         return rewardOrder;
@@ -114,13 +112,17 @@ public class RewardKeeper {
      * @return
      */
     public Map<String, Map<Integer, Double>> calculateAddressReward(double totalReleasedViteAmount, long startTime,
-            long endTime) {
+                                                                    long endTime) {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap();
         // 1. mmMining for each of origin order-book
         for (TradePair tp : TradeRecover.getAllTradePairs()) {
             String tradePairSymbol = tp.getTradePairSymbol();
             OrderBook orderBook = tradeRecover.getOrderBooks().get(tradePairSymbol);
             EventStream eventStream = tradeRecover.getEventStreams().get(tradePairSymbol);
+            if (orderBook == null || eventStream == null) {
+                continue;
+            }
+
             MiningRewardCfg miningRewardCfg = new MiningRewardCfg();
             miningRewardCfg.setMarketId(tp.getMarket());
             miningRewardCfg.setEffectiveDistance(tp.getEffectiveInterval());
