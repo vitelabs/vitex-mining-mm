@@ -8,12 +8,10 @@ import org.vite.dex.mm.model.proto.DexTradeEvent;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.Vmlog;
 
-import java.util.List;
-
-import static org.vite.dex.mm.constant.constants.MMConst.*;
 import static org.vite.dex.mm.constant.enums.EventType.Unknown;
 import static org.vite.dex.mm.constant.enums.EventType.*;
 import static org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus.*;
+import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 @Data
 @NoArgsConstructor
@@ -43,6 +41,10 @@ public class OrderEvent {
 
     public String getOrderId() {
         return orderLog.getOrderId();
+    }
+
+    public Long getOrderCreateTime() {
+        return orderLog.getOrderCreateTime();
     }
 
     public String getTradePairSymbol() {
@@ -115,18 +117,4 @@ public class OrderEvent {
         }
     }
 
-    public EventType getEventType(List<String> topics) {
-        for (String topic : topics) {
-            if (TX_EVENT_TOPIC.equals(topic)) {
-                return TX;
-            }
-            if (ORDER_NEW_EVENT_TOPIC.equals(topic)) {
-                return NewOrder;
-            }
-            if (ORDER_UPDATE_EVENT_TOPIC.equals(topic)) {
-                return UpdateOrder;
-            }
-        }
-        return Unknown;
-    }
 }

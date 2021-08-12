@@ -6,18 +6,26 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.spongycastle.util.encoders.Hex;
+import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
+import org.vite.dex.mm.entity.SnapshotBlock;
 import org.vite.dex.mm.entity.TradePair;
+import org.vite.dex.mm.model.proto.DexTradeEvent;
+import org.vite.dex.mm.utils.ApiCollectionUtils;
+import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.Hash;
-import org.vitej.core.protocol.methods.response.AccountBlock;
-import org.vitej.core.protocol.methods.response.CommonResponse;
-import org.vitej.core.protocol.methods.response.VmLogInfo;
+import org.vitej.core.protocol.methods.response.*;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static org.vite.dex.mm.constant.constants.MMConst.TRADE_CONTRACT_ADDRESS;
+import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
+import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 /**
  * 1. prepare order book, get the current order book
@@ -32,8 +40,8 @@ public class TradeRecover {
     private final Map<String, OrderBook> orderBooks = Maps.newHashMap(); //<TradePairSymbol,OrderBook>
     private Map<String, AccountBlock> accountBlockMap = Maps.newHashMap(); //<Hash,AccountBlock>
 
-    // TODO create a method to query from Trade Contract to get all trade-pairs
-    private final static List<TradePair> tradePairs = getAllTradePairs();
+    private List<TradePair> tradePairs = Lists.newArrayList();
+    private Map<String, TokenInfo> tokens = Maps.newHashMap();
 
     private final ViteCli viteCli;
 
@@ -41,16 +49,36 @@ public class TradeRecover {
         this.viteCli = viteCli;
     }
 
-    public static List<TradePair> getAllTradePairs() {
+    // TODO get data from contract
+    public static List<TradePair> getMMOpenedTradePairs() {
         List<TradePair> res = new ArrayList<>();
         TradePair tp = new TradePair();
-        tp.setTradeTokenSymbol("vite");
-        tp.setQuoteTokenSymbol("BTC-000");
-        tp.setTradeTokenId("tti_687d8a93915393b219212c73");
-        tp.setQuoteTokenId("tti_80f3751485e4e83456059473");
-        tp.setEffectiveInterval(0.2);
+        tp.setTradeTokenSymbol("ETH-000");
+        tp.setQuoteTokenSymbol("USDT-000");
+        tp.setTradeTokenId("tti_687d8a93915393b219212c73"); //ETH
+        tp.setQuoteTokenId("tti_80f3751485e4e83456059473"); //USDT
+        tp.setMmEffectiveInterval(0.2);
         res.add(tp);
         return res;
+    }
+
+    public Map<String, TokenInfo> getAllTokenInfo() throws IOException {
+        List<TokenInfo> tokenInfos = viteCli.getTokenInfoList(0, 500);
+        Map<String, TokenInfo> tokenId2TokenInfoMap = tokenInfos.stream().collect(Collectors.toMap(
+                TokenInfo::getTokenIdRaw, tokenInfo -> tokenInfo, (k1, k2) -> k1));
+        return tokenId2TokenInfoMap;
+    }
+
+    /**
+     * prepare all trade-pairs and tokenInfos
+     */
+    public void prepareData() {
+        try {
+            tradePairs = getMMOpenedTradePairs();
+            tokens = getAllTokenInfo();
+        } catch (Exception e) {
+            log.error("failed to get token infos,err: ", e);
+        }
     }
 
     /**
@@ -111,7 +139,7 @@ public class TradeRecover {
      *
      * @param startTime
      */
-    public void prepareEvents(long startTime) throws IOException {
+    public void prepareEvents(long startTime) throws Exception {
         // 1. get all events
         AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
         Hash currentHash = latestAccountBlock.getHash();
@@ -127,6 +155,9 @@ public class TradeRecover {
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
             OrderEvent orderEvent = new OrderEvent(vmLogInfo);
             orderEvent.parse();
+            // if (orderEvent.getType() == UpdateOrder) {
+            //     orderEvent.getOrderLog().setAddress(getOrderAddress(orderEvent.getOrderId(), orderEvent.getOrderCreateTime()));
+            // }
 
             if (!orderEvent.ignore()) {
                 AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
@@ -153,6 +184,107 @@ public class TradeRecover {
             return;
         }
         events.filter(orderBook);
+    }
+
+    /**
+     * get order address through NewOrder
+     *
+     * @param orderCreateTime
+     * @return
+     */
+    private String getOrderAddress(String orderId, long orderCreateTime) throws Exception {
+        long startTime = orderCreateTime - 5 * 60;
+        long endTime = orderCreateTime + 5 * 60;
+        String endHash = "";
+        Long height = null;
+        // 1. According to the timestamp of the order creation, find AccountBlock nearby
+        while (true) {
+            SnapshotBlock snapshotBlockBeforeEndTime = ApiCollectionUtils.getSnapshotBlockBeforeTime(endTime);
+            Map<String, SnapshotBlock.HashHeight> snapshotContent = snapshotBlockBeforeEndTime.getSnapshotContent();
+            if (snapshotContent != null && snapshotContent.containsKey(TRADE_CONTRACT_ADDRESS)) {
+                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(TRADE_CONTRACT_ADDRESS);
+                endHash = hashHeight.getHash();
+                height = hashHeight.getHeight();
+                break;
+            }
+            endTime--;
+        }
+
+        // 2. According to accountBlock, find the interval eventLog, parse out newOrder, and find the one equal to updateId
+        AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, Hash.stringToHash(endHash));
+        if (cycleStartBlock == null) {
+            return "";
+        }
+        Long startHeight = cycleStartBlock.getHeight();
+        Long endHeight = height;
+        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
+        for (VmLogInfo vmLogInfo : vmLogInfoList) {
+            Vmlog vmlog = vmLogInfo.getVmlog();
+            byte[] event = vmlog.getData();
+            EventType eventType = getEventType(vmlog.getTopicsRaw());
+            if (eventType == NewOrder) {
+                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
+                byte[] orderIdBytes = dexOrder.getOrder().getId().toByteArray();
+                String newOrderId = Hex.toHexString(orderIdBytes);
+                if (orderId.equals(newOrderId)) {
+                    String address = ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray());
+                    return address;
+                }
+            }
+        }
+        return "";
+    }
+
+    /**
+     * get mapping with orderId and missing addresses
+     *
+     * @param orderCreateTime
+     * @return <OrderId, OrderAddress>
+     */
+    private Map<String, String> getOrderAddressMap(List<OrderModel> lackAddrOrders) throws Exception {
+        Map<String, String> orderId2OrderAddrMap = Maps.newHashMap();
+        Map<String, OrderModel> lackAddrOrderMap = lackAddrOrders.stream().collect(Collectors.toMap(OrderModel::getOrderId,
+                o -> o, (oldValue, newValue) -> oldValue));
+        long startTime = lackAddrOrders.get(0).getTimestamp() - 5 * 60;
+        long endTime = lackAddrOrders.get(lackAddrOrders.size() - 1).getTimestamp() + 5 * 60;
+        String endHash = "";
+        Long height = null;
+        // 1. According to the timestamp of the order creation, find AccountBlock nearby
+        while (true) {
+            SnapshotBlock snapshotBlockBeforeEndTime = ApiCollectionUtils.getSnapshotBlockBeforeTime(endTime);
+            Map<String, SnapshotBlock.HashHeight> snapshotContent = snapshotBlockBeforeEndTime.getSnapshotContent();
+            if (snapshotContent != null && snapshotContent.containsKey(TRADE_CONTRACT_ADDRESS)) {
+                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(TRADE_CONTRACT_ADDRESS);
+                endHash = hashHeight.getHash();
+                height = hashHeight.getHeight();
+                break;
+            }
+            endTime--;
+        }
+
+        // 2. According to accountBlock, find the interval eventLog, parse out newOrder, and find the one equal to updateId
+        AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, Hash.stringToHash(endHash));
+        if (cycleStartBlock == null) {
+            return orderId2OrderAddrMap;
+        }
+        Long startHeight = cycleStartBlock.getHeight();
+        Long endHeight = height;
+        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
+        for (VmLogInfo vmLogInfo : vmLogInfoList) {
+            Vmlog vmlog = vmLogInfo.getVmlog();
+            byte[] event = vmlog.getData();
+            EventType eventType = getEventType(vmlog.getTopicsRaw());
+            if (eventType == NewOrder) {
+                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
+                byte[] orderIdBytes = dexOrder.getOrder().getId().toByteArray();
+                String newOrderId = Hex.toHexString(orderIdBytes);
+                if (lackAddrOrderMap.containsKey(newOrderId)) {
+                    String address = ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray());
+                    orderId2OrderAddrMap.put(newOrderId, address);
+                }
+            }
+        }
+        return orderId2OrderAddrMap;
     }
 
     /**
@@ -206,7 +338,7 @@ public class TradeRecover {
     /**
      * recover order book of all trade pair to the previous cycle
      */
-    public void revertOrderBooks() {
+    public void revertOrderBooks() throws Exception {
         for (TradePair tp : tradePairs) {
             String tradePairSymbol = tp.getTradePairSymbol();
             OrderBook orderBook = orderBooks.get(tradePairSymbol);
@@ -218,7 +350,27 @@ public class TradeRecover {
             for (OrderEvent event : eventStream.getEvents()) {
                 orderBook.revert(event);
             }
+
+            // Add address to the restored orderBook, where the address is missing from the order
+            fillAddressToOrderBook(orderBook);
         }
+    }
+
+    private void fillAddressToOrderBook(OrderBook orderBook) throws Exception {
+        Map<String, OrderModel> orders = orderBook.getOrders();
+        List<OrderModel> orderModels = new ArrayList<OrderModel>(orders.values());
+        List<OrderModel> lackAddrOrders = orderModels.stream().
+                filter(o -> o.getAddress() == "").sorted(Comparator.comparing(OrderModel::getTimestamp))
+                .collect(Collectors.toList());
+        Map<String, String> orderId2AddressMap = getOrderAddressMap(lackAddrOrders); //<OrderId,OrderAddress> todo: add a func
+        if (orderId2AddressMap == null || orders == null) {
+            return;
+        }
+        orders.forEach((orderId, orderModel) -> {
+            if (orderModel.getAddress().isEmpty()) {
+                orderModel.setAddress(orderId2AddressMap.get(orderId));
+            }
+        });
     }
 
     public Map<String, EventStream> getEventStreams() {
@@ -233,7 +385,8 @@ public class TradeRecover {
         return accountBlockMap;
     }
 
-    public void run(long pointTime) throws IOException {
+    public void run(long pointTime) throws Exception {
+        prepareData();
         prepareOrderBooks();
         prepareEvents(pointTime);
         filterEvents();

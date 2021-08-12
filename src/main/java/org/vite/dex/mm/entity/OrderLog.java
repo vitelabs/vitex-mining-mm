@@ -7,8 +7,10 @@ import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.decode.DexPrice;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
+import static org.vite.dex.mm.constant.constants.MMConst.UsdDecimal;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.*;
 
 @Data
@@ -32,11 +34,12 @@ public class OrderLog {
         String tradeToken = ViteDataDecodeUtils.getShowToken(dexOrder.getTradeToken().toByteArray());
         String quoteToken = ViteDataDecodeUtils.getShowToken(dexOrder.getQuoteToken().toByteArray());
         result.setTradePair(tradeToken + UnderscoreStr + quoteToken);
-        //todo should process the unit of price、amount and quantity
         result.setChangeQuantity(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getQuantity().toByteArray()));
         result.setChangeAmount(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getAmount().toByteArray()));
         result.setAddress(ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray()));
-        result.setPrice(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getPrice().toByteArray()));
+        // the price must be converted
+        result.setPrice(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getPrice().toByteArray()).multiply(
+                new BigDecimal(UsdDecimal)).setScale(12, RoundingMode.DOWN));
         result.setOrderCreateTime(getOrderCTimeByParseOrderId(orderIdBytes));
         return result;
     }
@@ -49,14 +52,14 @@ public class OrderLog {
         String tradeToken = ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getTradeToken().toByteArray());
         String quoteToken = ViteDataDecodeUtils.getShowToken(orderUpdateInfo.getQuoteToken().toByteArray());
         result.setTradePair(tradeToken + UnderscoreStr + quoteToken);
-        //todo should process the unit of price、amount and quantity
         result.setChangeQuantity(DexPrice.bytesToBigDecimal(orderUpdateInfo.getExecutedQuantity().toByteArray()));
         result.setChangeAmount(DexPrice.bytesToBigDecimal(orderUpdateInfo.getExecutedAmount().toByteArray()));
-        result.setAddress(""); // TODO: a little difficult
-        result.setPrice(getPriceByParseOrderId(orderIdBytes));
+        result.setPrice(getPriceByParseOrderId(orderIdBytes).multiply(
+                new BigDecimal(UsdDecimal)).setScale(12, RoundingMode.DOWN));
         result.setSide(getOrderSideByParseOrderId(orderIdBytes));
         result.setStatus(orderUpdateInfo.getStatus());
-        result.setOrderCreateTime(getOrderCTimeByParseOrderId(orderIdBytes));
+        long orderCreateTime = getOrderCTimeByParseOrderId(orderIdBytes);
+        result.setOrderCreateTime(orderCreateTime);
         return result;
     }
 }

@@ -115,7 +115,7 @@ public class RewardKeeper {
                                                                     long endTime) {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap();
         // 1. mmMining for each of origin order-book
-        for (TradePair tp : TradeRecover.getAllTradePairs()) {
+        for (TradePair tp : TradeRecover.getMMOpenedTradePairs()) {
             String tradePairSymbol = tp.getTradePairSymbol();
             OrderBook orderBook = tradeRecover.getOrderBooks().get(tradePairSymbol);
             EventStream eventStream = tradeRecover.getEventStreams().get(tradePairSymbol);
@@ -125,7 +125,7 @@ public class RewardKeeper {
 
             MiningRewardCfg miningRewardCfg = new MiningRewardCfg();
             miningRewardCfg.setMarketId(tp.getMarket());
-            miningRewardCfg.setEffectiveDistance(tp.getEffectiveInterval());
+            miningRewardCfg.setEffectiveDistance(tp.getMmEffectiveInterval());
             Map<String, RewardOrder> rewardOrders = mmMining(eventStream, orderBook,
                     miningRewardCfg, startTime, endTime);
             totalRewardOrders.putAll(rewardOrders);

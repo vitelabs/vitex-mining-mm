@@ -32,7 +32,7 @@ public interface OrderBook {
 
     List<OrderModel> getSells();
 
-    Map<String, OrderModel> getOrders();
+    Map<String, OrderModel> getOrders(); //<OrderId,OrderModel>
 
     BigDecimal getBuy1Price();
 
@@ -49,7 +49,8 @@ public interface OrderBook {
         @Getter
         protected Map<String, OrderModel> orders = Maps.newHashMap();
 
-        public Impl() {}
+        public Impl() {
+        }
 
         // backtrace according to an event
         @Override
@@ -87,7 +88,8 @@ public interface OrderBook {
 
         /**
          * update orderBook according to the new event.actually, make the orderBook go forward.
-         * @param event
+         *
+         * @param event the orderLog
          */
         @Override
         public void onward(OrderEvent event) {
@@ -106,7 +108,6 @@ public interface OrderBook {
                         this.removeOrder(orderModel);
                     } else if (orderLog.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
                         // update current order
-
                         orderModel = orders.get(orderLog.getOrderId());
                         orderModel.onward(orderLog);
                     }
@@ -121,7 +122,7 @@ public interface OrderBook {
         }
 
         private void addOrder(OrderModel orderModel) {
-            if (orders.keySet().contains(orderModel.getOrderId())) {
+            if (orders.containsKey(orderModel.getOrderId())) {
                 throw new RuntimeException(String.format("order %s exist", orderModel.getOrderId()));
             }
             orders.put(orderModel.getOrderId(), orderModel);
@@ -133,7 +134,7 @@ public interface OrderBook {
         }
 
         private void removeOrder(OrderModel orderModel) {
-            if (!orders.keySet().contains(orderModel.getOrderId())) {
+            if (!orders.containsKey(orderModel.getOrderId())) {
                 throw new RuntimeException(String.format("order %s not exist", orderModel.getOrderId()));
             }
             orders.remove(orderModel.getOrderId());

@@ -1,14 +1,17 @@
 package org.vite.dex.mm.utils;
 
 
+import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.utils.decode.DexPrice;
 import org.vite.dex.mm.utils.decode.ViteAddress;
 import org.vite.dex.mm.utils.decode.ViteToken;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.List;
 
-import static org.vite.dex.mm.constant.constants.MMConst.OrderIdBytesLength;
+import static org.vite.dex.mm.constant.constants.MMConst.*;
+import static org.vite.dex.mm.constant.enums.EventType.*;
 
 public class ViteDataDecodeUtils {
 
@@ -70,5 +73,20 @@ public class ViteDataDecodeUtils {
         buffer.put(bytes, 0, bytes.length);
         buffer.flip();//need flip
         return buffer.getLong();
+    }
+
+    public static EventType getEventType(List<String> topics) {
+        for (String topic : topics) {
+            if (TX_EVENT_TOPIC.equals(topic)) {
+                return TX;
+            }
+            if (ORDER_NEW_EVENT_TOPIC.equals(topic)) {
+                return NewOrder;
+            }
+            if (ORDER_UPDATE_EVENT_TOPIC.equals(topic)) {
+                return UpdateOrder;
+            }
+        }
+        return Unknown;
     }
 }

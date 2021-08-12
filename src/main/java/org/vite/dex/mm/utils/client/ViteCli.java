@@ -6,6 +6,7 @@ import org.vitej.core.protocol.HttpService;
 import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
 import org.vitej.core.protocol.methods.Hash;
+import org.vitej.core.protocol.methods.TokenId;
 import org.vitej.core.protocol.methods.request.VmLogFilter;
 import org.vitej.core.protocol.methods.response.*;
 
@@ -102,6 +103,32 @@ public class ViteCli {
         return result;
     }
 
+    public List<TokenInfo> getTokenInfoList(int pageIdx, int pageSize) throws IOException {
+        TokenInfoListWithTotalResponse resp = null;
+        List<TokenInfo> result = null;
+        try {
+            resp = vitej.getTokenInfoList(pageIdx, pageSize).send();
+            result = resp.getResult().getTokenInfoList();
+        } catch (Exception e) {
+            log.error("getEventsByHeightRange failed,the err:" + e);
+            throw e;
+        }
+        return result;
+    }
+
+    public TokenInfo getTokenInfo(String tokenId) throws IOException {
+        TokenInfoResponse resp = null;
+        TokenInfo result = null;
+        try {
+            resp = vitej.getTokenInfoById(TokenId.stringToTokenId(tokenId)).send();
+            result = resp.getResult();
+        } catch (Exception e) {
+            log.error("getEventsByHeightRange failed,the err:" + e);
+            throw e;
+        }
+        return result;
+    }
+
     public CommonResponse getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side, int startIdx,
                                               int limit) throws IOException {
         CommonResponse response = null;
@@ -113,6 +140,17 @@ public class ViteCli {
             throw e;
         }
         return response;
-
     }
+
+    public CommonResponse getSnapshotBlockBeforeTime(long beforeTime) throws IOException {
+        CommonResponse response = null;
+        try {
+            response = vitej.commonMethod("ledger_getSnapshotBlockBeforeTime", beforeTime).send();
+        } catch (Exception e) {
+            log.error("getEventsByHeightRange failed,the err:" + e);
+            throw e;
+        }
+        return response;
+    }
+
 }
