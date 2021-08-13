@@ -2,6 +2,7 @@ package org.vite.dex.mm.entity;
 
 import com.alibaba.fastjson.annotation.JSONField;
 import lombok.Data;
+import org.apache.commons.lang3.StringUtils;
 
 import java.math.BigDecimal;
 
@@ -52,5 +53,9 @@ public class OrderModel {
         }
         this.quantity = this.quantity.add(orderLog.getChangeQuantity());
         this.amount = this.amount.add(orderLog.getChangeAmount());
+    }
+
+    public boolean emptyAddress() {
+        return StringUtils.isEmpty(this.address);
     }
 }
