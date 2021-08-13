@@ -25,10 +25,12 @@ import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.vite.dex.mm.constant.constants.MMConst.TRADE_CONTRACT_ADDRESS;
@@ -191,39 +193,6 @@ public class TradeRecover {
         events.filter(orderBook);
     }
 
-    /**
-     * get mapping with orderId and missing addresses
-     *
-     * @param orderCreateTime
-     * @return <OrderId, OrderAddress>
-     */
-    private Map<String, String> getOrderAddressMap(List<OrderModel> lackAddrOrders) throws Exception {
-        Map<String, String> orderId2OrderAddrMap = Maps.newHashMap();
-        Map<String, OrderModel> lackAddrOrderMap = lackAddrOrders.stream().collect(Collectors.toMap(OrderModel::getOrderId,
-                o -> o, (oldValue, newValue) -> oldValue));
-        // get height range
-        long startTime = lackAddrOrders.get(0).getTimestamp() - 5 * 60;
-        long endTime = lackAddrOrders.get(lackAddrOrders.size() - 1).getTimestamp() + 5 * 60;
-        Long startHeight = getContractChainHeight(startTime);
-        Long endHeight = getContractChainHeight(endTime);
-
-        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
-        for (VmLogInfo vmLogInfo : vmLogInfoList) {
-            Vmlog vmlog = vmLogInfo.getVmlog();
-            byte[] event = vmlog.getData();
-            EventType eventType = getEventType(vmlog.getTopicsRaw());
-            if (eventType == NewOrder) {
-                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                byte[] orderIdBytes = dexOrder.getOrder().getId().toByteArray();
-                String newOrderId = Hex.toHexString(orderIdBytes);
-                if (lackAddrOrderMap.containsKey(newOrderId)) {
-                    String address = ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray());
-                    orderId2OrderAddrMap.put(newOrderId, address);
-                }
-            }
-        }
-        return orderId2OrderAddrMap;
-    }
 
     private Long getContractChainHeight(long time) throws IOException {
         SnapshotBlock snapshotBlock = viteCli.getSnapshotBlockBeforeTime(time);
@@ -306,31 +275,81 @@ public class TradeRecover {
                 orderBook.revert(event);
             }
 
-            fillAddressToOrderBook(orderBook);
+            fillAddressForOrders(orderBook.getOrders().values());
         }
     }
+
 
     /**
      * Add missing address to the restored orderBook
      *
-     * @param orderBook
-     * @throws Exception
+     * @param orders
+     * @throws IOException
      */
-    private void fillAddressToOrderBook(OrderBook orderBook) throws Exception {
-        Map<String, OrderModel> orders = orderBook.getOrders();
-        List<OrderModel> orderModels = new ArrayList<OrderModel>(orders.values());
-        List<OrderModel> lackAddrOrders = orderModels.stream().
-                filter(o -> StringUtils.isEmpty(o.getAddress())).sorted(Comparator.comparing(OrderModel::getTimestamp))
-                .collect(Collectors.toList());
-        Map<String, String> orderId2AddressMap = getOrderAddressMap(lackAddrOrders);
-        if (orderId2AddressMap == null || orders == null) {
+    private void fillAddressForOrders(Collection<OrderModel> orders) throws IOException {
+        long start = orders.stream().min(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
+        long end = orders.stream().max(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
+
+        start = start - TimeUnit.MINUTES.toSeconds(5);
+        end = end + TimeUnit.MINUTES.toSeconds(5);
+
+        Map<String, OrderModel> orderMap =
+                orders.stream().filter(t -> t.emptyAddress()).collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+
+        orderMap = fillAddressForOrders(orderMap, start, end);
+        if (orderMap.isEmpty()) {
             return;
         }
-        orders.forEach((orderId, orderModel) -> {
-            if (StringUtils.isEmpty(orderModel.getAddress())) {
-                orderModel.setAddress(orderId2AddressMap.get(orderId));
+
+        int cnt = 1;
+        while (true) {
+            long start0 = start - TimeUnit.MINUTES.toSeconds(10);
+            orderMap = fillAddressForOrders(orderMap, start0, start);
+            if (orderMap.isEmpty()) {
+                break;
             }
-        });
+
+            long end1 = end + TimeUnit.MINUTES.toSeconds(10);
+            orderMap = fillAddressForOrders(orderMap, end, end1);
+            if (orderMap.isEmpty()) {
+                break;
+            }
+
+            start = start0;
+            end = end1;
+
+            if (cnt++ > 10) {
+                break;
+            }
+        }
+    }
+
+
+    private Map<String, OrderModel> fillAddressForOrders(Map<String, OrderModel> orderMap, long startTime, long endTime)
+            throws IOException {
+        Long startHeight = getContractChainHeight(startTime);
+        Long endHeight = getContractChainHeight(endTime);
+
+        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
+
+        for (VmLogInfo vmLogInfo : vmLogInfoList) {
+            Vmlog vmlog = vmLogInfo.getVmlog();
+            byte[] event = vmlog.getData();
+            EventType eventType = getEventType(vmlog.getTopicsRaw());
+            if (eventType == NewOrder) {
+                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
+                byte[] orderIdBytes = dexOrder.getOrder().getId().toByteArray();
+                String newOrderId = Hex.toHexString(orderIdBytes);
+                OrderModel order = orderMap.get(newOrderId);
+                if (order != null && StringUtils.isEmpty(order.getAddress())) {
+                    order.setAddress(
+                            ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray()));
+                }
+            }
+        }
+        orderMap = orderMap.values().stream().filter(t -> t.emptyAddress())
+                .collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+        return orderMap;
     }
 
     public Map<String, EventStream> getEventStreams() {
