@@ -6,21 +6,29 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
-import org.vite.dex.mm.entity.SnapshotBlock;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
-import org.vite.dex.mm.utils.ApiCollectionUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.Hash;
-import org.vitej.core.protocol.methods.response.*;
+import org.vitej.core.protocol.methods.response.AccountBlock;
+import org.vitej.core.protocol.methods.response.CommonResponse;
+import org.vitej.core.protocol.methods.response.SnapshotBlock;
+import org.vitej.core.protocol.methods.response.TokenInfo;
+import org.vitej.core.protocol.methods.response.VmLogInfo;
+import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static org.vite.dex.mm.constant.constants.MMConst.TRADE_CONTRACT_ADDRESS;
@@ -155,9 +163,6 @@ public class TradeRecover {
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
             OrderEvent orderEvent = new OrderEvent(vmLogInfo);
             orderEvent.parse();
-            // if (orderEvent.getType() == UpdateOrder) {
-            //     orderEvent.getOrderLog().setAddress(getOrderAddress(orderEvent.getOrderId(), orderEvent.getOrderCreateTime()));
-            // }
 
             if (!orderEvent.ignore()) {
                 AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
@@ -187,55 +192,6 @@ public class TradeRecover {
     }
 
     /**
-     * get order address through NewOrder
-     *
-     * @param orderCreateTime
-     * @return
-     */
-    private String getOrderAddress(String orderId, long orderCreateTime) throws Exception {
-        long startTime = orderCreateTime - 5 * 60;
-        long endTime = orderCreateTime + 5 * 60;
-        String endHash = "";
-        Long height = null;
-        // 1. According to the timestamp of the order creation, find AccountBlock nearby
-        while (true) {
-            SnapshotBlock snapshotBlockBeforeEndTime = ApiCollectionUtils.getSnapshotBlockBeforeTime(endTime);
-            Map<String, SnapshotBlock.HashHeight> snapshotContent = snapshotBlockBeforeEndTime.getSnapshotContent();
-            if (snapshotContent != null && snapshotContent.containsKey(TRADE_CONTRACT_ADDRESS)) {
-                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(TRADE_CONTRACT_ADDRESS);
-                endHash = hashHeight.getHash();
-                height = hashHeight.getHeight();
-                break;
-            }
-            endTime--;
-        }
-
-        // 2. According to accountBlock, find the interval eventLog, parse out newOrder, and find the one equal to updateId
-        AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, Hash.stringToHash(endHash));
-        if (cycleStartBlock == null) {
-            return "";
-        }
-        Long startHeight = cycleStartBlock.getHeight();
-        Long endHeight = height;
-        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
-        for (VmLogInfo vmLogInfo : vmLogInfoList) {
-            Vmlog vmlog = vmLogInfo.getVmlog();
-            byte[] event = vmlog.getData();
-            EventType eventType = getEventType(vmlog.getTopicsRaw());
-            if (eventType == NewOrder) {
-                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                byte[] orderIdBytes = dexOrder.getOrder().getId().toByteArray();
-                String newOrderId = Hex.toHexString(orderIdBytes);
-                if (orderId.equals(newOrderId)) {
-                    String address = ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray());
-                    return address;
-                }
-            }
-        }
-        return "";
-    }
-
-    /**
      * get mapping with orderId and missing addresses
      *
      * @param orderCreateTime
@@ -245,30 +201,12 @@ public class TradeRecover {
         Map<String, String> orderId2OrderAddrMap = Maps.newHashMap();
         Map<String, OrderModel> lackAddrOrderMap = lackAddrOrders.stream().collect(Collectors.toMap(OrderModel::getOrderId,
                 o -> o, (oldValue, newValue) -> oldValue));
+        // get height range
         long startTime = lackAddrOrders.get(0).getTimestamp() - 5 * 60;
         long endTime = lackAddrOrders.get(lackAddrOrders.size() - 1).getTimestamp() + 5 * 60;
-        String endHash = "";
-        Long height = null;
-        // 1. According to the timestamp of the order creation, find AccountBlock nearby
-        while (true) {
-            SnapshotBlock snapshotBlockBeforeEndTime = ApiCollectionUtils.getSnapshotBlockBeforeTime(endTime);
-            Map<String, SnapshotBlock.HashHeight> snapshotContent = snapshotBlockBeforeEndTime.getSnapshotContent();
-            if (snapshotContent != null && snapshotContent.containsKey(TRADE_CONTRACT_ADDRESS)) {
-                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(TRADE_CONTRACT_ADDRESS);
-                endHash = hashHeight.getHash();
-                height = hashHeight.getHeight();
-                break;
-            }
-            endTime--;
-        }
+        Long startHeight = getContractChainHeight(startTime);
+        Long endHeight = getContractChainHeight(endTime);
 
-        // 2. According to accountBlock, find the interval eventLog, parse out newOrder, and find the one equal to updateId
-        AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, Hash.stringToHash(endHash));
-        if (cycleStartBlock == null) {
-            return orderId2OrderAddrMap;
-        }
-        Long startHeight = cycleStartBlock.getHeight();
-        Long endHeight = height;
         List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
             Vmlog vmlog = vmLogInfo.getVmlog();
@@ -285,6 +223,23 @@ public class TradeRecover {
             }
         }
         return orderId2OrderAddrMap;
+    }
+
+    private Long getContractChainHeight(long time) throws IOException {
+        SnapshotBlock snapshotBlock = viteCli.getSnapshotBlockBeforeTime(time);
+        Long endHeight = snapshotBlock.getHeight();
+
+        while (true) {
+            Map<String, SnapshotBlock.HashHeight> snapshotContent = snapshotBlock.getSnapshotDataRaw();
+            if (snapshotContent != null && snapshotContent.containsKey(TRADE_CONTRACT_ADDRESS)) {
+                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(TRADE_CONTRACT_ADDRESS);
+                endHeight = hashHeight.getHeight();
+                break;
+            }
+            endHeight--;
+            snapshotBlock = viteCli.getSnapshotBlockByHeight(endHeight);
+        }
+        return endHeight;
     }
 
     /**
@@ -351,23 +306,28 @@ public class TradeRecover {
                 orderBook.revert(event);
             }
 
-            // Add address to the restored orderBook, where the address is missing from the order
             fillAddressToOrderBook(orderBook);
         }
     }
 
+    /**
+     * Add missing address to the restored orderBook
+     *
+     * @param orderBook
+     * @throws Exception
+     */
     private void fillAddressToOrderBook(OrderBook orderBook) throws Exception {
         Map<String, OrderModel> orders = orderBook.getOrders();
         List<OrderModel> orderModels = new ArrayList<OrderModel>(orders.values());
         List<OrderModel> lackAddrOrders = orderModels.stream().
-                filter(o -> o.getAddress() == "").sorted(Comparator.comparing(OrderModel::getTimestamp))
+                filter(o -> StringUtils.isEmpty(o.getAddress())).sorted(Comparator.comparing(OrderModel::getTimestamp))
                 .collect(Collectors.toList());
-        Map<String, String> orderId2AddressMap = getOrderAddressMap(lackAddrOrders); //<OrderId,OrderAddress> todo: add a func
+        Map<String, String> orderId2AddressMap = getOrderAddressMap(lackAddrOrders);
         if (orderId2AddressMap == null || orders == null) {
             return;
         }
         orders.forEach((orderId, orderModel) -> {
-            if (orderModel.getAddress().isEmpty()) {
+            if (StringUtils.isEmpty(orderModel.getAddress())) {
                 orderModel.setAddress(orderId2AddressMap.get(orderId));
             }
         });

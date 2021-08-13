@@ -1,9 +1,10 @@
 package org.vite.data.dex;
 
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
-import org.vite.dex.mm.entity.SnapshotBlock;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.orderbook.EventStream;
 import org.vite.dex.mm.orderbook.OrderBook;
@@ -11,10 +12,9 @@ import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.reward.RewardKeeper;
 import org.vite.dex.mm.reward.bean.RewardOrder;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
-import org.vite.dex.mm.utils.ApiCollectionUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
-import org.vitej.core.protocol.methods.response.CommonResponse;
+import org.vitej.core.protocol.methods.response.SnapshotBlock;
 import org.vitej.core.protocol.methods.response.TokenInfo;
 
 import javax.annotation.Resource;
@@ -103,6 +103,13 @@ class DexApplicationTests {
     }
 
     @Test
+    public void testDecomposeOrderIdTime() throws IOException, DecoderException {
+        String sellOrder = "000003010000000c4ddf84758000006112302c000032";
+        byte[] orderBytes = Hex.decodeHex(sellOrder);
+        System.out.println(ViteDataDecodeUtils.getOrderCTimeByParseOrderId(orderBytes));
+    }
+
+    @Test
     public void testTradeInfo() throws IOException {
         List<TokenInfo> tokenInfoList = viteCli.getTokenInfoList(0, 1000);
         System.out.println(tokenInfoList);
@@ -110,22 +117,15 @@ class DexApplicationTests {
 
     @Test
     public void testTradeInfoById() throws IOException {
-//        String tokenId = "tti_687d8a93915393b219212c73";
-//        TokenInfo tokenInfoList = viteCli.getTokenInfo(tokenId);
-//        System.out.println(tokenInfoList);
-
-//        String num = "422456348.83328";
-//        String s = BigDecimalUtils.priceFormat(num).toPlainString();
-//        System.out.println(s);
-        long beforeTime = System.currentTimeMillis() / 1000 - 10 * 60;
-        CommonResponse resp = viteCli.getSnapshotBlockBeforeTime(beforeTime);
-        System.out.println(resp);
+        String tokenId = "tti_687d8a93915393b219212c73";
+        TokenInfo tokenInfoList = viteCli.getTokenInfo(tokenId);
+        System.out.println(tokenInfoList);
     }
 
     @Test
-    public void testRPC() throws Exception {
+    public void testGetSnapshotBlockBeforeTime() throws IOException {
         long beforeTime = System.currentTimeMillis() / 1000 - 10 * 60;
-        SnapshotBlock snapshotBlockBeforeTime = ApiCollectionUtils.getSnapshotBlockBeforeTime(beforeTime);
+        SnapshotBlock snapshotBlockBeforeTime = viteCli.getSnapshotBlockBeforeTime(beforeTime);
         System.out.println(snapshotBlockBeforeTime);
     }
 }

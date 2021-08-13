@@ -8,9 +8,14 @@ import org.vite.dex.mm.model.proto.DexTradeEvent;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.Vmlog;
 
+import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
+import static org.vite.dex.mm.constant.enums.EventType.TX;
 import static org.vite.dex.mm.constant.enums.EventType.Unknown;
-import static org.vite.dex.mm.constant.enums.EventType.*;
-import static org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus.*;
+import static org.vite.dex.mm.constant.enums.EventType.UpdateOrder;
+import static org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus.Cancelled;
+import static org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus.FullyExecuted;
+import static org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus.PartialExecuted;
+import static org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus.Pending;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 @Data

@@ -1,5 +1,7 @@
 package org.vite.dex.mm.utils.client;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.vitej.core.protocol.HttpService;
@@ -8,7 +10,17 @@ import org.vitej.core.protocol.methods.Address;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.TokenId;
 import org.vitej.core.protocol.methods.request.VmLogFilter;
-import org.vitej.core.protocol.methods.response.*;
+import org.vitej.core.protocol.methods.response.AccountBlock;
+import org.vitej.core.protocol.methods.response.AccountBlockResponse;
+import org.vitej.core.protocol.methods.response.AccountBlocksResponse;
+import org.vitej.core.protocol.methods.response.CommonResponse;
+import org.vitej.core.protocol.methods.response.SnapshotBlock;
+import org.vitej.core.protocol.methods.response.SnapshotBlockResponse;
+import org.vitej.core.protocol.methods.response.TokenInfo;
+import org.vitej.core.protocol.methods.response.TokenInfoListWithTotalResponse;
+import org.vitej.core.protocol.methods.response.TokenInfoResponse;
+import org.vitej.core.protocol.methods.response.VmLogInfo;
+import org.vitej.core.protocol.methods.response.VmlogInfosResponse;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
@@ -116,6 +128,19 @@ public class ViteCli {
         return result;
     }
 
+    public SnapshotBlock getSnapshotBlockByHeight(long height) throws IOException {
+        SnapshotBlockResponse resp = null;
+        SnapshotBlock result = null;
+        try {
+            resp = vitej.getSnapshotBlockByHeight(height).send();
+            result = resp.getResult();
+        } catch (Exception e) {
+            log.error("getEventsByHeightRange failed,the err:" + e);
+            throw e;
+        }
+        return result;
+    }
+
     public TokenInfo getTokenInfo(String tokenId) throws IOException {
         TokenInfoResponse resp = null;
         TokenInfo result = null;
@@ -142,15 +167,15 @@ public class ViteCli {
         return response;
     }
 
-    public CommonResponse getSnapshotBlockBeforeTime(long beforeTime) throws IOException {
-        CommonResponse response = null;
+    public SnapshotBlock getSnapshotBlockBeforeTime(long beforeTime) throws IOException {
+        SnapshotBlock snapshotBlock = null;
         try {
-            response = vitej.commonMethod("ledger_getSnapshotBlockBeforeTime", beforeTime).send();
+            CommonResponse response = vitej.commonMethod("ledger_getSnapshotBlockBeforeTime", beforeTime).send();
+            snapshotBlock = JSONObject.parseObject(JSON.toJSONString(response.getResult()), SnapshotBlock.class);
         } catch (Exception e) {
             log.error("getEventsByHeightRange failed,the err:" + e);
             throw e;
         }
-        return response;
+        return snapshotBlock;
     }
-
 }

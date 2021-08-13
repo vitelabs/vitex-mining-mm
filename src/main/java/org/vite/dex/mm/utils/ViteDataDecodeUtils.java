@@ -10,8 +10,14 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import static org.vite.dex.mm.constant.constants.MMConst.*;
-import static org.vite.dex.mm.constant.enums.EventType.*;
+import static org.vite.dex.mm.constant.constants.MMConst.ORDER_NEW_EVENT_TOPIC;
+import static org.vite.dex.mm.constant.constants.MMConst.ORDER_UPDATE_EVENT_TOPIC;
+import static org.vite.dex.mm.constant.constants.MMConst.OrderIdBytesLength;
+import static org.vite.dex.mm.constant.constants.MMConst.TX_EVENT_TOPIC;
+import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
+import static org.vite.dex.mm.constant.enums.EventType.TX;
+import static org.vite.dex.mm.constant.enums.EventType.Unknown;
+import static org.vite.dex.mm.constant.enums.EventType.UpdateOrder;
 
 public class ViteDataDecodeUtils {
 

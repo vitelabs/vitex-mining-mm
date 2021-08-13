@@ -22,7 +22,7 @@ public class TradePair {
 
     // enable market-mining func for the trade pair
     boolean isMarketMiningOpen;
-
+    
     // max ratio of buyAmount/sellAmount when market-mining
     private double buyAmountThanSellRatio;
 

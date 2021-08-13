@@ -11,7 +11,10 @@ import java.math.RoundingMode;
 
 import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
 import static org.vite.dex.mm.constant.constants.MMConst.UsdDecimal;
-import static org.vite.dex.mm.utils.ViteDataDecodeUtils.*;
+import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getOrderCTimeByParseOrderId;
+import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getOrderSideByParseOrderId;
+import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getPriceByParseOrderId;
+
 
 @Data
 public class OrderLog {
