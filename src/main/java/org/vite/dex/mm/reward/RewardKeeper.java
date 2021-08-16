@@ -16,7 +16,6 @@ import org.vite.dex.mm.reward.bean.RewardOrder;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 import java.util.Map;
 
@@ -46,9 +45,9 @@ public class RewardKeeper {
      * @return
      */
     public Map<String, RewardOrder> mmMining(EventStream eventStream, OrderBook originOrderBook, MiningRewardCfg cfg,
-                                             long startTime, long endTime) {
+            long startTime, long endTime) {
         List<OrderEvent> events = eventStream.getEvents();
-        Map<String, RewardOrder> orderRewards = Maps.newHashMap();//<orderId,RewardOrder>
+        Map<String, RewardOrder> orderRewards = Maps.newHashMap();// <orderId,RewardOrder>
 
         for (OrderEvent e : events) {
             List<OrderModel> buys = originOrderBook.getBuys();
@@ -87,7 +86,7 @@ public class RewardKeeper {
     }
 
     private RewardOrder getOrInitRewardOrder(Map<String, RewardOrder> rewardOrderMap, OrderModel orderModel,
-                                             MiningRewardCfg cfg, long startTime) {
+            MiningRewardCfg cfg, long startTime) {
         RewardOrder rewardOrder = rewardOrderMap.get(orderModel.getOrderId());
         if (rewardOrder == null) {
             rewardOrder = new RewardOrder();
@@ -106,13 +105,13 @@ public class RewardKeeper {
     /**
      * calculate vx reward of each address in the market dimension
      *
-     * @param totalReleasedViteAmount
+     * @param dailyReleasedVX
      * @param startTime
      * @param endTime
      * @return
      */
-    public Map<String, Map<Integer, Double>> calculateAddressReward(double totalReleasedViteAmount, long startTime,
-                                                                    long endTime) {
+    public Map<String, Map<Integer, Double>> calculateAddressReward(double dailyReleasedVX, long startTime,
+            long endTime) {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap();
         // 1. mmMining for each of origin order-book
         for (TradePair tp : TradeRecover.getMMOpenedTradePairs()) {
@@ -130,64 +129,71 @@ public class RewardKeeper {
                     miningRewardCfg, startTime, endTime);
             totalRewardOrders.putAll(rewardOrders);
         }
+
         // 2. group RewardOrder by market
+        List<RewardOrder> totalMarketRewards = Lists.newArrayList();
         List<RewardOrder> btcMarketRewards = Lists.newArrayList();
         List<RewardOrder> ethMarketRewards = Lists.newArrayList();
         List<RewardOrder> viteMarketRewards = Lists.newArrayList();
         List<RewardOrder> usdtMarketRewards = Lists.newArrayList();
-        List<RewardOrder> totalMarketRewards = Lists.newArrayList();
-        totalRewardOrders.forEach((key, value) -> {
-            totalMarketRewards.add(value);
-            // TODO switch
-            if (value.getMarket() == 1) {
-                btcMarketRewards.add(value);
-            } else if (value.getMarket() == 2) {
-                ethMarketRewards.add(value);
-            } else if (value.getMarket() == 3) {
-                viteMarketRewards.add(value);
-            } else {
-                usdtMarketRewards.add(value);
+        totalRewardOrders.forEach((orderId, rewardOrder) -> {
+            totalMarketRewards.add(rewardOrder);
+            int market = rewardOrder.getMarket();
+            switch (market) {
+                case 1:
+                    btcMarketRewards.add(rewardOrder);
+                    break;
+                case 2:
+                    ethMarketRewards.add(rewardOrder);
+                    break;
+                case 3:
+                    viteMarketRewards.add(rewardOrder);
+                    break;
+                case 4:
+                    usdtMarketRewards.add(rewardOrder);
             }
         });
 
-        // 3. compute total reward of each market
+        // 3. total reward of each market
         double btcMarketSum = btcMarketRewards.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
         double ethMarketSum = ethMarketRewards.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
         double viteMarketSum = viteMarketRewards.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
         double usdtMarketSum = usdtMarketRewards.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
 
-        //4. <Address, <Market,<RewardOrder>>>
+        // 4. <Address, <Market,List<RewardOrder>>>
         Map<String, Map<Integer, List<RewardOrder>>> addressRewardOrderMap = totalMarketRewards.stream()
                 .collect(groupingBy(RewardOrder::getOrderAddress, groupingBy(RewardOrder::getMarket)));
 
-        //5. <Address, <Market,FinalReward>>
+        // 5. <Address, <Market,FinalReward>>
         Map<String, Map<Integer, Double>> finalRes = Maps.newHashMap();
         addressRewardOrderMap.forEach((address, marketRewardOrderMap) -> {
-            Map<Integer, Double> m = Maps.newHashMap();
+            Map<Integer, Double> market2RewardMap = Maps.newHashMap();
             marketRewardOrderMap.forEach((market, rewardOrders) -> {
                 double vxReward = 0.0;
                 double marketTotalFactor = rewardOrders.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
                 switch (market) {
                     case 1:
-                        vxReward = marketTotalFactor / btcMarketSum * totalReleasedViteAmount * 0.05;
+                        vxReward = calculateVXReward(marketTotalFactor, btcMarketSum, dailyReleasedVX, 0.05);
                         break;
                     case 2:
-                        vxReward = marketTotalFactor / ethMarketSum * totalReleasedViteAmount * 0.015;
+                        vxReward = calculateVXReward(marketTotalFactor, ethMarketSum, dailyReleasedVX, 0.015);
                         break;
                     case 3:
-                        vxReward = marketTotalFactor / viteMarketSum * totalReleasedViteAmount * 0.015;
+                        vxReward = calculateVXReward(marketTotalFactor, viteMarketSum, dailyReleasedVX, 0.015);
                         break;
                     case 4:
-                        vxReward = marketTotalFactor / usdtMarketSum * totalReleasedViteAmount * 0.02;
+                        vxReward = calculateVXReward(marketTotalFactor, usdtMarketSum, dailyReleasedVX, 0.02);
                 }
-                m.put(market, vxReward);
+                market2RewardMap.put(market, vxReward);
             });
-            finalRes.put(address, m);
+            finalRes.put(address, market2RewardMap);
         });
+        //TODO系数调整
+
         return finalRes;
     }
 
-    private BigDecimal cal(BigDecimal factor, BigDecimal sum, BigDecimal amount, BigDecimal rate) {
-        return factor.divide(sum, RoundingMode.FLOOR).multiply(amount).multiply(rate);
+    private double calculateVXReward(double marketMiningFactor, double marketSum, double dailyReleasedVX, double rate) {
+        return marketMiningFactor / marketSum * dailyReleasedVX * rate;
     }
 }

@@ -37,6 +37,7 @@ class DexApplicationTests {
     @Test
     public void testOrderBooks() throws IOException {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
+        tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
     }
 
@@ -50,7 +51,7 @@ class DexApplicationTests {
     @Test
     public void testRevertOrderBooks() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
-        long startTime = System.currentTimeMillis() / 1000 - 24 * 60;
+        long startTime = System.currentTimeMillis() / 1000 - 240 * 60;
         tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
         tradeRecover.prepareEvents(startTime);
@@ -73,13 +74,21 @@ class DexApplicationTests {
             String tradePairSymbol = tp.getTradePairSymbol();
             OrderBook orderBook = tradeRecover.getOrderBooks().get(tradePairSymbol);
             EventStream eventStream = tradeRecover.getEventStreams().get(tradePairSymbol);
-            MiningRewardCfg miningRewardCfg = new MiningRewardCfg();
-            miningRewardCfg.setMarketId(tp.getMarket());
-            miningRewardCfg.setEffectiveDistance(tp.getMmEffectiveInterval());
+            MiningRewardCfg miningRewardCfg = getMiningConfigFromTradePair(tp);
             Map<String, RewardOrder> rewardOrders = rewardKeeper.mmMining(eventStream, orderBook,
                     miningRewardCfg, startTime, endTime);
             System.out.println(rewardOrders);
         }
+    }
+
+    private MiningRewardCfg getMiningConfigFromTradePair(TradePair tp) {
+        MiningRewardCfg miningRewardCfg = new MiningRewardCfg();
+        miningRewardCfg.setMarketId(tp.getMarket());
+        miningRewardCfg.setEffectiveDistance(tp.getMmEffectiveInterval());
+        miningRewardCfg.setMiningRewardMultiple(tp.getMmRewardMultiple());
+        miningRewardCfg.setMaxBuyFactorThanSell(tp.getBuyAmountThanSellRatio());
+        miningRewardCfg.setMaxSellFactorThanBuy(tp.getSellAmountThanBuyRatio());
+        return miningRewardCfg;
     }
 
     // test reward result

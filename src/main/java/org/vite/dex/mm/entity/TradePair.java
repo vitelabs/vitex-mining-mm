@@ -21,7 +21,7 @@ public class TradePair {
     Double mmEffectiveInterval;
 
     // enable market-mining func for the trade pair
-    boolean isMarketMiningOpen;
+    boolean marketMiningOpen;
     
     // max ratio of buyAmount/sellAmount when market-mining
     private double buyAmountThanSellRatio;
@@ -31,9 +31,6 @@ public class TradePair {
 
     // the multiple factor of reward for the trade pair
     private double mmRewardMultiple;
-
-    // enable trading as mining function for the trade pair
-    boolean isTradingMiningOpen;
 
     public String getTradePairSymbol() {
         return getTradeTokenId() + UnderscoreStr + getQuoteTokenId();

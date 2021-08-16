@@ -46,9 +46,9 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 @Slf4j
 public class TradeRecover {
-    private final Map<String, EventStream> eventStreams = Maps.newHashMap(); //<TradePairSymbol,EventStream>
-    private final Map<String, OrderBook> orderBooks = Maps.newHashMap(); //<TradePairSymbol,OrderBook>
-    private Map<String, AccountBlock> accountBlockMap = Maps.newHashMap(); //<Hash,AccountBlock>
+    private final Map<String, EventStream> eventStreams = Maps.newHashMap(); // <TradePairSymbol,EventStream>
+    private final Map<String, OrderBook> orderBooks = Maps.newHashMap(); // <TradePairSymbol,OrderBook>
+    private Map<String, AccountBlock> accountBlockMap = Maps.newHashMap(); // <Hash,AccountBlock>
 
     private List<TradePair> tradePairs = Lists.newArrayList();
     private Map<String, TokenInfo> tokens = Maps.newHashMap();
@@ -65,17 +65,22 @@ public class TradeRecover {
         TradePair tp = new TradePair();
         tp.setTradeTokenSymbol("ETH-000");
         tp.setQuoteTokenSymbol("USDT-000");
-        tp.setTradeTokenId("tti_687d8a93915393b219212c73"); //ETH
-        tp.setQuoteTokenId("tti_80f3751485e4e83456059473"); //USDT
+        tp.setTradeTokenId("tti_687d8a93915393b219212c73"); // ETH
+        tp.setQuoteTokenId("tti_80f3751485e4e83456059473"); // USDT
         tp.setMmEffectiveInterval(0.2);
+        tp.setMarketMiningOpen(true);
+        tp.setMmRewardMultiple(5.0);
+        tp.setBuyAmountThanSellRatio(100);
+        tp.setSellAmountThanBuyRatio(0.01);
+
         res.add(tp);
         return res;
     }
 
     public Map<String, TokenInfo> getAllTokenInfo() throws IOException {
         List<TokenInfo> tokenInfos = viteCli.getTokenInfoList(0, 500);
-        Map<String, TokenInfo> tokenId2TokenInfoMap = tokenInfos.stream().collect(Collectors.toMap(
-                TokenInfo::getTokenIdRaw, tokenInfo -> tokenInfo, (k1, k2) -> k1));
+        Map<String, TokenInfo> tokenId2TokenInfoMap = tokenInfos.stream()
+                .collect(Collectors.toMap(TokenInfo::getTokenIdRaw, tokenInfo -> tokenInfo, (k1, k2) -> k1));
         return tokenId2TokenInfoMap;
     }
 
@@ -193,7 +198,6 @@ public class TradeRecover {
         events.filter(orderBook);
     }
 
-
     private Long getContractChainHeight(long time) throws IOException {
         SnapshotBlock snapshotBlock = viteCli.getSnapshotBlockBeforeTime(time);
         Long endHeight = snapshotBlock.getHeight();
@@ -278,7 +282,6 @@ public class TradeRecover {
             fillAddressForOrders(orderBook.getOrders().values());
         }
     }
-
 
     /**
      * Add missing address to the restored orderBook
