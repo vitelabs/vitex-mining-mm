@@ -20,8 +20,8 @@ public class MiningRewardCfg {
     double miningRewardMultiple = 5.0;
 
     //the max factor for a trade-pair
-    double maxBuyFactoryThanSell = 100;
+    double maxBuyFactorThanSell = 100;
 
     //the multiplier factor for a trade-pair
-    double maxSellFactoryThanBuy = 0.01;
+    double maxSellFactorThanBuy = 0.01;
 }

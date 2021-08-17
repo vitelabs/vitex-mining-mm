@@ -1,9 +1,7 @@
 package org.vite.dex.mm.constant.constants;
 
 public class MMConst {
-    public static final String NODE_SERVER_URL = "https://node.vite.net/gvite/http";
-
-    public static final String BACKUP_NODE_SERVER_URL = "http://134.175.105.236:48132";
+    public static final String NODE_SERVER_URL = "https://node-aws.vite.net/gvite/http";
 
     public static final String TRADE_CONTRACT_ADDRESS = "vite_00000000000000000000000000000000000000079710f19dc7";
 
