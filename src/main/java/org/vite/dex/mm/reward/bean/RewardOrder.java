@@ -14,14 +14,31 @@ public class RewardOrder {
     private OrderModel orderModel;
     private long calculateStartTime; // the start time of each calculate interval
     private int market;
-    private BigDecimal totalFactor = BigDecimal.ZERO;
+    private BigDecimal totalFactor = BigDecimal.ZERO; //mining factor,not really VX
+    private BigDecimal totalRewardVX = BigDecimal.ZERO; //mining reward VX
 
     public double getTotalFactorDouble() {
         return totalFactor.doubleValue();
     }
 
+    public double getTotalVXDouble() {
+        return totalRewardVX.doubleValue();
+    }
+
     public String getOrderAddress() {
         return orderModel.getAddress();
+    }
+
+    public String getTradePair() {
+        return orderModel.getTradePair();
+    }
+
+    public boolean getOrderSide() {
+        return orderModel.isSide();
+    }
+
+    public double getAmount() {
+        return orderModel.getAmount().doubleValue();
     }
 
     public void deal(MiningRewardCfg cfg, OrderEvent event, BigDecimal topPrice) {

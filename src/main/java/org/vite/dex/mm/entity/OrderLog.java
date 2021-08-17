@@ -26,7 +26,7 @@ public class OrderLog {
     private BigDecimal changeQuantity; // for order book
     private boolean side;
     private String tradePair;
-    private String address;  // TODO: need to fix
+    private String address;
     private int status;
 
     public static OrderLog fromNewOrder(DexTradeEvent.NewOrderInfo dexOrder) {
