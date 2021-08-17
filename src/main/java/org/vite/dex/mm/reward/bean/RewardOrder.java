@@ -60,11 +60,22 @@ public class RewardOrder {
         if (dist.compareTo(BigDecimal.valueOf(effectiveDistance)) < 0) {
             double coefficient = Math.pow(0.6, (1 + 9 * dist.doubleValue()) / effectiveDistance);
             factor = orderModel.getAmount().multiply(BigDecimal.valueOf(endTime - startTime))
-                    .multiply(BigDecimal.valueOf(coefficient).multiply(BigDecimal.valueOf(cfg.getMiningRewardMultiple())));
+                    .multiply(BigDecimal.valueOf(coefficient)
+                            .multiply(BigDecimal.valueOf(cfg.getMiningRewardMultiple())));
 
         }
 
         this.calculateStartTime = event.getTimestamp(); // update timestamp
         totalFactor = totalFactor.add(factor);
+    }
+
+    void applyReward(double sellSharedVxPerAmount, double buyShardVxPerAmount) {
+        // TODO
+        if (orderModel.isSide()) {
+            // TODO
+            this.totalRewardVX = BigDecimal.ZERO;
+        } else {
+            // TODO    
+        }
     }
 }

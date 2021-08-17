@@ -2,6 +2,7 @@ package org.vite.dex.mm.constant.enums;
 
 import lombok.Getter;
 
+// TODO
 public enum QuoteMarketType {
     USDTMarket(1, "usdt market"),
     BTCMarket(2, "btc market"),

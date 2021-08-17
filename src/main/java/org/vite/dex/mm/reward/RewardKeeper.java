@@ -12,12 +12,15 @@ import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.orderbook.EventStream;
 import org.vite.dex.mm.orderbook.OrderBook;
 import org.vite.dex.mm.orderbook.TradeRecover;
+import org.vite.dex.mm.reward.bean.RewardMarket;
 import org.vite.dex.mm.reward.bean.RewardOrder;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.groupingBy;
 import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
@@ -203,6 +206,7 @@ public class RewardKeeper {
         return miningRewardCfg;
     }
 
+
     public Map<String, Map<Integer, Double>> calcAddressMarketReward(double dailyReleasedVX, long startTime,
             long endTime) {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap(); //<Address,RewardOrder>
@@ -251,6 +255,39 @@ public class RewardKeeper {
             }
         });
 
+        Map<Integer, RewardMarket> markets = new HashMap<>();
+        Map<Integer, List<RewardOrder>> orders =
+                totalRewardOrders.values().stream().collect(Collectors.groupingBy(RewardOrder::getMarket));
+        orders.forEach((k, v) -> markets.put(k, new RewardMarket(k, v)));
+
+        double btcSharedVX = dailyReleasedVX * 0.05;
+        markets.values().forEach(market -> {
+            // Todo
+            // TODO 
+            market.apply(dailyReleasedVX, factor);
+        });
+
+        // totalRewardOrders.forEach((orderId, rewardOrder) -> {
+        //     totalMarketRewards.add(rewardOrder);
+        //     RewardMarket market= markets.get(rewardOrder.getMarket();)
+        //     if(market!=null){
+
+        //     }
+        //     switch (market) {
+        //         case 1:
+        //             btcMarketRewards.add(rewardOrder);
+        //             break;
+        //         case 2:
+        //             ethMarketRewards.add(rewardOrder);
+        //             break;
+        //         case 3:
+        //             viteMarketRewards.add(rewardOrder);
+        //             break;
+        //         case 4:
+        //             usdtMarketRewards.add(rewardOrder);
+        //     }
+        // });
+
         // 3. prepare total factor and total VX of each market
         double btcMarketSum = btcMarketRewards.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
         double ethMarketSum = ethMarketRewards.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
@@ -268,10 +305,10 @@ public class RewardKeeper {
 
         tradePair2RewardList.forEach((tradePair, rewardList) -> {
             Map<Boolean, Double> buySellAmountMap = Maps.newHashMap();
-            double sellSum = rewardList.stream().filter(reward -> reward.getOrderSide()).
-                    mapToDouble(RewardOrder::getAmount).sum();
-            double buySum = rewardList.stream().filter(reward -> !reward.getOrderSide()).
-                    mapToDouble(RewardOrder::getAmount).sum();
+            double sellSum = rewardList.stream().filter(reward -> reward.getOrderSide())
+                    .mapToDouble(RewardOrder::getAmount).sum();
+            double buySum = rewardList.stream().filter(reward -> !reward.getOrderSide())
+                    .mapToDouble(RewardOrder::getAmount).sum();
             buySellAmountMap.put(false, buySum);
             buySellAmountMap.put(true, sellSum);
             double sum = rewardList.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
