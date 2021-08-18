@@ -70,12 +70,10 @@ public class RewardOrder {
     }
 
     void applyReward(double sellSharedVxPerAmount, double buyShardVxPerAmount) {
-        // TODO
         if (orderModel.isSide()) {
-            // TODO
-            this.totalRewardVX = BigDecimal.ZERO;
+            this.totalRewardVX = new BigDecimal(getAmount() * sellSharedVxPerAmount);
         } else {
-            // TODO    
+            this.totalRewardVX = new BigDecimal(getAmount() * buyShardVxPerAmount);
         }
     }
 }
