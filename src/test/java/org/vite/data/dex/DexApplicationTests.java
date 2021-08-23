@@ -5,13 +5,8 @@ import org.apache.commons.codec.binary.Hex;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
-import org.vite.dex.mm.entity.TradePair;
-import org.vite.dex.mm.orderbook.EventStream;
-import org.vite.dex.mm.orderbook.OrderBook;
 import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.reward.RewardKeeper;
-import org.vite.dex.mm.reward.bean.RewardOrder;
-import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.response.SnapshotBlock;
@@ -33,9 +28,8 @@ class DexApplicationTests {
     void contextLoads() {
     }
 
-    // test yubikey
     @Test
-    public void testOrderBooks() throws IOException {
+    public void testOrderBooks() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
         tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
@@ -59,49 +53,23 @@ class DexApplicationTests {
         tradeRecover.revertOrderBooks();
     }
 
-    // test orderbook revert and onward
+    // test reward result
     @Test
-    public void testOnward() throws Exception {
+    public void testRewardResult() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
         RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
-        long startTime = System.currentTimeMillis() / 1000 - 120 * 60;
+        long startTime = System.currentTimeMillis() / 1000 - 1200 * 60;
         long endTime = System.currentTimeMillis() / 1000;
+        tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
         tradeRecover.prepareEvents(startTime);
         tradeRecover.filterEvents();
         tradeRecover.revertOrderBooks();
-        for (TradePair tp : TradeRecover.getMMOpenedTradePairs()) {
-            String tradePairSymbol = tp.getTradePairSymbol();
-            OrderBook orderBook = tradeRecover.getOrderBooks().get(tradePairSymbol);
-            EventStream eventStream = tradeRecover.getEventStreams().get(tradePairSymbol);
-            MiningRewardCfg miningRewardCfg = getMiningConfigFromTradePair(tp);
-            Map<String, RewardOrder> rewardOrders = rewardKeeper.mmMining(eventStream, orderBook,
-                    miningRewardCfg, startTime, endTime);
-            System.out.println(rewardOrders);
-        }
-    }
 
-    private MiningRewardCfg getMiningConfigFromTradePair(TradePair tp) {
-        MiningRewardCfg miningRewardCfg = new MiningRewardCfg();
-        miningRewardCfg.setMarketId(tp.getMarket());
-        miningRewardCfg.setEffectiveDistance(tp.getMmEffectiveInterval());
-        miningRewardCfg.setMiningRewardMultiple(tp.getMmRewardMultiple());
-        miningRewardCfg.setMaxBuyFactorThanSell(tp.getBuyAmountThanSellRatio());
-        miningRewardCfg.setMaxSellFactorThanBuy(tp.getSellAmountThanBuyRatio());
-        return miningRewardCfg;
-    }
-
-    // test reward result
-    @Test
-    public void testRewardResult() throws IOException {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
         double totalReleasedViteAmount = 1000000.0;
-        long startTime = System.currentTimeMillis() / 1000 - 120 * 60;
-        long endTime = System.currentTimeMillis() / 1000;
         Map<String, Map<Integer, Double>> finalRes =
-                rewardKeeper.calculateAddressReward(totalReleasedViteAmount, startTime, endTime);
-        System.out.println("the final result is:" + finalRes);
+                rewardKeeper.calcAddressMarketReward(totalReleasedViteAmount, startTime, endTime);
+        System.out.println(finalRes);
     }
 
     @Test
@@ -133,6 +101,13 @@ class DexApplicationTests {
 
     @Test
     public void testGetSnapshotBlockBeforeTime() throws IOException {
+        long beforeTime = System.currentTimeMillis() / 1000 - 10 * 60;
+        SnapshotBlock snapshotBlockBeforeTime = viteCli.getSnapshotBlockBeforeTime(beforeTime);
+        System.out.println(snapshotBlockBeforeTime);
+    }
+
+    @Test
+    public void testGetReward() throws IOException {
         long beforeTime = System.currentTimeMillis() / 1000 - 10 * 60;
         SnapshotBlock snapshotBlockBeforeTime = viteCli.getSnapshotBlockBeforeTime(beforeTime);
         System.out.println(snapshotBlockBeforeTime);

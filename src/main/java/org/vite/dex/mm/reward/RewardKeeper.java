@@ -84,6 +84,7 @@ public class RewardKeeper {
                 log.error("mmMining occurs error,the err info: ", ex);
             }
         }
+        log.info("the order book [{}] is onwarded to the end time of last cycle");
         return orderRewards;
     }
 
@@ -115,7 +116,8 @@ public class RewardKeeper {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap(); //<Address,RewardOrder>
         Map<String, MiningRewardCfg> tradePairCfgMap = Maps.newHashMap(); //<Address,MiningRewardCfg>
         // 1. mmMining for origin order books
-        TradeRecover.getMMOpenedTradePairs().stream().forEach(tp -> {
+        log.debug("start onwarding for each order book and calc the market mining factor of orders");
+        TradeRecover.getMarketMiningOpenedTp().stream().forEach(tp -> {
             String tradePairSymbol = tp.getTradePairSymbol();
             MiningRewardCfg miningRewardCfg = getMiningConfigFromTradePair(tp);
             tradePairCfgMap.put(tp.getTradePairSymbol(), miningRewardCfg);
@@ -130,6 +132,7 @@ public class RewardKeeper {
         });
 
         // 2. calc reward VX for each order
+        log.debug("calculating reward VX of each order");
         List<RewardOrder> totalMarketRewards = totalRewardOrders.values().stream().collect(Collectors.toList());
         Map<Integer, RewardMarket> markets = new HashMap<>();
         Map<Integer, List<RewardOrder>> marketOrderRewards =
@@ -142,7 +145,8 @@ public class RewardKeeper {
             market.apply(dailyReleasedVX, marketSharedRatio);
         });
 
-        //3. 汇总计算Address在各个大市场的总挖矿VX数量
+        //3. summarize and calculate the total number of VX mined by Address in each major market
+        log.debug("calculating the total number of VX mined by Address in each major market");
         Map<String, Map<Integer, List<RewardOrder>>> address2MarketRewardsMap = totalMarketRewards.stream()
                 .collect(groupingBy(RewardOrder::getOrderAddress, groupingBy(RewardOrder::getMarket)));
 
@@ -155,6 +159,7 @@ public class RewardKeeper {
             });
             finalRes.put(address, marketVXMap);
         });
+        log.info("successfully calc the VX reward for each Address during the last cycle");
         return finalRes;
     }
 }

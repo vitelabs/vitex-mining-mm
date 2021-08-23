@@ -43,7 +43,6 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
  * 3. recover order book, recover order order to last cycle by events
  * 4. mm mining, calculate the market making mining rewards
  */
-
 @Slf4j
 public class TradeRecover {
     private final Map<String, EventStream> eventStreams = Maps.newHashMap(); // <TradePairSymbol,EventStream>
@@ -60,7 +59,7 @@ public class TradeRecover {
     }
 
     // TODO get data from contract
-    public static List<TradePair> getMMOpenedTradePairs() {
+    public static List<TradePair> getMarketMiningOpenedTp() {
         List<TradePair> res = new ArrayList<>();
         TradePair tp = new TradePair();
         tp.setTradeTokenSymbol("ETH-000");
@@ -70,10 +69,10 @@ public class TradeRecover {
         tp.setMmEffectiveInterval(0.2);
         tp.setMarketMiningOpen(true);
         tp.setMmRewardMultiple(5.0);
-        tp.setBuyAmountThanSellRatio(100);
-        tp.setSellAmountThanBuyRatio(0.01);
-
+        tp.setBuyAmountThanSellRatio(10);
+        tp.setSellAmountThanBuyRatio(10);
         res.add(tp);
+
         return res;
     }
 
@@ -85,14 +84,16 @@ public class TradeRecover {
     }
 
     /**
-     * prepare all trade-pairs and tokenInfos
+     * prerequisite data is necessary
      */
-    public void prepareData() {
+    public void prepareData() throws Exception {
         try {
-            tradePairs = getMMOpenedTradePairs();
+            tradePairs = getMarketMiningOpenedTp();
             tokens = getAllTokenInfo();
+            log.info("prerequisite data has been prepared");
         } catch (Exception e) {
-            log.error("failed to get token infos,err: ", e);
+            log.error("failed to prepare prerequisite data, err: ", e);
+            throw e;
         }
     }
 
@@ -112,6 +113,7 @@ public class TradeRecover {
                 List<OrderModel> buysOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false);
                 orderBook.init(buysOrders, sellOrders);
                 this.orderBooks.put(tradePairSymbol, orderBook);
+                log.info("the order book of tradePair [{}] is prepared", tp.getTradePairSymbol());
             }
         } catch (Exception e) {
             log.error("prepareOrderBooks occurs exception,the err:", e);
@@ -133,7 +135,7 @@ public class TradeRecover {
         List<OrderModel> singleSideOrders = Lists.newLinkedList();
         int round = 0;
         while (true) {
-            CommonResponse response =
+            CommonResponse response = 
                     viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, 100 * round, 100 * (round + 1));
             String mapStrSell = JSON.toJSONString(response.getResult());
             Map<String, Object> resMap = JSON.parseObject(mapStrSell, Map.class);
@@ -149,7 +151,7 @@ public class TradeRecover {
     }
 
     /**
-     * 1. get trade contract vmLogs
+     * 1. get trade contract vmLogs 
      * 2. parse and group vmLogs
      *
      * @param startTime
@@ -164,7 +166,9 @@ public class TradeRecover {
         }
         Long startHeight = cycleStartBlock.getHeight();
         Long endHeight = latestAccountBlock.getHeight();
-        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
+        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 1000);
+        log.info("succeed to get [{}] events from height {} to {} of the trade-contract chain, the num of eventLog is"
+                + " {}", vmLogInfoList.size(), startHeight, endHeight);
 
         // 2. parse vmLogs and group these vmLogs by trade-pair
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
@@ -181,12 +185,14 @@ public class TradeRecover {
                 eventStreams.put(orderEvent.getTradePairSymbol(), eventStream);
             }
         }
+        log.info("parse vmLogs and divide them into different group successfully");
     }
 
     public void filterEvents() {
         tradePairs.forEach(tp -> {
             filterEvents(tp);
         });
+        log.info("succeed to filter vmLogs which created-time is beyond of order book");
     }
 
     private void filterEvents(TradePair tp) {
@@ -197,7 +203,6 @@ public class TradeRecover {
         }
         events.filter(orderBook);
     }
-
 
     private Long getContractChainHeight(long time) throws IOException {
         SnapshotBlock snapshotBlock = viteCli.getSnapshotBlockBeforeTime(time);
@@ -234,8 +239,8 @@ public class TradeRecover {
             return null;
         }
         blocks = blocks.stream().collect(
-                Collectors.collectingAndThen(Collectors.toCollection(
-                        () -> new TreeSet<>(Comparator.comparing(o -> o.getHeight()))), ArrayList::new));
+            Collectors.collectingAndThen(Collectors.toCollection(
+                () -> new TreeSet<>(Comparator.comparing(o -> o.getHeight()))), ArrayList::new));
         this.accountBlockMap = blocks.stream().collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block));
         return blocks.get(0);
     }
@@ -281,9 +286,9 @@ public class TradeRecover {
             }
 
             fillAddressForOrders(orderBook.getOrders().values());
+            log.info("revert the order book [{}] to the start time of last cycle", tp.getTradePairSymbol());
         }
     }
-
 
     /**
      * Add missing address to the restored orderBook
@@ -298,7 +303,7 @@ public class TradeRecover {
         start = start - TimeUnit.MINUTES.toSeconds(5);
         end = end + TimeUnit.MINUTES.toSeconds(5);
 
-        Map<String, OrderModel> orderMap =
+        Map<String, OrderModel> orderMap = 
                 orders.stream().filter(t -> t.emptyAddress()).collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
 
         orderMap = fillAddressForOrders(orderMap, start, end);
@@ -309,13 +314,13 @@ public class TradeRecover {
         // downward and upward
         int cnt = 1;
         while (true) {
-            long start0 = start - TimeUnit.MINUTES.toSeconds(10);
+            long start0 = start - TimeUnit.MINUTES.toSeconds(5);
             orderMap = fillAddressForOrders(orderMap, start0, start);
             if (orderMap.isEmpty()) {
                 break;
             }
 
-            long end1 = end + TimeUnit.MINUTES.toSeconds(10);
+            long end1 = end + TimeUnit.MINUTES.toSeconds(5);
             orderMap = fillAddressForOrders(orderMap, end, end1);
             if (orderMap.isEmpty()) {
                 break;
@@ -324,29 +329,30 @@ public class TradeRecover {
             start = start0;
             end = end1;
 
-            if (cnt++ > 10) {
+            if (++cnt >= 2) {
+                // return;
                 throw new RuntimeException("the address of Order is not found!");
             }
         }
     }
 
     /**
-    * 1.get height range of contract-chain between startTime to endTime
-    * 2.get eventLogs in the range of height
-    * 3.find NewOrder eventLog, filled the address in Order
-    *
-    * @param orderMap
-    * @param startTime
-    * @param endTime
-    * @return
-    * @throws IOException
-    */
+     * 1.get height range of contract-chain between startTime to endTime 
+     * 2.get eventLogs in the range of height 
+     * 3.find NewOrder eventLog, filled the address in Order
+     *
+     * @param orderMap
+     * @param startTime
+     * @param endTime
+     * @return
+     * @throws IOException
+     */
     private Map<String, OrderModel> fillAddressForOrders(Map<String, OrderModel> orderMap, long startTime, long endTime)
             throws IOException {
         Long startHeight = getContractChainHeight(startTime);
         Long endHeight = getContractChainHeight(endTime);
 
-        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 100);
+        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 1000);
 
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
             Vmlog vmlog = vmLogInfo.getVmlog();

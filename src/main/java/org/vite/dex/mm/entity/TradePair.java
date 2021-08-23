@@ -22,7 +22,7 @@ public class TradePair {
 
     // enable market-mining func for the trade pair
     boolean marketMiningOpen;
-    
+
     // max ratio of buyAmount/sellAmount when market-mining
     private double buyAmountThanSellRatio;
 
@@ -33,7 +33,7 @@ public class TradePair {
     private double mmRewardMultiple;
 
     public String getTradePairSymbol() {
-        return getTradeTokenId() + UnderscoreStr + getQuoteTokenId();
+        return getTradeTokenSymbol() + UnderscoreStr + getQuoteTokenSymbol();
     }
 
     public int getMarket() {
