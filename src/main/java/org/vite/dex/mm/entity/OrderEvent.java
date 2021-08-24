@@ -100,13 +100,13 @@ public class OrderEvent {
                 case NewOrder:
                     DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
                     this.setType(NewOrder);
-                    this.orderLog = OrderLog.fromNewOrder(dexOrder);
+                    this.orderLog = OrderLog.fromNewOrder(vmlog, dexOrder);
                     break;
                 case UpdateOrder:
                     // both cancel and filled order will emit the updateEvent
                     DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
                     this.setType(UpdateOrder);
-                    this.orderLog = OrderLog.fromUpdateOrder(orderUpdateInfo);
+                    this.orderLog = OrderLog.fromUpdateOrder(vmlog, orderUpdateInfo);
                     break;
                 case TX:
                     this.setType(TX);

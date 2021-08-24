@@ -2,7 +2,7 @@ package org.vite.dex.mm.entity;
 
 import lombok.Data;
 
-import static org.vite.dex.mm.constant.constants.MMConst.UnderscoreStr;
+import static org.vite.dex.mm.constant.constants.MarketMiningConst.UnderscoreStr;
 
 @Data
 public class TradePair {
@@ -33,7 +33,7 @@ public class TradePair {
     private double mmRewardMultiple;
 
     public String getTradePairSymbol() {
-        return getTradeTokenSymbol() + UnderscoreStr + getQuoteTokenSymbol();
+        return getTradeTokenId() + UnderscoreStr + getQuoteTokenId();
     }
 
     public int getMarket() {

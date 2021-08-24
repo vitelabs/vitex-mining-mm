@@ -1,7 +1,5 @@
 package org.vite.dex.mm.orderbook;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +15,6 @@ import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.response.AccountBlock;
-import org.vitej.core.protocol.methods.response.CommonResponse;
 import org.vitej.core.protocol.methods.response.SnapshotBlock;
 import org.vitej.core.protocol.methods.response.TokenInfo;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
@@ -33,13 +30,13 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static org.vite.dex.mm.constant.constants.MMConst.TRADE_CONTRACT_ADDRESS;
+import static org.vite.dex.mm.constant.constants.MarketMiningConst.TRADE_CONTRACT_ADDRESS;
 import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 /**
- * 1. prepare order book, get the current order book
- * 2. prepare events, get all events from last cycle to current
+ * 1. prepare order book, get the current order book 
+ * 2. prepare events, get all events from last cycle to current 
  * 3. recover order book, recover order order to last cycle by events
  * 4. mm mining, calculate the market making mining rewards
  */
@@ -98,7 +95,7 @@ public class TradeRecover {
     }
 
     /**
-     * prepare order book, get the current order book
+     * prepare order books, get the order book of all market on current time
      *
      * @throws IOException
      */
@@ -108,9 +105,11 @@ public class TradeRecover {
                 OrderBook orderBook = new OrderBook.Impl();
                 String tradePairSymbol = tp.getTradePairSymbol();
                 // get sell orders of the trade-pair
-                List<OrderModel> sellOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), true);
+                List<OrderModel> sellOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), true,
+                        100);
                 // get buy orders of the trade-pair
-                List<OrderModel> buysOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false);
+                List<OrderModel> buysOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false,
+                        100);
                 orderBook.init(buysOrders, sellOrders);
                 this.orderBooks.put(tradePairSymbol, orderBook);
                 log.info("the order book of tradePair [{}] is prepared", tp.getTradePairSymbol());
@@ -130,31 +129,29 @@ public class TradeRecover {
      * @return
      * @throws IOException
      */
-    private List<OrderModel> getSingleSideOrders(String tradeTokenId, String quoteTokenId, boolean side)
+    public List<OrderModel> getSingleSideOrders(String tradeTokenId, String quoteTokenId, boolean side, int pageCnt)
             throws IOException {
         List<OrderModel> singleSideOrders = Lists.newLinkedList();
         int round = 0;
         while (true) {
-            CommonResponse response = 
-                    viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, 100 * round, 100 * (round + 1));
-            String mapStrSell = JSON.toJSONString(response.getResult());
-            Map<String, Object> resMap = JSON.parseObject(mapStrSell, Map.class);
-            String jsonString = JSONObject.toJSONString(resMap.get("orders"));
-            List<OrderModel> orders = JSON.parseArray(jsonString, OrderModel.class);
+            List<OrderModel> orders = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, pageCnt * round,
+                    pageCnt * (round + 1));
             if (orders == null || orders.isEmpty()) {
                 break;
             }
             singleSideOrders.addAll(orders);
+            if (orders.size() < pageCnt) {
+                break;
+            }
             round++;
         }
         return singleSideOrders;
     }
 
     /**
-     * 1. get trade contract vmLogs 
-     * 2. parse and group vmLogs
+     * 1. get trade contract vmLogs 2. parse and group vmLogs
      *
-     * @param startTime
+     * @param startTime second
      */
     public void prepareEvents(long startTime) throws Exception {
         // 1. get all events
@@ -162,13 +159,15 @@ public class TradeRecover {
         Hash currentHash = latestAccountBlock.getHash();
         AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, currentHash);
         if (cycleStartBlock == null) {
-            return;
+            throw new Exception("cycle start block is not exist");
         }
         Long startHeight = cycleStartBlock.getHeight();
         Long endHeight = latestAccountBlock.getHeight();
+        // Long startHeight = 3664298l;
+        // Long endHeight = 3798123l;
         List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 1000);
-        log.info("succeed to get [{}] events from height {} to {} of the trade-contract chain, the num of eventLog is"
-                + " {}", vmLogInfoList.size(), startHeight, endHeight);
+        log.info("succeed to get [{}] events from height {} to {} of the trade-contract chain", vmLogInfoList.size(),
+                startHeight, endHeight);
 
         // 2. parse vmLogs and group these vmLogs by trade-pair
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
@@ -238,18 +237,29 @@ public class TradeRecover {
         if (CollectionUtils.isEmpty(blocks)) {
             return null;
         }
-        blocks = blocks.stream().collect(
-            Collectors.collectingAndThen(Collectors.toCollection(
-                () -> new TreeSet<>(Comparator.comparing(o -> o.getHeight()))), ArrayList::new));
-        this.accountBlockMap = blocks.stream().collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block));
+        blocks = blocks.stream()
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(o -> o.getHeight()))),
+                        ArrayList::new));
+        this.accountBlockMap = blocks.stream()
+                .collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block, (b0, b1) -> b0));
         return blocks.get(0);
     }
 
+    /**
+     * get all account blocks whose created time is greater than the startTime and
+     * its hash is lower than endHash
+     * 
+     * @param startTime
+     * @param endHash
+     * @return
+     * @throws IOException
+     */
     private List<AccountBlock> getAccountBlocks(long startTime, Hash endHash) throws IOException {
         List<AccountBlock> blocks = Lists.newArrayList();
         while (true) {
             // the result contains the endHash block [startHash, endHash]
-            List<AccountBlock> result = viteCli.getAccountBlocksBelowCurrentHash(endHash, 200);
+            List<AccountBlock> result = viteCli.getAccountBlocksBelowCurrentHash(endHash, 1000);
             if (CollectionUtils.isEmpty(result)) {
                 break;
             }
@@ -281,9 +291,17 @@ public class TradeRecover {
                 continue;
             }
 
+            if (!eventStream.getEvents().isEmpty()) {
+                System.out.println(eventStream.getEvents().get(0).getTimestamp());
+                System.out.println(eventStream.getEvents().get(eventStream.getEvents().size() - 1).getTimestamp());
+            }
             for (OrderEvent event : eventStream.getEvents()) {
                 orderBook.revert(event);
             }
+
+            int a = orderBook.getAddCnt();
+            int b = orderBook.getRemoveCnt();
+            System.out.println(a + "        " + b);
 
             fillAddressForOrders(orderBook.getOrders().values());
             log.info("revert the order book [{}] to the start time of last cycle", tp.getTradePairSymbol());
@@ -297,15 +315,13 @@ public class TradeRecover {
      * @throws IOException
      */
     private void fillAddressForOrders(Collection<OrderModel> orders) throws Exception {
+        Map<String, OrderModel> orderMap = orders.stream().filter(t -> t.emptyAddress())
+                .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (k0, k1) -> k0));
+
         long start = orders.stream().min(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
         long end = orders.stream().max(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
-
         start = start - TimeUnit.MINUTES.toSeconds(5);
         end = end + TimeUnit.MINUTES.toSeconds(5);
-
-        Map<String, OrderModel> orderMap = 
-                orders.stream().filter(t -> t.emptyAddress()).collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
-
         orderMap = fillAddressForOrders(orderMap, start, end);
         if (orderMap.isEmpty()) {
             return;
@@ -329,7 +345,7 @@ public class TradeRecover {
             start = start0;
             end = end1;
 
-            if (++cnt >= 2) {
+            if (++cnt >= 3) {
                 // return;
                 throw new RuntimeException("the address of Order is not found!");
             }
@@ -337,9 +353,9 @@ public class TradeRecover {
     }
 
     /**
-     * 1.get height range of contract-chain between startTime to endTime 
-     * 2.get eventLogs in the range of height 
-     * 3.find NewOrder eventLog, filled the address in Order
+     * 1.get height range of contract-chain between startTime to endTime 2.get
+     * eventLogs in the range of height 3.find NewOrder eventLog, filled the address
+     * in Order
      *
      * @param orderMap
      * @param startTime
@@ -360,8 +376,7 @@ public class TradeRecover {
             EventType eventType = getEventType(vmlog.getTopicsRaw());
             if (eventType == NewOrder) {
                 DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                byte[] orderIdBytes = dexOrder.getOrder().getId().toByteArray();
-                String newOrderId = Hex.toHexString(orderIdBytes);
+                String newOrderId = Hex.toHexString(dexOrder.getOrder().getId().toByteArray());
                 OrderModel order = orderMap.get(newOrderId);
                 if (order != null && StringUtils.isEmpty(order.getAddress())) {
                     order.setAddress(
@@ -370,7 +385,7 @@ public class TradeRecover {
             }
         }
         orderMap = orderMap.values().stream().filter(t -> t.emptyAddress())
-                .collect(Collectors.toMap(OrderModel::getOrderId, o -> o));
+                .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (k0, k1) -> k0));
         return orderMap;
     }
 

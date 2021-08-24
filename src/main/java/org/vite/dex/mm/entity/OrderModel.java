@@ -26,6 +26,8 @@ public class OrderModel {
     // order created time
     private long timestamp;
 
+    private OrderLog log;
+
     public static OrderModel fromOrderLog(OrderLog orderLog) {
         OrderModel orderModel = new OrderModel();
         orderModel.orderId = orderLog.getOrderId();
@@ -36,6 +38,7 @@ public class OrderModel {
         orderModel.side = orderLog.isSide();
         orderModel.tradePair = orderLog.getTradePair();
         orderModel.timestamp = orderLog.getOrderCreateTime();
+        orderModel.log = orderLog;
         return orderModel;
     }
 

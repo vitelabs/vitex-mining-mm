@@ -2,7 +2,7 @@ package org.vite.dex.mm.reward;
 
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
-import org.vite.dex.mm.constant.constants.MMConst;
+import org.vite.dex.mm.constant.constants.MarketMiningConst;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
 import org.vite.dex.mm.entity.OrderEvent;
@@ -141,7 +141,7 @@ public class RewardKeeper {
         marketOrderRewards.forEach((market, rewardOrderList) -> markets.put(market, new RewardMarket(market,
                 rewardOrderList, tradePairCfgMap)));
         markets.values().forEach(market -> {
-            double marketSharedRatio = MMConst.getAllSharedRatio().get(market);
+            double marketSharedRatio = MarketMiningConst.getAllSharedRatio().get(market);
             market.apply(dailyReleasedVX, marketSharedRatio);
         });
 

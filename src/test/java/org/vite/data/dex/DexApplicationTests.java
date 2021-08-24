@@ -1,20 +1,28 @@
 package org.vite.data.dex;
 
+import com.alibaba.fastjson.JSON;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
+import org.vite.dex.mm.entity.OrderEvent;
+import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.reward.RewardKeeper;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.response.SnapshotBlock;
 import org.vitej.core.protocol.methods.response.TokenInfo;
+import org.vitej.core.protocol.methods.response.VmLogInfo;
 
 import javax.annotation.Resource;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -33,6 +41,17 @@ class DexApplicationTests {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
         tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
+    }
+
+    @Test
+    public void testOrderBooks_get() throws Exception {
+        TradeRecover tradeRecover = new TradeRecover(viteCli);
+        List<OrderModel> first = tradeRecover.getSingleSideOrders("tti_687d8a93915393b219212c73",
+                "tti_80f3751485e4e83456059473", true, 1000);
+        List<OrderModel> two = tradeRecover.getSingleSideOrders("tti_687d8a93915393b219212c73",
+                "tti_80f3751485e4e83456059473", false, 1000);
+        System.out.println(first.size());
+        System.out.println(two.size());
     }
 
     @Test
@@ -58,8 +77,13 @@ class DexApplicationTests {
     public void testRewardResult() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
         RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
-        long startTime = System.currentTimeMillis() / 1000 - 1200 * 60;
-        long endTime = System.currentTimeMillis() / 1000;
+
+        // long startTime = System.currentTimeMillis() / 1000 - 1200 * 60;
+        // long endTime = System.currentTimeMillis() / 1000;
+        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:30:00", new ParsePosition(0))
+                .getTime() / 1000;
         tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
         tradeRecover.prepareEvents(startTime);
@@ -67,9 +91,23 @@ class DexApplicationTests {
         tradeRecover.revertOrderBooks();
 
         double totalReleasedViteAmount = 1000000.0;
-        Map<String, Map<Integer, Double>> finalRes =
-                rewardKeeper.calcAddressMarketReward(totalReleasedViteAmount, startTime, endTime);
+        Map<String, Map<Integer, Double>> finalRes = rewardKeeper.calcAddressMarketReward(totalReleasedViteAmount,
+                startTime, endTime);
         System.out.println(finalRes);
+    }
+
+    @Test
+    public void test() throws IOException {
+        List<VmLogInfo> vmlogs = viteCli.getEventsByHeightRange(3798100L, 3798123L, 1000);
+
+        List<OrderEvent> events = new ArrayList<>();
+        vmlogs.forEach(vlog -> {
+            OrderEvent orderEvent = new OrderEvent(vlog);
+            orderEvent.parse();
+            events.add(orderEvent);
+        });
+
+        System.out.println(JSON.toJSONString(events));
     }
 
     @Test
@@ -111,5 +149,13 @@ class DexApplicationTests {
         long beforeTime = System.currentTimeMillis() / 1000 - 10 * 60;
         SnapshotBlock snapshotBlockBeforeTime = viteCli.getSnapshotBlockBeforeTime(beforeTime);
         System.out.println(snapshotBlockBeforeTime);
+    }
+
+    @Test
+    public void testGetOrderSide() throws IOException {
+        String tradeTokenId = "tti_687d8a93915393b219212c73";
+        String quoteTokenId = "tti_80f3751485e4e83456059473";
+        List<OrderModel> orders = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, true, 0, 100);
+        System.out.println(orders);
     }
 }

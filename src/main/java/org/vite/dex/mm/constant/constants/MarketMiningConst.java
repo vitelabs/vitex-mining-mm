@@ -5,8 +5,9 @@ import org.vite.dex.mm.constant.enums.QuoteMarketType;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MMConst {
-    public static final String NODE_SERVER_URL = "https://node-aws.vite.net/gvite/http";
+public class MarketMiningConst {
+    // public static final String NODE_SERVER_URL = "https://node-aws.vite.net/gvite/http";
+    public static final String NODE_SERVER_URL = "http://127.0.0.1:48132";
 
     public static final String TRADE_CONTRACT_ADDRESS = "vite_00000000000000000000000000000000000000079710f19dc7";
 

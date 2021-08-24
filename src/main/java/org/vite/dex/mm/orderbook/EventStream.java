@@ -1,17 +1,17 @@
 package org.vite.dex.mm.orderbook;
 
 import com.google.common.collect.Lists;
-import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
-import static org.vite.dex.mm.constant.enums.EventType.UpdateOrder;
 
 /**
  * EventStream from the trade contract of the chain
@@ -36,38 +36,58 @@ public class EventStream {
             orders.put(order.getOrderId(), order);
         });
 
-        Map<String, List<OrderEvent>> blockHashEventMap =
-                events.stream().collect(Collectors.groupingBy(event -> event.getVmLogInfo().getAccountBlockHashRaw()));
+        OrderEvent left = indexOfLeftPoint(orders);
+        OrderEvent right = indexOfRightPoint(orders, left);
 
-        int len = events.size();
-        for (int i = len - 1; i >= 0; i--) {
-            OrderEvent event = events.get(i);
-            if (event.getType() == NewOrder) {
-                if (!orders.containsKey(event.getOrderId())) {
-                    event.setDel(true);
-                }
-            } else if (event.getType() == UpdateOrder) {
-                if (event.getStatus() == OrderUpdateInfoStatus.Cancelled && orders.containsKey(event.getOrderId())) {
-                    event.setDel(true);
-                } else if (event.getStatus() == OrderUpdateInfoStatus.FullyExecuted
-                        && orders.containsKey(event.getOrderId())) {
-                    event.setDel(true);
-                } else if (event.getStatus() == OrderUpdateInfoStatus.PartialExecuted) {
-                    List<OrderEvent> orderEvents = blockHashEventMap.get(event.getVmLogInfo().getAccountBlockHashRaw());
-                    OrderEvent orderEvent = findNewOrder(orderEvents);
-                    if (!orders.containsKey(orderEvent.getOrderId())) {
-                        event.setDel(true);
-                    }
-                }
+        events.forEach(e -> {
+            if (e.getTimestamp() >= right.getTimestamp()) {
+                e.setDel(true);
             }
-        }
-
+        });
         this.events = this.events.stream().filter(t -> !t.isDel()).collect(Collectors.toList());
+        System.out.println(events);
     }
 
-    private OrderEvent findNewOrder(List<OrderEvent> orderEvents) {
-        return orderEvents.stream().filter(event -> {
-            return event.getType() == NewOrder;
-        }).findFirst().get();
+    private OrderEvent indexOfLeftPoint(Map<String, OrderModel> orders) {
+        return events.stream().filter(new Predicate<OrderEvent>() {
+            @Override
+            public boolean test(OrderEvent t) {
+                // if (t.getTimestamp() < 1570087455L) {
+                // return false;
+                // }
+                if (t.getType() != NewOrder) {
+                    return false;
+                }
+                if (!orders.containsKey(t.getOrderId())) {
+                    // System.out.println(
+                    // String.format("false-%d-%s-%s-%s-%s", t.getTimestamp(), new
+                    // Date(t.getTimestamp() * 1000),
+                    // t.getOrderId(), t.getBlockHash(), t.getTradePairSymbol()));
+                    return false;
+                }
+                // System.out.println(String.format("true-%d-%s-%s-%s-%s", t.getTimestamp(),
+                // new Date(t.getTimestamp() * 1000), t.getOrderId(), t.getBlockHash(),
+                // t.getTradePairSymbol()));
+                return true;
+            }
+        }).max(Comparator.comparing(OrderEvent::getTimestamp)).get();
+    }
+
+    private OrderEvent indexOfRightPoint(Map<String, OrderModel> orders, OrderEvent left) {
+        return events.stream().filter(new Predicate<OrderEvent>() {
+            @Override
+            public boolean test(OrderEvent t) {
+                if (t.getType() != NewOrder) {
+                    return false;
+                }
+                if (orders.containsKey(t.getOrderId())) {
+                    return false;
+                }
+                if (t.getTimestamp() < left.getTimestamp()) {
+                    return false;
+                }
+                return true;
+            }
+        }).min(Comparator.comparing(OrderEvent::getTimestamp)).get();
     }
 }
