@@ -300,6 +300,8 @@ public class TradeRecover {
 
 
     private void fillAddressForOrdersGroupByTimeUnit(Collection<OrderModel> orders) throws Exception {
+        orders = orders.stream().filter(t -> t.emptyAddress()).collect(Collectors.toList());
+
         long timeUnit = TimeUnit.MINUTES.toSeconds(10);
 
         Map<Long, List<OrderModel>> orderGroup =
@@ -318,8 +320,8 @@ public class TradeRecover {
      * @throws IOException
      */
     private void fillAddressForOrders(Collection<OrderModel> orders) throws Exception {
-        Map<String, OrderModel> orderMap = orders.stream().filter(t -> t.emptyAddress())
-                .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (k0, k1) -> k0));
+        Map<String, OrderModel> orderMap =
+                orders.stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (k0, k1) -> k0));
 
         long start = orders.stream().min(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
         long end = orders.stream().max(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
