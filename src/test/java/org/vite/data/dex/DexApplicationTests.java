@@ -1,6 +1,7 @@
 package org.vite.data.dex;
 
 import com.alibaba.fastjson.JSON;
+import com.google.common.io.Files;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.junit.jupiter.api.Test;
@@ -18,11 +19,14 @@ import org.vitej.core.protocol.methods.response.VmLogInfo;
 
 import javax.annotation.Resource;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,8 +37,7 @@ class DexApplicationTests {
     private ViteCli viteCli;
 
     @Test
-    void contextLoads() {
-    }
+    void contextLoads() {}
 
     @Test
     public void testOrderBooks() throws Exception {
@@ -93,6 +96,45 @@ class DexApplicationTests {
                 startTime, endTime);
         System.out.println(finalRes);
     }
+
+
+    @Test
+    public void testRewardResult2() throws Exception {
+        TradeRecover tradeRecover = new TradeRecover(viteCli);
+        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:30:00", new ParsePosition(0))
+                .getTime() / 1000;
+
+        tradeRecover.prepareData();
+        tradeRecover.prepareOrderBooks();
+        tradeRecover.prepareEvents(startTime);
+        tradeRecover.filterEvents();
+        tradeRecover.revertOrderBooks();
+
+
+
+        Map<String, Collection<OrderModel>> orderMap = new HashMap<>();
+        Map<String, Collection<OrderEvent>> eventMap = new HashMap<>();
+
+        tradeRecover.getOrderBooks().forEach((k, v) -> {
+            orderMap.put(k, v.getOrders().values());
+        });
+
+        tradeRecover.getEventStreams().forEach((k, v) -> {
+            eventMap.put(k, v.getEvents());
+        });
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderbook", orderMap);
+        result.put("events", eventMap);
+
+
+        File file = new File("dataset.raw");
+        Files.write(JSON.toJSONBytes(result), file);
+    }
+
+
 
     @Test
     public void test() throws IOException {
