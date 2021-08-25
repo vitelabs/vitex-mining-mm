@@ -293,10 +293,23 @@ public class TradeRecover {
             log.info("the order book[{}] has been reverted, the addCnt {}, the removeCnt {}", tp.getTradePairSymbol(),
                     orderBook.getAddCnt(), orderBook.getRemoveCnt());
 
-            fillAddressForOrders(orderBook.getOrders().values());
+            fillAddressForOrdersGroupByTimeUnit(orderBook.getOrders().values());
             log.info("revert the order book [{}] to the start time of last cycle", tp.getTradePairSymbol());
         }
     }
+
+
+    private void fillAddressForOrdersGroupByTimeUnit(Collection<OrderModel> orders) throws Exception {
+        long timeUnit = TimeUnit.MINUTES.toSeconds(10);
+
+        Map<Long, List<OrderModel>> orderGroup =
+                orders.stream().collect(Collectors.groupingBy(t -> t.getTimestamp() / timeUnit));
+
+        for (List<OrderModel> v : orderGroup.values()) {
+            fillAddressForOrders(v);
+        }
+    }
+
 
     /**
      * Add missing address to the restored orderBook
@@ -310,6 +323,7 @@ public class TradeRecover {
 
         long start = orders.stream().min(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
         long end = orders.stream().max(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
+
         start = start - TimeUnit.MINUTES.toSeconds(5);
         end = end + TimeUnit.MINUTES.toSeconds(5);
 
