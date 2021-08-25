@@ -77,13 +77,11 @@ class DexApplicationTests {
     public void testRewardResult() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
         RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
-
-        // long startTime = System.currentTimeMillis() / 1000 - 1200 * 60;
-        // long endTime = System.currentTimeMillis() / 1000;
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
                 .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
         long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:30:00", new ParsePosition(0))
                 .getTime() / 1000;
+
         tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
         tradeRecover.prepareEvents(startTime);

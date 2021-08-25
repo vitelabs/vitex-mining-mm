@@ -23,6 +23,7 @@ import org.vitej.core.protocol.methods.response.Vmlog;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +38,7 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 /**
  * 1. prepare order book, get the current order book 
  * 2. prepare events, get all events from last cycle to current 
- * 3. recover order book, recover order order to last cycle by events
+ * 3. recover order book, recover order order to last cycle by events 
  * 4. mm mining, calculate the market making mining rewards
  */
 @Slf4j
@@ -163,8 +164,6 @@ public class TradeRecover {
         }
         Long startHeight = cycleStartBlock.getHeight();
         Long endHeight = latestAccountBlock.getHeight();
-        // Long startHeight = 3664298l;
-        // Long endHeight = 3798123l;
         List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 1000);
         log.info("succeed to get [{}] events from height {} to {} of the trade-contract chain", vmLogInfoList.size(),
                 startHeight, endHeight);
@@ -189,18 +188,13 @@ public class TradeRecover {
 
     public void filterEvents() {
         tradePairs.forEach(tp -> {
-            filterEvents(tp);
+            EventStream events = eventStreams.get(tp.getTradePairSymbol());
+            OrderBook orderBook = orderBooks.get(tp.getTradePairSymbol());
+            if (events != null && orderBook != null) {
+                events.filter(orderBook);
+            }
         });
         log.info("succeed to filter vmLogs which created-time is beyond of order book");
-    }
-
-    private void filterEvents(TradePair tp) {
-        EventStream events = eventStreams.get(tp.getTradePairSymbol());
-        OrderBook orderBook = orderBooks.get(tp.getTradePairSymbol());
-        if (events == null) {
-            return;
-        }
-        events.filter(orderBook);
     }
 
     private Long getContractChainHeight(long time) throws IOException {
@@ -291,17 +285,13 @@ public class TradeRecover {
                 continue;
             }
 
-            if (!eventStream.getEvents().isEmpty()) {
-                System.out.println(eventStream.getEvents().get(0).getTimestamp());
-                System.out.println(eventStream.getEvents().get(eventStream.getEvents().size() - 1).getTimestamp());
-            }
-            for (OrderEvent event : eventStream.getEvents()) {
+            List<OrderEvent> events = eventStream.getEvents();
+            Collections.reverse(events);
+            for (OrderEvent event : events) {
                 orderBook.revert(event);
             }
-
-            int a = orderBook.getAddCnt();
-            int b = orderBook.getRemoveCnt();
-            System.out.println(a + "        " + b);
+            log.info("the order book[{}] has been reverted, the addCnt {}, the removeCnt {}", tp.getTradePairSymbol(),
+                    orderBook.getAddCnt(), orderBook.getRemoveCnt());
 
             fillAddressForOrders(orderBook.getOrders().values());
             log.info("revert the order book [{}] to the start time of last cycle", tp.getTradePairSymbol());
@@ -322,6 +312,7 @@ public class TradeRecover {
         long end = orders.stream().max(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
         start = start - TimeUnit.MINUTES.toSeconds(5);
         end = end + TimeUnit.MINUTES.toSeconds(5);
+
         orderMap = fillAddressForOrders(orderMap, start, end);
         if (orderMap.isEmpty()) {
             return;

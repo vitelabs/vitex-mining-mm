@@ -5,6 +5,7 @@ import com.google.common.collect.Maps;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderLog;
@@ -66,7 +67,7 @@ public interface OrderBook {
         public void revert(OrderEvent event) {
             try {
                 OrderModel orderModel;
-                org.vite.dex.mm.constant.enums.EventType type = event.getType();
+                EventType type = event.getType();
                 OrderLog orderLog = event.getOrderLog();
                 switch (type) {
                 case NewOrder:
@@ -81,7 +82,6 @@ public interface OrderBook {
                         orderModel = OrderModel.fromOrderLog(orderLog);
                         this.addOrder(orderModel);
                     } else if (orderLog.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
-                        // update
                         orderModel = orders.get(orderLog.getOrderId());
                         if (orderModel != null) {
                             orderModel.revert(orderLog);
@@ -138,7 +138,7 @@ public interface OrderBook {
         private void addOrder(OrderModel orderModel) {
             if (orders.containsKey(orderModel.getOrderId())) {
                 throw new RuntimeException(String.format("order %s exist", orderModel.getOrderId()));
-            }                         
+            }
             addCnt++;
             orders.put(orderModel.getOrderId(), orderModel);
             if (orderModel.isSide()) { // sell
