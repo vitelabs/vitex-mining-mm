@@ -6,7 +6,7 @@ import static org.vite.dex.mm.constant.constants.MarketMiningConst.UnderscoreStr
 
 @Data
 public class TradePair {
-    //trade-pair symbol
+    // trade-pair symbol
     String symbol;
 
     String tradeTokenSymbol;
@@ -39,18 +39,18 @@ public class TradePair {
     public int getMarket() {
         int market = 0;
         switch (quoteTokenSymbol) {
-            case "VITE-000":
-                market = 1;
-                break;
-            case "ETH-000":
-                market = 2;
-                break;
-            case "BTC-000":
-                market = 3;
-                break;
-            case "USDT—000":
-                market = 4;
-                break;
+        case "VITE-000":
+            market = 1;
+            break;
+        case "ETH-000":
+            market = 2;
+            break;
+        case "BTC-000":
+            market = 3;
+            break;
+        case "USDT-000":
+            market = 4;
+            break;
         }
         return market;
     }

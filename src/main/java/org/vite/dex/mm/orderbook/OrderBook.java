@@ -6,7 +6,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.vite.dex.mm.constant.enums.EventType;
-import org.vite.dex.mm.constant.enums.OrderUpdateInfoStatus;
+import org.vite.dex.mm.constant.enums.OrderStatus;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderLog;
 import org.vite.dex.mm.entity.OrderModel;
@@ -77,11 +77,10 @@ public interface OrderBook {
                     }
                     break;
                 case UpdateOrder:
-                    if (orderLog.getStatus() == OrderUpdateInfoStatus.FullyExecuted.getValue()
-                            || orderLog.getStatus() == OrderUpdateInfoStatus.Cancelled.getValue()) {
+                    if (orderLog.finished()) {
                         orderModel = OrderModel.fromOrderLog(orderLog);
                         this.addOrder(orderModel);
-                    } else if (orderLog.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
+                    } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
                         orderModel = orders.get(orderLog.getOrderId());
                         if (orderModel != null) {
                             orderModel.revert(orderLog);
@@ -108,22 +107,24 @@ public interface OrderBook {
         @Override
         public void onward(OrderEvent event) {
             OrderModel orderModel;
-            org.vite.dex.mm.constant.enums.EventType type = event.getType();
+            EventType type = event.getType();
             OrderLog orderLog = event.getOrderLog();
             switch (type) {
             case NewOrder:
-                orderModel = OrderModel.fromOrderLog(orderLog);
-                this.addOrder(orderModel);
+                if (!orderLog.finished()) {
+                    orderModel = OrderModel.fromOrderLog(orderLog);
+                    this.addOrder(orderModel);
+                } 
                 break;
             case UpdateOrder:
-                if (orderLog.getStatus() == OrderUpdateInfoStatus.FullyExecuted.getValue()
-                        || orderLog.getStatus() == OrderUpdateInfoStatus.Cancelled.getValue()) {
+                if (orderLog.finished()) {
                     orderModel = orders.get(orderLog.getOrderId());
                     this.removeOrder(orderModel);
-                } else if (orderLog.getStatus() == OrderUpdateInfoStatus.PartialExecuted.getValue()) {
-                    // update current order
+                } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
                     orderModel = orders.get(orderLog.getOrderId());
-                    orderModel.onward(orderLog);
+                    if (orderModel != null) {
+                        orderModel.onward(orderLog);
+                    }
                 }
                 break;
             case TX:
@@ -136,10 +137,11 @@ public interface OrderBook {
         }
 
         private void addOrder(OrderModel orderModel) {
+            addCnt++;
             if (orders.containsKey(orderModel.getOrderId())) {
                 throw new RuntimeException(String.format("order %s exist", orderModel.getOrderId()));
             }
-            addCnt++;
+
             orders.put(orderModel.getOrderId(), orderModel);
             if (orderModel.isSide()) { // sell
                 this.sells.add(orderModel);
@@ -153,6 +155,7 @@ public interface OrderBook {
             if (!orders.containsKey(orderModel.getOrderId())) {
                 throw new RuntimeException(String.format("order %s not exist", orderModel.getOrderId()));
             }
+            
             orders.remove(orderModel.getOrderId());
             if (orderModel.isSide()) {
                 sells.remove(orderModel);
@@ -173,13 +176,19 @@ public interface OrderBook {
             this.orders.putAll(sellMap);
         }
 
+        public OrderBook initFromOrders(List<OrderModel> orders) {
+            Map<Boolean, List<OrderModel>> orderMap = orders.stream()
+                    .collect(Collectors.groupingBy(OrderModel::isSide));
+            init(orderMap.get(false), orderMap.get(true));
+            return this;
+        }
+
         @Override
         public BigDecimal getBuy1Price() {
             if (CollectionUtils.isEmpty(this.buys)) {
                 return null;
             }
             return this.buys.stream().max(Comparator.comparing(OrderModel::getPrice)).get().getPrice();
-            // return this.buys.get(0).getPrice();
         }
 
         @Override

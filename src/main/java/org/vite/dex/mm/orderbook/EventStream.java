@@ -18,6 +18,13 @@ import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
 public class EventStream {
     private List<OrderEvent> events = Lists.newArrayList();
 
+    public EventStream() {
+    }
+
+    public EventStream(List<OrderEvent> events) {
+        this.events.addAll(events);
+    }
+
     public List<OrderEvent> getEvents() {
         return events;
     }

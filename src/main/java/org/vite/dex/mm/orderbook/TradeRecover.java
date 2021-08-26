@@ -38,13 +38,14 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 /**
  * 1. prepare order book, get the current order book 
  * 2. prepare events, get all events from last cycle to current 
- * 3. recover order book, recover order order to last cycle by events 
+ * 3. recover order book, recover order order to last cycle by events
  * 4. mm mining, calculate the market making mining rewards
  */
 @Slf4j
 public class TradeRecover {
     private final Map<String, EventStream> eventStreams = Maps.newHashMap(); // <TradePairSymbol,EventStream>
     private final Map<String, OrderBook> orderBooks = Maps.newHashMap(); // <TradePairSymbol,OrderBook>
+    // @todo DEL
     private Map<String, AccountBlock> accountBlockMap = Maps.newHashMap(); // <Hash,AccountBlock>
 
     private List<TradePair> tradePairs = Lists.newArrayList();
@@ -170,17 +171,16 @@ public class TradeRecover {
 
         // 2. parse vmLogs and group these vmLogs by trade-pair
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
-            OrderEvent orderEvent = new OrderEvent(vmLogInfo);
-            orderEvent.parse();
+            OrderEvent orderEvent = OrderEvent.fromVmLog(vmLogInfo);
 
             if (!orderEvent.ignore()) {
                 AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
                 if (block != null) {
                     orderEvent.setTimestamp(block.getTimestampRaw());
                 }
-                EventStream eventStream = eventStreams.getOrDefault(orderEvent.getTradePairSymbol(), new EventStream());
+                EventStream eventStream = eventStreams.getOrDefault(orderEvent.tradePair(), new EventStream());
                 eventStream.addEvent(orderEvent);
-                eventStreams.put(orderEvent.getTradePairSymbol(), eventStream);
+                eventStreams.put(orderEvent.tradePair(), eventStream);
             }
         }
         log.info("parse vmLogs and divide them into different group successfully");
@@ -285,8 +285,7 @@ public class TradeRecover {
                 continue;
             }
 
-            List<OrderEvent> events = eventStream.getEvents();
-            Collections.reverse(events);
+            List<OrderEvent> events = reverseOrderEvents(eventStream.getEvents());
             for (OrderEvent event : events) {
                 orderBook.revert(event);
             }
@@ -298,20 +297,34 @@ public class TradeRecover {
         }
     }
 
+    private List<OrderEvent> reverseOrderEvents(List<OrderEvent> l) {
+        List<OrderEvent> events = new ArrayList<>();
+        events.addAll(l);
+        Collections.reverse(events);
+        return events;
+    }
 
+    /**
+     * divide and conquer: group orders by timeUnit and filled with address
+     * 
+     * @param orders
+     * @throws Exception
+     */
     private void fillAddressForOrdersGroupByTimeUnit(Collection<OrderModel> orders) throws Exception {
         orders = orders.stream().filter(t -> t.emptyAddress()).collect(Collectors.toList());
 
-        long timeUnit = TimeUnit.MINUTES.toSeconds(10);
+        Map<Long, List<OrderModel>> orderGroups = orders.stream()
+                .collect(Collectors.groupingBy(t -> t.getTimestamp() / TimeUnit.MINUTES.toSeconds(10)));
 
-        Map<Long, List<OrderModel>> orderGroup =
-                orders.stream().collect(Collectors.groupingBy(t -> t.getTimestamp() / timeUnit));
-
-        for (List<OrderModel> v : orderGroup.values()) {
+        for (List<OrderModel> v : orderGroups.values()) {
             fillAddressForOrders(v);
         }
-    }
 
+        orders.stream().forEach(order -> {
+            assert !order.emptyAddress();
+        });
+
+    }
 
     /**
      * Add missing address to the restored orderBook
@@ -320,8 +333,8 @@ public class TradeRecover {
      * @throws IOException
      */
     private void fillAddressForOrders(Collection<OrderModel> orders) throws Exception {
-        Map<String, OrderModel> orderMap =
-                orders.stream().collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (k0, k1) -> k0));
+        Map<String, OrderModel> orderMap = orders.stream()
+                .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (k0, k1) -> k0));
 
         long start = orders.stream().min(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
         long end = orders.stream().max(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
@@ -353,7 +366,6 @@ public class TradeRecover {
             end = end1;
 
             if (++cnt >= 3) {
-                // return;
                 throw new RuntimeException("the address of Order is not found!");
             }
         }
@@ -414,5 +426,17 @@ public class TradeRecover {
         prepareEvents(pointTime);
         filterEvents();
         revertOrderBooks();
+    }
+
+    public void initFrom(Map<String, List<OrderModel>> orders, Map<String, List<OrderEvent>> events) {
+        orders.forEach((k, v) -> {
+            orderBooks.put(k, new OrderBook.Impl().initFromOrders(v));
+        });
+
+        events.forEach((k, v) -> {
+            EventStream es = new EventStream(
+                    v.stream().sorted(Comparator.comparing(OrderEvent::getTimestamp)).collect(Collectors.toList()));
+            eventStreams.put(k, es);
+        });
     }
 }

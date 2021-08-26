@@ -1,7 +1,9 @@
 package org.vite.data.dex;
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import com.google.common.io.Files;
+import lombok.Data;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.vitej.core.protocol.methods.response.VmLogInfo;
 import javax.annotation.Resource;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.text.ParsePosition;
@@ -37,7 +40,8 @@ class DexApplicationTests {
     private ViteCli viteCli;
 
     @Test
-    void contextLoads() {}
+    void contextLoads() {
+    }
 
     @Test
     public void testOrderBooks() throws Exception {
@@ -67,52 +71,13 @@ class DexApplicationTests {
     @Test
     public void testRevertOrderBooks() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
-        long startTime = System.currentTimeMillis() / 1000 - 240 * 60;
-        tradeRecover.prepareData();
-        tradeRecover.prepareOrderBooks();
-        tradeRecover.prepareEvents(startTime);
-        tradeRecover.filterEvents();
-        tradeRecover.revertOrderBooks();
-    }
-
-    // test reward result
-    @Test
-    public void testRewardResult() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
                 .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:30:00", new ParsePosition(0))
-                .getTime() / 1000;
-
         tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
         tradeRecover.prepareEvents(startTime);
         tradeRecover.filterEvents();
         tradeRecover.revertOrderBooks();
-
-        double totalReleasedViteAmount = 1000000.0;
-        Map<String, Map<Integer, Double>> finalRes = rewardKeeper.calcAddressMarketReward(totalReleasedViteAmount,
-                startTime, endTime);
-        System.out.println(finalRes);
-    }
-
-
-    @Test
-    public void testRewardResult2() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:30:00", new ParsePosition(0))
-                .getTime() / 1000;
-
-        tradeRecover.prepareData();
-        tradeRecover.prepareOrderBooks();
-        tradeRecover.prepareEvents(startTime);
-        tradeRecover.filterEvents();
-        tradeRecover.revertOrderBooks();
-
-
 
         Map<String, Collection<OrderModel>> orderMap = new HashMap<>();
         Map<String, Collection<OrderEvent>> eventMap = new HashMap<>();
@@ -129,12 +94,57 @@ class DexApplicationTests {
         result.put("orderbook", orderMap);
         result.put("events", eventMap);
 
-
         File file = new File("dataset.raw");
         Files.write(JSON.toJSONBytes(result), file);
     }
 
+    @Data
+    public static class SData {
+        private Map<String, List<OrderModel>> orderbook;
+        private Map<String, List<OrderEvent>> events;
+    }
 
+    @Test
+    public void testRewardResultFromFile() throws Exception {
+        TradeRecover tradeRecover = new TradeRecover(viteCli);
+        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:30:00", new ParsePosition(0))
+                .getTime() / 1000;
+
+        SData data = JSONObject.parseObject(new FileInputStream(new File("dataset.raw")), SData.class);
+        Map<String, List<OrderModel>> orders = data.getOrderbook();
+        Map<String, List<OrderEvent>> events = data.getEvents();
+
+        tradeRecover.initFrom(orders, events);
+
+        RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
+        Map<String, Map<Integer, Double>> finalRes = rewardKeeper.calcAddressMarketReward(1000000.0, startTime,
+                endTime);
+        System.out.println(finalRes);
+    }
+
+    // test reward result
+    @Test
+    public void testRewardResult() throws Exception {
+        TradeRecover tradeRecover = new TradeRecover(viteCli);
+        RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
+        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
+                .getTime() / 1000;
+
+        tradeRecover.prepareData();
+        tradeRecover.prepareOrderBooks();
+        tradeRecover.prepareEvents(startTime);
+        tradeRecover.filterEvents();
+        tradeRecover.revertOrderBooks();
+
+        double totalReleasedViteAmount = 1000000.0;
+        Map<String, Map<Integer, Double>> finalRes = rewardKeeper.calcAddressMarketReward(totalReleasedViteAmount,
+                startTime, endTime);
+        System.out.println(finalRes);
+    }
 
     @Test
     public void test() throws IOException {
@@ -142,8 +152,7 @@ class DexApplicationTests {
 
         List<OrderEvent> events = new ArrayList<>();
         vmlogs.forEach(vlog -> {
-            OrderEvent orderEvent = new OrderEvent(vlog);
-            orderEvent.parse();
+            OrderEvent orderEvent = OrderEvent.fromVmLog(vlog);
             events.add(orderEvent);
         });
 
@@ -198,4 +207,18 @@ class DexApplicationTests {
         List<OrderModel> orders = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, true, 0, 100);
         System.out.println(orders);
     }
+
+    @Test
+    public void testGetOrderSide1() throws IOException {
+        Long startHeight = 3798120l;
+        Long endHeight = 3798120l;
+        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 1000);
+        List<OrderEvent> l = new ArrayList<>();
+        vmLogInfoList.stream().forEach(v -> {
+            OrderEvent event = OrderEvent.fromVmLog(v);
+            l.add(event);
+        });
+        System.out.println(l);
+    }
+
 }
