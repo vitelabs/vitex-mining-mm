@@ -44,36 +44,65 @@ class DexApplicationTests {
     }
 
     @Test
-    public void testOrderBooks() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        tradeRecover.prepareData();
-        tradeRecover.prepareOrderBooks();
-    }
-
-    @Test
-    public void testOrderBooks_get() throws Exception {
+    public void testGetOrderBooks() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
         List<OrderModel> first = tradeRecover.getSingleSideOrders("tti_687d8a93915393b219212c73",
                 "tti_80f3751485e4e83456059473", true, 1000);
         List<OrderModel> two = tradeRecover.getSingleSideOrders("tti_687d8a93915393b219212c73",
                 "tti_80f3751485e4e83456059473", false, 1000);
+        first.forEach(t -> {
+            System.out.println(t.getOrderId());
+        });
+        two.forEach(t -> {
+            System.out.println(t.getOrderId());
+        });
         System.out.println(first.size());
         System.out.println(two.size());
     }
 
     @Test
-    public void testEvents() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        long startTime = System.currentTimeMillis() / 1000 - 60 * 5;
-        tradeRecover.prepareEvents(startTime);
-    }
-
-    @Test
-    public void testRevertOrderBooks() throws Exception {
+    public void testGetCurrentOrderBookAndEvent() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
                 .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
-        tradeRecover.prepareData();
+        tradeRecover.prepareOrderBooks();
+        tradeRecover.prepareEvents(startTime);
+        tradeRecover.filterEvents();
+
+        Map<String, Collection<OrderModel>> orderMap = new HashMap<>();
+        Map<String, Collection<OrderEvent>> eventMap = new HashMap<>();
+        tradeRecover.getOrderBooks().forEach((k, v) -> {
+            orderMap.put(k, v.getOrders().values());
+        });
+
+        tradeRecover.getEventStreams().forEach((k, v) -> {
+            eventMap.put(k, v.getEvents());
+        });
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderbook", orderMap);
+        result.put("events", eventMap);
+
+        File file = new File("dataset_origin.raw");
+        Files.write(JSON.toJSONBytes(result), file);
+    }
+
+    @Test
+    public void testRevertOrderBook() throws Exception {
+        TradeRecover tradeRecover = new TradeRecover(viteCli);
+        SData data = JSONObject.parseObject(new FileInputStream(new File("dataset_origin.raw")), SData.class);
+        Map<String, List<OrderModel>> orders = data.getOrderbook();
+        Map<String, List<OrderEvent>> events = data.getEvents();
+
+        tradeRecover.initFrom(orders, events);
+        tradeRecover.revertOrderBooks();
+    }
+
+    @Test
+    public void testRevertOrderBookToFile() throws Exception {
+        TradeRecover tradeRecover = new TradeRecover(viteCli);
+        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
         tradeRecover.prepareOrderBooks();
         tradeRecover.prepareEvents(startTime);
         tradeRecover.filterEvents();
@@ -94,7 +123,7 @@ class DexApplicationTests {
         result.put("orderbook", orderMap);
         result.put("events", eventMap);
 
-        File file = new File("dataset.raw");
+        File file = new File("dataset_reverted.raw");
         Files.write(JSON.toJSONBytes(result), file);
     }
 
@@ -109,10 +138,10 @@ class DexApplicationTests {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
                 .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:30:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
-        SData data = JSONObject.parseObject(new FileInputStream(new File("dataset.raw")), SData.class);
+        SData data = JSONObject.parseObject(new FileInputStream(new File("dataset_reverted.raw")), SData.class);
         Map<String, List<OrderModel>> orders = data.getOrderbook();
         Map<String, List<OrderEvent>> events = data.getEvents();
 
@@ -134,7 +163,6 @@ class DexApplicationTests {
         long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
-        tradeRecover.prepareData();
         tradeRecover.prepareOrderBooks();
         tradeRecover.prepareEvents(startTime);
         tradeRecover.filterEvents();
@@ -143,20 +171,7 @@ class DexApplicationTests {
         double totalReleasedViteAmount = 1000000.0;
         Map<String, Map<Integer, Double>> finalRes = rewardKeeper.calcAddressMarketReward(totalReleasedViteAmount,
                 startTime, endTime);
-        System.out.println(finalRes);
-    }
-
-    @Test
-    public void test() throws IOException {
-        List<VmLogInfo> vmlogs = viteCli.getEventsByHeightRange(3798100L, 3798123L, 1000);
-
-        List<OrderEvent> events = new ArrayList<>();
-        vmlogs.forEach(vlog -> {
-            OrderEvent orderEvent = OrderEvent.fromVmLog(vlog);
-            events.add(orderEvent);
-        });
-
-        System.out.println(JSON.toJSONString(events));
+        System.out.println("aaaaa");
     }
 
     @Test
@@ -171,6 +186,13 @@ class DexApplicationTests {
         String sellOrder = "000003010000000c4ddf84758000006112302c000032";
         byte[] orderBytes = Hex.decodeHex(sellOrder);
         System.out.println(ViteDataDecodeUtils.getOrderCTimeByParseOrderId(orderBytes));
+    }
+
+    @Test
+    public void testDecomposeOrderPriceTime() throws IOException, DecoderException {
+        String orderId = "0000030100000000b31c3e0b1d00005d95a204000004";
+        byte[] orderBytes = Hex.decodeHex(orderId);
+        System.out.println(ViteDataDecodeUtils.getPriceByParseOrderId(orderBytes));
     }
 
     @Test
@@ -220,5 +242,4 @@ class DexApplicationTests {
         });
         System.out.println(l);
     }
-
 }

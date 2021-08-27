@@ -45,6 +45,11 @@ public class OrderLog {
         result.setChangeAmount(sub(order.getAmount(), order.getExecutedAmount()));
         result.setAddress(ViteDataDecodeUtils.getShowAddress(dexOrder.getOrder().getAddress().toByteArray()));
         // the price must be converted
+        // if(result.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")){
+        //     System.out.println("bigInteger: " + DexPrice.bytesToBigInteger(dexOrder.getOrder().getPrice().toByteArray()));
+        //     System.out.println("bigDecimal: " + DexPrice.bytesToBigDecimal(dexOrder.getOrder().getPrice().toByteArray()));
+        //     System.out.println("parseOrderId : " + getPriceByParseOrderId(orderIdBytes));
+        // }
         result.setPrice(DexPrice.bytesToBigDecimal(dexOrder.getOrder().getPrice().toByteArray())
                 .multiply(new BigDecimal(UsdDecimal)).setScale(12, RoundingMode.DOWN));
         result.setOrderCreateTime(getOrderCTimeByParseOrderId(orderIdBytes));
@@ -72,7 +77,7 @@ public class OrderLog {
         long orderCreateTime = getOrderCTimeByParseOrderId(orderIdBytes);
         result.setOrderCreateTime(orderCreateTime);
         result.rawLog = vmlog;
-        
+
         return result;
     }
 

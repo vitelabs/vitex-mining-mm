@@ -32,7 +32,7 @@ public class TradePair {
     // the multiple factor of reward for the trade pair
     private double mmRewardMultiple;
 
-    public String getTradePairSymbol() {
+    public String getTradePair() {
         return getTradeTokenId() + UnderscoreStr + getQuoteTokenId();
     }
 

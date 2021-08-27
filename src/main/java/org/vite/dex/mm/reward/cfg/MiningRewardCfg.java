@@ -14,7 +14,7 @@ public class MiningRewardCfg {
     int marketId;
 
     //the effective distance for a trade-pair
-    double effectiveDistance = 0.2;
+    double effectiveDist = 0.2;
 
     //the multiplier factor for a trade-pair
     double miningRewardMultiple = 5.0;

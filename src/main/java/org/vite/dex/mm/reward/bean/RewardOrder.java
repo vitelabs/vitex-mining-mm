@@ -7,6 +7,7 @@ import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 @Data
 @NoArgsConstructor
@@ -14,8 +15,8 @@ public class RewardOrder {
     private OrderModel orderModel;
     private long calculateStartTime; // the start time of each calculate interval
     private int market;
-    private BigDecimal totalFactor = BigDecimal.ZERO; //mining factor,not really VX
-    private BigDecimal totalRewardVX = BigDecimal.ZERO; //mining reward VX
+    private BigDecimal totalFactor = BigDecimal.ZERO; // mining factor,not really VX
+    private BigDecimal totalRewardVX = BigDecimal.ZERO; // mining reward VX
 
     public double getTotalFactorDouble() {
         return totalFactor.doubleValue();
@@ -51,22 +52,28 @@ public class RewardOrder {
         BigDecimal dist = null;
         BigDecimal factor = BigDecimal.ZERO;
         if (orderModel.isSide()) {
-            dist = (orderModel.getPrice().subtract(topPrice)).divide(topPrice, 4, BigDecimal.ROUND_HALF_UP);
+            dist = (orderModel.getPrice().subtract(topPrice).setScale(12, RoundingMode.DOWN)).divide(topPrice, 12,
+                    RoundingMode.DOWN);
         } else {
-            dist = (topPrice.subtract(orderModel.getPrice())).divide(topPrice, 4, BigDecimal.ROUND_HALF_UP);
+            dist = (topPrice.subtract(orderModel.getPrice().setScale(12, RoundingMode.DOWN))).divide(topPrice, 12,
+                    RoundingMode.DOWN);
+        }
+        if (dist.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
         }
 
-        double effectiveDistance = cfg.getEffectiveDistance();
-        if (dist.compareTo(BigDecimal.valueOf(effectiveDistance)) < 0) {
-            double coefficient = Math.pow(0.6, (1 + 9 * dist.doubleValue()) / effectiveDistance);
-            factor = orderModel.getAmount().multiply(BigDecimal.valueOf(endTime - startTime))
-                    .multiply(BigDecimal.valueOf(coefficient)
-                            .multiply(BigDecimal.valueOf(cfg.getMiningRewardMultiple())));
-
+        double effectiveDist = cfg.getEffectiveDist();
+        if (dist.compareTo(BigDecimal.valueOf(effectiveDist)) < 0) {
+            // coefficient = 0.6^((1+9*d)/a)
+            double coefficient = Math.pow(0.6, (1 + 9 * dist.doubleValue()) / effectiveDist);
+            // factor = amount * timeDuration * coefficient * miningRewardMultiple
+            factor = orderModel.getAmount().multiply(BigDecimal.valueOf(endTime - startTime)).multiply(
+                    BigDecimal.valueOf(coefficient).multiply(BigDecimal.valueOf(cfg.getMiningRewardMultiple())));
         }
 
-        this.calculateStartTime = event.getTimestamp(); // update timestamp
         totalFactor = totalFactor.add(factor);
+        // update timestamp
+        this.calculateStartTime = event.getTimestamp();
     }
 
     void applyReward(double sellSharedVxPerAmount, double buyShardVxPerAmount) {
@@ -75,5 +82,8 @@ public class RewardOrder {
         } else {
             this.totalRewardVX = new BigDecimal(getAmount() * buyShardVxPerAmount);
         }
+        /* if (this.totalRewardVX.compareTo(BigDecimal.ZERO) < 0) {
+            System.out.println("the XXXXXXXX is :"+ getAmount());
+        } */
     }
 }

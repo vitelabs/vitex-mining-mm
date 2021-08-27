@@ -13,6 +13,7 @@ import org.vite.dex.mm.entity.OrderModel;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -71,19 +72,47 @@ public interface OrderBook {
                 OrderLog orderLog = event.getOrderLog();
                 switch (type) {
                 case NewOrder:
+                    if (orderLog.finished()) {
+                        break;
+                    }
                     orderModel = orders.get(orderLog.getOrderId());
+                    // if (orderLog.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")) {
+                    //     System.out.println("new-order价格: " + orderModel.getPrice().toString());
+                    //     System.out.println("new-日志价格: " + event.getOrderLog().getPrice().toString());
+                    //     System.out.println("---------------");
+                    // }
                     if (orderModel != null) {
                         this.removeOrder(orderModel);
+                    } else {
+                        System.out.println("[new order] not find order: " + orderLog.getOrderId() + ": "
+                                + new Date(event.getTimestamp() * 1000) + ": " + orderLog.getStatus() + ":"
+                                + event.getBlockHash());
+                        // throw new RuntimeException("[new order] not find order: " +
+                        // orderLog.getOrderId());
                     }
                     break;
                 case UpdateOrder:
                     if (orderLog.finished()) {
                         orderModel = OrderModel.fromOrderLog(orderLog);
                         this.addOrder(orderModel);
+                        // if (orderLog.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")) {
+                        //     System.out.println("updatefinish:order价格: " + orderModel.getPrice().toString());
+                        //     System.out.println("updatefinish:日志价格: " + event.getOrderLog().getPrice().toString());
+                        //     System.out.println("---------------");
+                        // }
                     } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
                         orderModel = orders.get(orderLog.getOrderId());
                         if (orderModel != null) {
+                            // if (orderLog.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")) {
+                            //     System.out.println("updatePart:order价格: " + orderModel.getPrice().toString());
+                            //     System.out.println("updatePart:日志价格: " + event.getOrderLog().getPrice().toString());
+                            //     System.out.println("---------------");
+                            // }
                             orderModel.revert(orderLog);
+                        } else {
+                            System.out.println("[update] not find order: " + orderLog.getOrderId());
+                            // throw new RuntimeException("[new order] not find order: " +
+                            // orderLog.getOrderId());
                         }
                     }
                 case TX:
@@ -114,12 +143,14 @@ public interface OrderBook {
                 if (!orderLog.finished()) {
                     orderModel = OrderModel.fromOrderLog(orderLog);
                     this.addOrder(orderModel);
-                } 
+                }
                 break;
             case UpdateOrder:
                 if (orderLog.finished()) {
                     orderModel = orders.get(orderLog.getOrderId());
-                    this.removeOrder(orderModel);
+                    if (orderModel != null) {
+                        this.removeOrder(orderModel);
+                    }
                 } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
                     orderModel = orders.get(orderLog.getOrderId());
                     if (orderModel != null) {
@@ -155,7 +186,7 @@ public interface OrderBook {
             if (!orders.containsKey(orderModel.getOrderId())) {
                 throw new RuntimeException(String.format("order %s not exist", orderModel.getOrderId()));
             }
-            
+
             orders.remove(orderModel.getOrderId());
             if (orderModel.isSide()) {
                 sells.remove(orderModel);
@@ -172,6 +203,7 @@ public interface OrderBook {
                     .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (o1, o2) -> o1));
             Map<String, OrderModel> sellMap = sells.stream()
                     .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (o1, o2) -> o1));
+
             this.orders.putAll(buyMap);
             this.orders.putAll(sellMap);
         }

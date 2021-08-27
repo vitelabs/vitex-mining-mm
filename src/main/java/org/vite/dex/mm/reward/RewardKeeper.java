@@ -2,11 +2,11 @@ package org.vite.dex.mm.reward;
 
 import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.vite.dex.mm.constant.constants.MarketMiningConst;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.constant.enums.OrderStatus;
 import org.vite.dex.mm.entity.OrderEvent;
-import org.vite.dex.mm.entity.OrderLog;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.orderbook.EventStream;
@@ -22,9 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
-import static org.vite.dex.mm.constant.enums.EventType.UpdateOrder;
-
 @Slf4j
 public class RewardKeeper {
 
@@ -35,7 +32,7 @@ public class RewardKeeper {
     }
 
     /**
-     * calculate the market-mining factor of orders which located in the specified orderBook 
+     * calculate the market-mining factor of orders which located in the specified orderBook
      * 1. compute the reward of each order 
      * 2. update orderBook so as to make it go forward
      *
@@ -62,11 +59,10 @@ public class RewardKeeper {
                     log.debug("the event`s emit time is greater than cycle endTime, stop mining in this cycle");
                     return orderRewards;
                 }
-                OrderLog orderLog = e.getOrderLog();
                 EventType type = e.getType();
-                OrderStatus status = orderLog.getStatus();
-                boolean newOrder = (type == NewOrder);
-                boolean canceledOrder = (type == UpdateOrder && status == OrderStatus.Cancelled);
+                OrderStatus status = e.getOrderLog().getStatus();
+                boolean newOrder = (type == EventType.NewOrder);
+                boolean canceledOrder = (type == EventType.UpdateOrder && status == OrderStatus.Cancelled);
                 if (newOrder || canceledOrder) {
                     for (OrderModel order : buys) {
                         RewardOrder rewardOrder = getOrInitRewardOrder(orderRewards, order, cfg, startTime);
@@ -77,12 +73,18 @@ public class RewardKeeper {
                         rewardOrder.deal(cfg, e, buy1Price);
                     }
                 }
-                // 2. update orderBook
+
+                // 2. make orderBook go forward
                 originOrderBook.onward(e);
             } catch (Exception ex) {
                 log.error("mmMining occurs error,the err info: ", ex);
             }
         }
+        // originOrderBook.getOrders().values().stream().forEach(o -> {
+        // if(o.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")){
+        // System.out.println("aaaaa");
+        // }
+        // });
         log.info("the order book [{}] is onwarded to the end time of last cycle");
         return orderRewards;
     }
@@ -92,6 +94,10 @@ public class RewardKeeper {
         RewardOrder rewardOrder = rewardOrderMap.get(orderModel.getOrderId());
         if (rewardOrder == null) {
             rewardOrder = new RewardOrder();
+            if (StringUtils.isEmpty(orderModel.getTradePair())) {
+                orderModel.setTradePair(cfg.getTradePairSymbol());
+            }
+
             rewardOrder.setOrderModel(orderModel);
             rewardOrder.setCalculateStartTime(startTime);
             rewardOrder.setMarket(cfg.getMarketId());
@@ -103,7 +109,8 @@ public class RewardKeeper {
     private MiningRewardCfg getMiningConfigFromTradePair(TradePair tp) {
         MiningRewardCfg miningRewardCfg = new MiningRewardCfg();
         miningRewardCfg.setMarketId(tp.getMarket());
-        miningRewardCfg.setEffectiveDistance(tp.getMmEffectiveInterval());
+        miningRewardCfg.setTradePairSymbol(tp.getTradePair());
+        miningRewardCfg.setEffectiveDist(tp.getMmEffectiveInterval());
         miningRewardCfg.setMiningRewardMultiple(tp.getMmRewardMultiple());
         miningRewardCfg.setMaxBuyFactorThanSell(tp.getBuyAmountThanSellRatio());
         miningRewardCfg.setMaxSellFactorThanBuy(tp.getSellAmountThanBuyRatio());
@@ -122,20 +129,19 @@ public class RewardKeeper {
             long endTime) {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap(); // <Address,RewardOrder>
         Map<String, MiningRewardCfg> tradePairCfgMap = Maps.newHashMap(); // <Address,MiningRewardCfg>
-        Map<Integer, RewardMarket> markets = new HashMap<>();
-        Map<String, Map<Integer, Double>> finalRes = Maps.newHashMap();
+        Map<Integer, RewardMarket> markets = new HashMap<>(); // <MarketId, RewardMarket>
+        Map<String, Map<Integer, Double>> finalRes = Maps.newHashMap(); // <Address, Map<MarketId,RewardMarket>>
 
-        // 1. mmMining from origin order book
         log.debug("start onwarding for each order book and calc the market mining factor of orders");
         TradeRecover.getMarketMiningOpenedTp().stream().forEach(tp -> {
-            String tradePairSymbol = tp.getTradePairSymbol();
+            String tradePairSymbol = tp.getTradePair();
             MiningRewardCfg miningRewardCfg = getMiningConfigFromTradePair(tp);
-            tradePairCfgMap.put(tp.getTradePairSymbol(), miningRewardCfg);
+            tradePairCfgMap.put(tradePairSymbol, miningRewardCfg);
 
             OrderBook orderBook = tradeRecover.getOrderBooks().get(tradePairSymbol);
             EventStream eventStream = tradeRecover.getEventStreams().get(tradePairSymbol);
             if (orderBook != null && eventStream != null) {
-                // mining in trade pair market
+                // 1. get mining factor on the way of onwarding order book
                 Map<String, RewardOrder> rewardOrders = mmMining(eventStream, orderBook, miningRewardCfg, startTime,
                         endTime);
                 totalRewardOrders.putAll(rewardOrders);
@@ -143,29 +149,28 @@ public class RewardKeeper {
         });
 
         // 2. calc reward VX for each order
-        log.debug("calculating reward VX of each order");
+        log.debug("calculating reward VX for each Order");
         Map<Integer, List<RewardOrder>> marketOrderRewards = totalRewardOrders.values().stream()
                 .collect(Collectors.groupingBy(RewardOrder::getMarket));
 
         marketOrderRewards.forEach((market, rewardOrderList) -> markets.put(market,
                 new RewardMarket(market, rewardOrderList, tradePairCfgMap)));
 
-        markets.values().forEach(market -> {
-            double marketSharedRatio = MarketMiningConst.getAllSharedRatio().get(market);
-            market.apply(dailyReleasedVX, marketSharedRatio);
+        markets.values().forEach(rewardMarket -> {
+            double marketSharedRatio = MarketMiningConst.getMarketSharedRatio().get(rewardMarket.getMarket());
+            rewardMarket.apply(dailyReleasedVX, marketSharedRatio);
         });
 
-        // 3. summarize and calculate the total number of VX mined by Address in each
-        // major market
+        // 3. calculate total VX mined by each Address in each market
         log.debug("calculating the total number of VX mined by Address in each major market");
         Map<String, Map<Integer, List<RewardOrder>>> address2MarketRewardsMap = totalRewardOrders.values().stream()
                 .collect(Collectors.groupingBy(RewardOrder::getOrderAddress,
                         Collectors.groupingBy(RewardOrder::getMarket)));
 
-        address2MarketRewardsMap.forEach((address, marketRewardOrderMap) -> {
+        address2MarketRewardsMap.forEach((address, market2RewardOrders) -> {
             Map<Integer, Double> marketVXMap = Maps.newHashMap();
-            marketRewardOrderMap.forEach((market, rList) -> {
-                double sum = rList.stream().mapToDouble(RewardOrder::getTotalVXDouble).sum();
+            market2RewardOrders.forEach((market, rewardOrders) -> {
+                double sum = rewardOrders.stream().mapToDouble(RewardOrder::getTotalVXDouble).sum();
                 marketVXMap.put(market, sum);
             });
             finalRes.put(address, marketVXMap);

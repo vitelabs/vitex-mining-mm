@@ -30,7 +30,7 @@ public class MarketMiningConst {
     public static final double viteSharedRatio = 0.015;
     public static final double usdtSharedRatio = 0.02;
 
-    public static final Map<Integer, Double> getAllSharedRatio() {
+    public static final Map<Integer, Double> getMarketSharedRatio() {
         HashMap<Integer, Double> marketSharedVXRatio = new HashMap<>();
         marketSharedVXRatio.put(QuoteMarketType.BTCMarket.getValue(), btcSharedRatio);
         marketSharedVXRatio.put(QuoteMarketType.ETHMarket.getValue(), ethSharedRatio);
