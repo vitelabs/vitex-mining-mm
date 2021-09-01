@@ -23,8 +23,6 @@ public class MarketMiningConst {
 
     public static final int OrderIdBytesLength = 22;
 
-    public static final String UsdDecimal = "0.000000000001";
-
     public static final double btcSharedRatio = 0.05;
     public static final double ethSharedRatio = 0.015;
     public static final double viteSharedRatio = 0.015;

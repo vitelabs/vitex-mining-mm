@@ -7,6 +7,8 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
+import org.vite.dex.mm.entity.AccBlockVmLogs;
+import org.vite.dex.mm.entity.CurrentOrder;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
@@ -36,10 +38,10 @@ import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 /**
- * 1. prepare order book, get the current order book 
- * 2. prepare events, get all events from last cycle to current 
- * 3. recover order book, recover order order to last cycle by events
- * 4. mm mining, calculate the market making mining rewards
+ * 1. prepare order book, get the current order book 2. prepare events, get all
+ * events from last cycle to current 3. recover order book, recover order order
+ * to last cycle by events 4. mm mining, calculate the market making mining
+ * rewards
  */
 @Slf4j
 public class TradeRecover {
@@ -47,6 +49,11 @@ public class TradeRecover {
     private final Map<String, OrderBook> orderBooks = Maps.newHashMap(); // <TradePairSymbol,OrderBook>
     private Map<String, AccountBlock> accountBlockMap = Maps.newHashMap(); // <Hash,AccountBlock>
     private static List<TradePair> tradePairs = getMarketMiningOpenedTp();
+    private Map<String, TokenInfo> tokens = Maps.newHashMap();
+
+    public Map<String, TokenInfo> getTokens() {
+        return tokens;
+    }
 
     private final ViteCli viteCli;
 
@@ -80,6 +87,19 @@ public class TradeRecover {
     }
 
     /**
+     * prerequisite data is necessary
+     */
+    public void prepareData() throws Exception {
+        try {
+            tokens = getAllTokenInfo();
+            log.info("prerequisite data has been prepared");
+        } catch (Exception e) {
+            log.error("failed to prepare prerequisite data, err: ", e);
+            throw e;
+        }
+    }
+
+    /**
      * prepare order books, get the order book of all market on current time
      *
      * @throws IOException
@@ -93,14 +113,9 @@ public class TradeRecover {
                 List<OrderModel> sellOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), true,
                         100);
                 // get buy orders of the trade-pair
-                List<OrderModel> buysOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false,
+                List<OrderModel> buyOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false,
                         100);
-                orderBook.init(buysOrders, sellOrders);
-                // buysOrders.stream().forEach(o -> {
-                //     if(o.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")){
-                //         System.out.println("aaaaa");
-                //     }
-                // });
+                orderBook.init(buyOrders, sellOrders);
                 this.orderBooks.put(tradePairSymbol, orderBook);
                 log.info("the order book of tradePair [{}] is prepared", tp.getTradePair());
             }
@@ -124,15 +139,20 @@ public class TradeRecover {
         List<OrderModel> singleSideOrders = Lists.newLinkedList();
         int round = 0;
         while (true) {
-            List<OrderModel> orders = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, pageCnt * round,
+            List<CurrentOrder> orders = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, pageCnt * round,
                     pageCnt * (round + 1));
-            if (orders == null || orders.isEmpty()) {
+            if (CollectionUtils.isEmpty(orders)) {
                 break;
             }
-            singleSideOrders.addAll(orders);
+
+            orders.forEach(currOrder -> {
+                singleSideOrders.add(OrderModel.fromCurrentOrder(currOrder, tradeTokenId, quoteTokenId));
+            });
+
             if (orders.size() < pageCnt) {
                 break;
             }
+
             round++;
         }
         return singleSideOrders;
@@ -153,36 +173,37 @@ public class TradeRecover {
         }
         Long startHeight = cycleStartBlock.getHeight();
         Long endHeight = latestAccountBlock.getHeight();
-        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 1000);
-        log.info("succeed to get [{}] events from height {} to {} of the trade-contract chain", vmLogInfoList.size(),
-                startHeight, endHeight);
+        List<AccBlockVmLogs> vmLogInfoList = viteCli.getAccBlocksByHeightRange(startHeight, endHeight, 1000);
+        log.info("succeed to get events from height {} to {} of the trade-contract chain", startHeight, endHeight);
 
         // 2. parse vmLogs and group these vmLogs by trade-pair
-        for (VmLogInfo vmLogInfo : vmLogInfoList) {
-            OrderEvent orderEvent = OrderEvent.fromVmLog(vmLogInfo);
+        for (AccBlockVmLogs accBlock : vmLogInfoList) {
+            List<OrderEvent> orderEvents = OrderEvent.fromAccBlockVmLogs(accBlock, getTokens());
 
-            if (!orderEvent.ignore()) {
-                AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
-                if (block != null) {
-                    orderEvent.setTimestamp(block.getTimestampRaw());
+            orderEvents.forEach(orderEvent -> {
+                if (!orderEvent.ignore()) {
+                    AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
+                    if (block != null) {
+                        orderEvent.setTimestamp(block.getTimestampRaw());
+                    }
+                    EventStream eventStream = eventStreams.getOrDefault(orderEvent.tradePair(), new EventStream());
+                    eventStream.addEvent(orderEvent);
+                    eventStreams.put(orderEvent.tradePair(), eventStream);
                 }
-                EventStream eventStream = eventStreams.getOrDefault(orderEvent.tradePair(), new EventStream());
-                eventStream.addEvent(orderEvent);
-                eventStreams.put(orderEvent.tradePair(), eventStream);
-            }
+            });
         }
         log.info("parse vmLogs and divide them into different group successfully");
     }
 
-    //TODOdifficult to solve. Assuming that the filtered event is right 
+    // TODOdifficult to solve. Assuming that the filtered event is right
     public void filterEvents() {
         // tradePairs.forEach(tp -> {
-        //     EventStream events = eventStreams.get(tp.getTradePair());
-        //     OrderBook orderBook = orderBooks.get(tp.getTradePair());
+        // EventStream events = eventStreams.get(tp.getTradePair());
+        // OrderBook orderBook = orderBooks.get(tp.getTradePair());
 
-        //     if (events != null && orderBook != null) {
-        //         events.filter(orderBook);
-        //     }
+        // if (events != null && orderBook != null) {
+        // events.filter(orderBook);
+        // }
         // });
     }
 
@@ -276,7 +297,6 @@ public class TradeRecover {
 
             List<OrderEvent> events = reverseOrderEvents(eventStream.getEvents());
             for (OrderEvent event : events) {
-                // System.out.println("price after parse " + event.getOrderLog().getPrice().toString());
                 orderBook.revert(event);
             }
             log.info("the order book[{}] has been reverted, the addCnt {}, the removeCnt {}", tp.getTradePair(),

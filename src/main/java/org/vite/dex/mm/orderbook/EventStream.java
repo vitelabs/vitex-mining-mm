@@ -28,6 +28,7 @@ public class EventStream {
     }
 
     public List<OrderEvent> getEvents() {
+        events.sort(Comparator.comparing(OrderEvent::getTimestamp));
         return events;
     }
 
@@ -37,6 +38,7 @@ public class EventStream {
 
     /**
      * find the orderEvents whose emitTime is on the left hand of order book
+     * 
      * @param orderBook
      */
     public void filter(OrderBook orderBook) {

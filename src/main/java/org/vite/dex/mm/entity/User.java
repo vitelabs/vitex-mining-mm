@@ -21,5 +21,5 @@ public class User {
     // the perDay mm-reward for VITE market
     BigDecimal mmRewardForVITEMarket;
 
-    List<Order> orders;
+    List<CurrentOrder> orders;
 }

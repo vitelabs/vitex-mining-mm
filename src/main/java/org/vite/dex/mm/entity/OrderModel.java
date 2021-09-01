@@ -3,6 +3,7 @@ package org.vite.dex.mm.entity;
 import com.alibaba.fastjson.annotation.JSONField;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
+import org.vite.dex.mm.constant.constants.MarketMiningConst;
 
 import java.math.BigDecimal;
 
@@ -11,11 +12,11 @@ public class OrderModel {
     @JSONField(name = "Id")
     private String orderId;
 
-    private BigDecimal amount;
-
-    private BigDecimal quantity;
-
     private BigDecimal price;
+
+    private BigDecimal quantity; 
+
+    private BigDecimal amount;
 
     private String address;
 
@@ -23,10 +24,23 @@ public class OrderModel {
 
     private String tradePair;
 
-    // order created time
-    private long timestamp;
+    private long timestamp; // order created time
 
-    private OrderLog log;
+    // private OrderLog log;
+
+    public static OrderModel fromCurrentOrder(CurrentOrder currOrder, String tradeTokenId, String quoteTokenId) {
+        OrderModel orderModel = new OrderModel();
+        orderModel.setOrderId(currOrder.getOrderId());
+        orderModel.setAddress(currOrder.getAddress());
+        orderModel.setPrice(currOrder.getPrice());
+        orderModel.setSide(currOrder.isSide());
+        orderModel.setTimestamp(currOrder.getTimestamp());
+        orderModel.setTradePair(tradeTokenId + MarketMiningConst.UnderscoreStr + quoteTokenId);
+        orderModel.setQuantity(currOrder.getQuantity().subtract(currOrder.getExecutedQuantity()));
+        orderModel.setAmount(currOrder.getAmount().subtract(currOrder.getExecutedAmount()));
+
+        return orderModel;
+    }
 
     public static OrderModel fromOrderLog(OrderLog orderLog) {
         OrderModel orderModel = new OrderModel();
@@ -38,7 +52,7 @@ public class OrderModel {
         orderModel.side = orderLog.isSide();
         orderModel.tradePair = orderLog.getTradePair();
         orderModel.timestamp = orderLog.getOrderCreateTime();
-        orderModel.log = orderLog;
+        // orderModel.log = orderLog;
         return orderModel;
     }
 

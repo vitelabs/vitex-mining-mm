@@ -3,9 +3,12 @@ package org.vite.dex.mm.utils.client;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
-import org.vite.dex.mm.entity.OrderModel;
+import org.vite.dex.mm.entity.AccBlockVmLogs;
+import org.vite.dex.mm.entity.CurrentOrder;
 import org.vitej.core.protocol.HttpService;
 import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
@@ -30,6 +33,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.vite.dex.mm.constant.constants.MarketMiningConst.NODE_SERVER_URL;
 import static org.vite.dex.mm.constant.constants.MarketMiningConst.TRADE_CONTRACT_ADDRESS;
@@ -102,6 +107,28 @@ public class ViteCli {
         return events;
     }
 
+    public List<AccBlockVmLogs> getAccBlocksByHeightRange(long startHeight, long endHeight, int pageSize)
+            throws IOException {
+        List<VmLogInfo> vmlogs = getEventsByHeightRange(startHeight, endHeight, pageSize);
+        if (CollectionUtils.isEmpty(vmlogs)) {
+            return Collections.emptyList();
+        }
+
+        List<AccBlockVmLogs> result = Lists.newArrayList();
+        Map<Long, List<VmLogInfo>> height2Vmlogs = vmlogs.stream()
+                .collect(Collectors.groupingBy(VmLogInfo::getAccountBlockHeight));
+
+        height2Vmlogs.forEach((height, logs) -> {
+            AccBlockVmLogs accBlockVmLogs = new AccBlockVmLogs();
+            accBlockVmLogs.setHeight(height);
+            accBlockVmLogs.setVmLogs(logs);
+            result.add(accBlockVmLogs);
+        });
+
+        result.sort((block0, block1) -> block0.getHeight().compareTo(block1.getHeight()));
+        return result;
+    }
+
     public List<AccountBlock> getAccountBlocksBelowCurrentHash(Hash currentHash, int cnt) throws IOException {
         AccountBlocksResponse resp = null;
         List<AccountBlock> result = null;
@@ -134,7 +161,7 @@ public class ViteCli {
         SnapshotBlock result = null;
         try {
             resp = vitej.getSnapshotBlocks(height, 1).send();
-            // resp = vitej.getSnapshotBlockByHeight(height).send(); 
+            // resp = vitej.getSnapshotBlockByHeight(height).send();
             result = resp.getResult().get(0);
         } catch (Exception e) {
             log.error("getEventsByHeightRange failed,the err:" + e);
@@ -168,17 +195,19 @@ public class ViteCli {
         return snapshotBlock;
     }
 
-    public List<OrderModel> getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side,
-            int startIdx, int limit) throws IOException {
-        List<OrderModel> orders = null;
+    public List<CurrentOrder> getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side, int startIdx,
+            int limit) throws IOException {
+        List<CurrentOrder> orders = null;
         try {
-            CommonResponse response = vitej.commonMethod("dextrade_getOrdersFromMarket", tradeTokenId, quoteTokenId, side, startIdx, limit).send();
-            if(response.getResult() == null) {
+            CommonResponse response = vitej
+                    .commonMethod("dextrade_getOrdersFromMarket", tradeTokenId, quoteTokenId, side, startIdx, limit)
+                    .send();
+            if (response.getResult() == null) {
                 return orders;
             }
             JSONArray jsonArr = JSONObject.parseObject(JSON.toJSONString(response.getResult())).getJSONArray("orders");
-            if(jsonArr != null) {
-                orders = jsonArr.toJavaList(OrderModel.class);
+            if (jsonArr != null) {
+                orders = jsonArr.toJavaList(CurrentOrder.class);
             }
         } catch (Exception e) {
             log.error("getOrderBook failed,the err:" + e);

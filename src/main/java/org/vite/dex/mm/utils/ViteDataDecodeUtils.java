@@ -2,7 +2,7 @@ package org.vite.dex.mm.utils;
 
 
 import org.vite.dex.mm.constant.enums.EventType;
-import org.vite.dex.mm.utils.decode.DexPrice;
+import org.vite.dex.mm.utils.decode.BytesUtils;
 import org.vite.dex.mm.utils.decode.ViteAddress;
 import org.vite.dex.mm.utils.decode.ViteToken;
 
@@ -60,7 +60,7 @@ public class ViteDataDecodeUtils {
                 price[i] = (byte) ~price[i];
             }
         }
-        return DexPrice.bytesToBigDecimal(price);
+        return BytesUtils.priceToBigDecimal(price);
     }
 
     // parsing order create time by parsing orderId

@@ -4,6 +4,8 @@ import lombok.Data;
 import lombok.experimental.Accessors;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 
 @Data
@@ -11,12 +13,17 @@ import java.util.List;
 public class RewardTradePair {
     private final String tp;
     private final List<RewardOrder> rewardOrders;
-    private double pairFactorSum;
-    private double pairSharedVX; // the trade-pair shared VX
-    private double sellAmountSum;
-    private double buyAmountSum;
-    private double sellSharedVx;
-    private double buySharedVx;
+    private BigDecimal pairFactorSum;
+    private BigDecimal pairSharedVX; // the trade-pair shared VX
+
+    private BigDecimal pairSellFactorSum;
+    private BigDecimal pairBuyFactorSum;
+
+    private BigDecimal sellAmountSum;
+    private BigDecimal buyAmountSum;
+    
+    private BigDecimal sellSharedVx;
+    private BigDecimal buySharedVx;
     private MiningRewardCfg cfg;
 
     public RewardTradePair(String tp, List<RewardOrder> rewardOrders, MiningRewardCfg cfg) {
@@ -25,15 +32,31 @@ public class RewardTradePair {
         this.cfg = cfg;
     }
 
-    public void applyRule(double marketFactorSum, double marketSharedVX, MiningRewardCfg cfg) {
+    /**
+     * 1.calculate the amount of VX that each trading pair should get 
+     * 2.According to the order-mining configuration for each trading pair, calculate the total VX
+     * that buying and selling orders should get in the trading pair
+     * 
+     * @param marketFactorSum
+     * @param marketSharedVX
+     * @param cfg
+     */
+    public void applyRule(BigDecimal marketFactorSum, double marketSharedVX, MiningRewardCfg cfg) {
         this.cfg = cfg;
-        this.pairFactorSum = this.rewardOrders.stream().mapToDouble(RewardOrder::getTotalFactorDouble).sum();
-        this.pairSharedVX = this.pairFactorSum / marketFactorSum * marketSharedVX;
+        this.pairFactorSum = this.rewardOrders.stream().map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO,
+                BigDecimal::add);
+        this.pairSharedVX = this.pairFactorSum.divide(marketFactorSum, 12, RoundingMode.DOWN)
+                .multiply(BigDecimal.valueOf(marketSharedVX)).setScale(12, RoundingMode.DOWN);
 
-        this.sellAmountSum = rewardOrders.stream().filter(reward -> reward.getOrderSide())
-                .mapToDouble(RewardOrder::getAmount).sum();
-        this.buyAmountSum = rewardOrders.stream().filter(reward -> !reward.getOrderSide())
-                .mapToDouble(RewardOrder::getAmount).sum();
+        this.pairSellFactorSum = this.rewardOrders.stream().filter(reward -> reward.getOrderSide())
+                .map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO, BigDecimal::add);
+        this.pairBuyFactorSum = this.rewardOrders.stream().filter(reward -> !reward.getOrderSide())
+                .map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        this.sellAmountSum = rewardOrders.stream().filter(reward -> reward.getOrderSide()).map(RewardOrder::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        this.buyAmountSum = rewardOrders.stream().filter(reward -> !reward.getOrderSide()).map(RewardOrder::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         calcSharedVxOfEachSide();
         calcOrderVx();
@@ -48,29 +71,33 @@ public class RewardTradePair {
         double sellMore = cfg.getMaxSellFactorThanBuy();
         double buyMore = cfg.getMaxBuyFactorThanSell();
         double ratio = 0;
-        if (buyAmountSum < sellAmountSum) {
-            if (sellMore < 1 || sellAmountSum / buyAmountSum >= sellMore) {
+        if (buyAmountSum.compareTo(sellAmountSum) == -1) {
+            if (sellMore < 1 || sellAmountSum.divide(buyAmountSum).doubleValue() >= sellMore) {
                 ratio = 1 / sellMore + 1;
             } else {
-                ratio = buyAmountSum / (sellAmountSum + buyAmountSum);
+                ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 12, RoundingMode.DOWN).doubleValue();
             }
         } else {
-            if (buyAmountSum / sellAmountSum >= buyMore) {
+            if (buyAmountSum.divide(sellAmountSum, 12, RoundingMode.DOWN).doubleValue() >= buyMore) {
                 ratio = buyMore / (buyMore + 1);
             } else {
-                ratio = buyAmountSum / (sellAmountSum + buyAmountSum);
+                ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 12, RoundingMode.DOWN).doubleValue();
             }
         }
-        this.buySharedVx = pairSharedVX * ratio;
-        this.sellSharedVx = pairSharedVX * (1 - ratio);
+        this.buySharedVx = pairSharedVX.multiply(BigDecimal.valueOf(ratio)).setScale(12, RoundingMode.DOWN);
+        this.sellSharedVx = pairSharedVX.multiply(new BigDecimal(1).subtract(BigDecimal.valueOf(ratio))).setScale(12,
+                RoundingMode.DOWN);
     }
 
+    /**
+     * calculate the amount of VX obtained for each order placed on the trading pair
+     */
     private void calcOrderVx() {
-        double sellSharedVxPerAmount = this.sellSharedVx / this.sellAmountSum;
-        double buyShardVxPerAmount = this.buySharedVx / this.buyAmountSum;
+        BigDecimal sellSharedVxPerFactor = this.sellSharedVx.divide(pairSellFactorSum, 20, RoundingMode.DOWN);
+        BigDecimal buyShardVxPerFactor = this.buySharedVx.divide(pairBuyFactorSum, 20, RoundingMode.DOWN);
 
         this.rewardOrders.forEach(rewardOrder -> {
-            rewardOrder.applyReward(sellSharedVxPerAmount, buyShardVxPerAmount);
+            rewardOrder.applyReward(sellSharedVxPerFactor, buyShardVxPerFactor);
         });
     }
 }

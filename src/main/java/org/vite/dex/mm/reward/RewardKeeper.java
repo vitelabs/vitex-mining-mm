@@ -80,11 +80,6 @@ public class RewardKeeper {
                 log.error("mmMining occurs error,the err info: ", ex);
             }
         }
-        // originOrderBook.getOrders().values().stream().forEach(o -> {
-        // if(o.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")){
-        // System.out.println("aaaaa");
-        // }
-        // });
         log.info("the order book [{}] is onwarded to the end time of last cycle");
         return orderRewards;
     }
@@ -125,12 +120,12 @@ public class RewardKeeper {
      * @param endTime
      * @return
      */
-    public Map<String, Map<Integer, Double>> calcAddressMarketReward(double dailyReleasedVX, long startTime,
+    public Map<String, Map<Integer, BigDecimal>> calcAddressMarketReward(double dailyReleasedVX, long startTime,
             long endTime) {
         Map<String, RewardOrder> totalRewardOrders = Maps.newHashMap(); // <Address,RewardOrder>
         Map<String, MiningRewardCfg> tradePairCfgMap = Maps.newHashMap(); // <Address,MiningRewardCfg>
-        Map<Integer, RewardMarket> markets = new HashMap<>(); // <MarketId, RewardMarket>
-        Map<String, Map<Integer, Double>> finalRes = Maps.newHashMap(); // <Address, Map<MarketId,RewardMarket>>
+        Map<Integer, RewardMarket> marketRewards = new HashMap<>(); // <MarketId, RewardMarket>
+        Map<String, Map<Integer, BigDecimal>> finalRes = Maps.newHashMap(); // <Address, Map<MarketId,RewardMarket>>
 
         log.debug("start onwarding for each order book and calc the market mining factor of orders");
         TradeRecover.getMarketMiningOpenedTp().stream().forEach(tp -> {
@@ -153,10 +148,10 @@ public class RewardKeeper {
         Map<Integer, List<RewardOrder>> marketOrderRewards = totalRewardOrders.values().stream()
                 .collect(Collectors.groupingBy(RewardOrder::getMarket));
 
-        marketOrderRewards.forEach((market, rewardOrderList) -> markets.put(market,
+        marketOrderRewards.forEach((market, rewardOrderList) -> marketRewards.put(market,
                 new RewardMarket(market, rewardOrderList, tradePairCfgMap)));
 
-        markets.values().forEach(rewardMarket -> {
+        marketRewards.values().forEach(rewardMarket -> {
             double marketSharedRatio = MarketMiningConst.getMarketSharedRatio().get(rewardMarket.getMarket());
             rewardMarket.apply(dailyReleasedVX, marketSharedRatio);
         });
@@ -168,9 +163,9 @@ public class RewardKeeper {
                         Collectors.groupingBy(RewardOrder::getMarket)));
 
         address2MarketRewardsMap.forEach((address, market2RewardOrders) -> {
-            Map<Integer, Double> marketVXMap = Maps.newHashMap();
+            Map<Integer, BigDecimal> marketVXMap = Maps.newHashMap();
             market2RewardOrders.forEach((market, rewardOrders) -> {
-                double sum = rewardOrders.stream().mapToDouble(RewardOrder::getTotalVXDouble).sum();
+                BigDecimal sum = rewardOrders.stream().map(RewardOrder::getTotalRewardVX).reduce(BigDecimal.ZERO, BigDecimal::add);
                 marketVXMap.put(market, sum);
             });
             finalRes.put(address, marketVXMap);

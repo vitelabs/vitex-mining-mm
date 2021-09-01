@@ -14,8 +14,8 @@ public class OrderBook {
     BigDecimal sell1Price;
 
     // the buy orders of the orderBook
-    List<Order> buyOrders;
+    List<CurrentOrder> buyOrders;
 
     // the sell orders of the orderBook
-    List<Order> sellOrders;
+    List<CurrentOrder> sellOrders;
 }

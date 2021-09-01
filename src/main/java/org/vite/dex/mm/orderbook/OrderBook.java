@@ -76,11 +76,6 @@ public interface OrderBook {
                         break;
                     }
                     orderModel = orders.get(orderLog.getOrderId());
-                    // if (orderLog.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")) {
-                    //     System.out.println("new-order价格: " + orderModel.getPrice().toString());
-                    //     System.out.println("new-日志价格: " + event.getOrderLog().getPrice().toString());
-                    //     System.out.println("---------------");
-                    // }
                     if (orderModel != null) {
                         this.removeOrder(orderModel);
                     } else {
@@ -95,22 +90,12 @@ public interface OrderBook {
                     if (orderLog.finished()) {
                         orderModel = OrderModel.fromOrderLog(orderLog);
                         this.addOrder(orderModel);
-                        // if (orderLog.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")) {
-                        //     System.out.println("updatefinish:order价格: " + orderModel.getPrice().toString());
-                        //     System.out.println("updatefinish:日志价格: " + event.getOrderLog().getPrice().toString());
-                        //     System.out.println("---------------");
-                        // }
                     } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
                         orderModel = orders.get(orderLog.getOrderId());
                         if (orderModel != null) {
-                            // if (orderLog.getOrderId().equals("00000300ffffffff4fed5fa0dfff005d94f2bd000014")) {
-                            //     System.out.println("updatePart:order价格: " + orderModel.getPrice().toString());
-                            //     System.out.println("updatePart:日志价格: " + event.getOrderLog().getPrice().toString());
-                            //     System.out.println("---------------");
-                            // }
                             orderModel.revert(orderLog);
                         } else {
-                            System.out.println("[update] not find order: " + orderLog.getOrderId());
+                            System.out.println("[update...] not find order: " + orderLog.getOrderId());
                             // throw new RuntimeException("[new order] not find order: " +
                             // orderLog.getOrderId());
                         }
