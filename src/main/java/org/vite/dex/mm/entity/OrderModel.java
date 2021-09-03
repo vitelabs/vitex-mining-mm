@@ -14,7 +14,7 @@ public class OrderModel {
 
     private BigDecimal price;
 
-    private BigDecimal quantity; 
+    private BigDecimal quantity;
 
     private BigDecimal amount;
 
@@ -74,5 +74,9 @@ public class OrderModel {
 
     public boolean emptyAddress() {
         return StringUtils.isEmpty(this.address);
+    }
+
+    public String hash() {
+        return amount.toString() + quantity.toString() + price.toString();
     }
 }

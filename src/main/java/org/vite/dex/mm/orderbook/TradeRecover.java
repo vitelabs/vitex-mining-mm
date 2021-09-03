@@ -8,6 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.AccBlockVmLogs;
+import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
@@ -17,7 +18,6 @@ import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.response.AccountBlock;
-import org.vitej.core.protocol.methods.response.SnapshotBlock;
 import org.vitej.core.protocol.methods.response.TokenInfo;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.Vmlog;
@@ -35,7 +35,6 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static org.vite.dex.mm.constant.constants.MarketMiningConst.TRADE_CONTRACT_ADDRESS;
 import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
@@ -181,9 +180,9 @@ public class TradeRecover {
 
         // 2. parse vmLogs and group these vmLogs by trade-pair
         for (AccBlockVmLogs accBlock : vmLogInfoList) {
-            List<OrderEvent> orderEvents = OrderEvent.fromAccBlockVmLogs(accBlock, getTokens());
+            BlockEvent blockEvent = BlockEvent.fromAccBlockVmLogs(accBlock, getTokens());
 
-            orderEvents.forEach(orderEvent -> {
+            blockEvent.getOrderEvents().forEach(orderEvent -> {
                 if (!orderEvent.ignore()) {
                     AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
                     if (block != null) {
@@ -208,8 +207,7 @@ public class TradeRecover {
                 // 1. 拿到当前的orderBook
                 OrderBook orderBook = new OrderBook.Impl();
                 OrderBookInfo orderBookInfo = getOrdersFromMarket(tp.getTradeTokenId(), tp.getQuoteTokenId(), 100);
-                
-                List<OrderModel> orders = orderBookInfo.getOrderModels();
+
                 Long endQueryHeight = orderBookInfo.getCurrBlockheight();
                 orderBook.init(orderBookInfo.getOrderModels(), orderBookInfo.getCurrBlockheight());
 
@@ -227,9 +225,9 @@ public class TradeRecover {
                 // parse vmLogs and group these vmLogs by trade-pair
                 EventStream eventStream = new EventStream();
                 for (AccBlockVmLogs accBlock : vmLogInfoList) {
-                    List<OrderEvent> orderEvents = OrderEvent.fromAccBlockVmLogs(accBlock, getTokens());
+                    BlockEvent blockEvent = BlockEvent.fromAccBlockVmLogs(accBlock, getTokens());
 
-                    orderEvents.forEach(orderEvent -> {
+                    blockEvent.getOrderEvents().forEach(orderEvent -> {
                         if (orderEvent.tradePair().equals(tp.getTradePair()) && !orderEvent.ignore()) {
                             AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
                             if (block != null) {
@@ -265,9 +263,9 @@ public class TradeRecover {
             // parse vmLogs and group these vmLogs by trade-pair
             EventStream eventStream = new EventStream();
             for (AccBlockVmLogs accBlock : vmLogInfoList) {
-                List<OrderEvent> orderEvents = OrderEvent.fromAccBlockVmLogs(accBlock, getTokens());
+                BlockEvent blockEvent = BlockEvent.fromAccBlockVmLogs(accBlock, getTokens());
 
-                orderEvents.forEach(orderEvent -> {
+                blockEvent.getOrderEvents.forEach(orderEvent -> {
                     if (orderEvent.tradePair().equals(tp.getTradePair()) && !orderEvent.ignore()) {
                         AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
                         if (block != null) {
@@ -322,22 +320,6 @@ public class TradeRecover {
         });
     }
 
-    private Long getContractChainHeight(long time) throws IOException {
-        SnapshotBlock snapshotBlock = viteCli.getSnapshotBlockBeforeTime(time);
-        Long endHeight = snapshotBlock.getHeight();
-
-        while (true) {
-            Map<String, SnapshotBlock.HashHeight> snapshotContent = snapshotBlock.getSnapshotDataRaw();
-            if (snapshotContent != null && snapshotContent.containsKey(TRADE_CONTRACT_ADDRESS)) {
-                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(TRADE_CONTRACT_ADDRESS);
-                endHeight = hashHeight.getHeight();
-                break;
-            }
-            endHeight--;
-            snapshotBlock = viteCli.getSnapshotBlockByHeight(endHeight);
-        }
-        return endHeight;
-    }
 
     /**
      * get the start account block

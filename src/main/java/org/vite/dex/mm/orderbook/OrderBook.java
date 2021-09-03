@@ -4,9 +4,11 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.CollectionUtils;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.constant.enums.OrderStatus;
+import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderLog;
 import org.vite.dex.mm.entity.OrderModel;
@@ -21,13 +23,7 @@ import java.util.Map;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-public interface OrderBook {
-    // back-trace according to a event
-    void revert(OrderEvent event);
-
-    // front-trace according to a event
-    void onward(OrderEvent event);
-
+public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
     // init method
     void init(List<OrderModel> orderModels, Long blockHeight);
 
@@ -49,6 +45,8 @@ public interface OrderBook {
 
     int getRemoveCnt();
 
+    String hash();
+
     @Slf4j
     class Impl implements OrderBook {
         @Getter
@@ -69,8 +67,7 @@ public interface OrderBook {
         @Getter
         private int removeCnt;
 
-        public Impl() {
-        }
+        public Impl() {}
 
         // backtrace according to an event
         @Override
@@ -80,41 +77,41 @@ public interface OrderBook {
                 EventType type = event.getType();
                 OrderLog orderLog = event.getOrderLog();
                 switch (type) {
-                case NewOrder:
-                    if (orderLog.finished()) {
-                        break;
-                    }
-                    orderModel = orders.get(orderLog.getOrderId());
-                    if (orderModel != null) {
-                        this.removeOrder(orderModel);
-                    } else {
-                        System.out.println("[new order] not find order: " + orderLog.getOrderId() + ": "
-                                + new Date(event.getTimestamp() * 1000) + ": " + orderLog.getStatus() + ":"
-                                + event.getBlockHash());
-                        // throw new RuntimeException("[new order] not find order: " +
-                        // orderLog.getOrderId());
-                    }
-                    break;
-                case UpdateOrder:
-                    if (orderLog.finished()) {
-                        orderModel = OrderModel.fromOrderLog(orderLog);
-                        this.addOrder(orderModel);
-                    } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
+                    case NewOrder:
+                        if (orderLog.finished()) {
+                            break;
+                        }
                         orderModel = orders.get(orderLog.getOrderId());
                         if (orderModel != null) {
-                            orderModel.revert(orderLog);
+                            this.removeOrder(orderModel);
                         } else {
-                            System.out.println("[update...] not find order: " + orderLog.getOrderId());
+                            System.out.println("[new order] not find order: " + orderLog.getOrderId() + ": "
+                                    + new Date(event.getTimestamp() * 1000) + ": " + orderLog.getStatus() + ":"
+                                    + event.getBlockHash());
                             // throw new RuntimeException("[new order] not find order: " +
                             // orderLog.getOrderId());
                         }
-                    }
-                case TX:
-                    break;
-                case Unknown:
-                    break;
-                default:
-                    throw new AssertionError(type.name());
+                        break;
+                    case UpdateOrder:
+                        if (orderLog.finished()) {
+                            orderModel = OrderModel.fromOrderLog(orderLog);
+                            this.addOrder(orderModel);
+                        } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
+                            orderModel = orders.get(orderLog.getOrderId());
+                            if (orderModel != null) {
+                                orderModel.revert(orderLog);
+                            } else {
+                                System.out.println("[update...] not find order: " + orderLog.getOrderId());
+                                // throw new RuntimeException("[new order] not find order: " +
+                                // orderLog.getOrderId());
+                            }
+                        }
+                    case TX:
+                        break;
+                    case Unknown:
+                        break;
+                    default:
+                        throw new AssertionError(type.name());
                 }
             } catch (Exception e) {
                 log.error("revert failed,the err is :" + e);
@@ -133,31 +130,31 @@ public interface OrderBook {
             EventType type = event.getType();
             OrderLog orderLog = event.getOrderLog();
             switch (type) {
-            case NewOrder:
-                if (!orderLog.finished()) {
-                    orderModel = OrderModel.fromOrderLog(orderLog);
-                    this.addOrder(orderModel);
-                }
-                break;
-            case UpdateOrder:
-                if (orderLog.finished()) {
-                    orderModel = orders.get(orderLog.getOrderId());
-                    if (orderModel != null) {
-                        this.removeOrder(orderModel);
+                case NewOrder:
+                    if (!orderLog.finished()) {
+                        orderModel = OrderModel.fromOrderLog(orderLog);
+                        this.addOrder(orderModel);
                     }
-                } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
-                    orderModel = orders.get(orderLog.getOrderId());
-                    if (orderModel != null) {
-                        orderModel.onward(orderLog);
+                    break;
+                case UpdateOrder:
+                    if (orderLog.finished()) {
+                        orderModel = orders.get(orderLog.getOrderId());
+                        if (orderModel != null) {
+                            this.removeOrder(orderModel);
+                        }
+                    } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
+                        orderModel = orders.get(orderLog.getOrderId());
+                        if (orderModel != null) {
+                            orderModel.onward(orderLog);
+                        }
                     }
-                }
-                break;
-            case TX:
-                break;
-            case Unknown:
-                break;
-            default:
-                throw new AssertionError(type.name());
+                    break;
+                case TX:
+                    break;
+                case Unknown:
+                    break;
+                default:
+                    throw new AssertionError(type.name());
             }
         }
 
@@ -210,6 +207,8 @@ public interface OrderBook {
             this.orders.putAll(orderMap);
         }
 
+
+
         public OrderBook initFromOrders(List<OrderModel> orders) {
             init(orders, 0l);
             return this;
@@ -235,6 +234,30 @@ public interface OrderBook {
             BigDecimal amountSum = this.orders.values().stream().map(OrderModel::getAmount).reduce(BigDecimal.ZERO,
                     BigDecimal::add);
             return amountSum;
+        }
+
+        @Override
+        public void revert(BlockEvent event) {
+            if (event.getHeight() <= this.currBlockHeight) {
+                event.forEach(this, true, true);
+                this.currBlockHeight = event.getHeight();
+            }
+        }
+
+        @Override
+        public void onward(BlockEvent event) {
+            if (event.getHeight() >= this.currBlockHeight) {
+                event.forEach(this, false, false);
+                this.currBlockHeight = event.getHeight();
+            }
+        }
+
+        @Override
+        public String hash() {
+            String result =
+                    orders.values().stream().sorted(Comparator.comparing(OrderModel::getOrderId)).map(t -> t.hash())
+                            .collect(Collectors.joining("-"));
+            return DigestUtils.md5Hex(result);
         }
     }
 }

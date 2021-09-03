@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import org.vite.dex.mm.entity.AccBlockVmLogs;
 import org.vite.dex.mm.entity.CurrentOrder;
 import org.vite.dex.mm.entity.OrderBookInfo;
+import org.vite.dex.mm.entity.OrderModel;
 import org.vitej.core.protocol.HttpService;
 import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
@@ -68,6 +69,22 @@ public class ViteCli {
         return block;
     }
 
+
+    public Long getLatestAccountHeight() throws IOException {
+        AccountBlock block = null;
+        try {
+            AccountBlockResponse response = vitej.getLatestAccountBlock(new Address(TRADE_CONTRACT_ADDRESS)).send();
+            block = response.getResult();
+        } catch (Exception e) {
+            log.error("getHashOfLatestAccountBlock failed,the err:" + e);
+            throw e;
+        }
+        if (block == null) {
+            throw new IOException("get contract height fail");
+        }
+        return block.getHeight();
+    }
+
     /**
      * get events by height range,pay attention to the event sequence
      *
@@ -123,6 +140,7 @@ public class ViteCli {
         height2Vmlogs.forEach((height, logs) -> {
             AccBlockVmLogs accBlockVmLogs = new AccBlockVmLogs();
             accBlockVmLogs.setHeight(height);
+            accBlockVmLogs.setHash(logs.get(0).getAccountBlockHashRaw());
             accBlockVmLogs.setVmLogs(logs);
             result.add(accBlockVmLogs);
         });
@@ -156,6 +174,24 @@ public class ViteCli {
         }
         return result;
     }
+
+    public Long getContractChainHeight(long time) throws IOException {
+        SnapshotBlock snapshotBlock = this.getSnapshotBlockBeforeTime(time);
+        Long endHeight = snapshotBlock.getHeight();
+
+        while (true) {
+            Map<String, SnapshotBlock.HashHeight> snapshotContent = snapshotBlock.getSnapshotDataRaw();
+            if (snapshotContent != null && snapshotContent.containsKey(TRADE_CONTRACT_ADDRESS)) {
+                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(TRADE_CONTRACT_ADDRESS);
+                endHeight = hashHeight.getHeight();
+                break;
+            }
+            endHeight--;
+            snapshotBlock = this.getSnapshotBlockByHeight(endHeight);
+        }
+        return endHeight;
+    }
+
 
     // TODOthe vitej interface has big bug!!!use alter
     public SnapshotBlock getSnapshotBlockByHeight(long height) throws IOException {
@@ -227,5 +263,43 @@ public class ViteCli {
             throw e;
         }
         return orderBookInfo;
+    }
+
+    /**
+    * get orders from specified order book of trade-pair
+    * 
+    * @param tradeTokenId
+    * @param quoteTokenId
+    * @param pageCnt
+    * @return
+    * @throws IOException
+    */
+    public OrderBookInfo getOrdersFromMarket(String tradeTokenId, String quoteTokenId, int pageCnt) throws IOException {
+        List<OrderModel> orderModels = Lists.newLinkedList();
+        List<Long> heights = Lists.newLinkedList();
+
+        int idx = 0;
+        while (true) {
+            OrderBookInfo orderBookInfo = getOrdersFromMarket(tradeTokenId, quoteTokenId, pageCnt * idx,
+                    pageCnt * (idx + 1), pageCnt * idx, pageCnt * (idx + 1));
+            if (orderBookInfo == null || CollectionUtils.isEmpty(orderBookInfo.getCurrOrders())) {
+                break;
+            }
+
+            orderBookInfo.getCurrOrders().forEach(currOrder -> {
+                orderModels.add(OrderModel.fromCurrentOrder(currOrder, tradeTokenId, quoteTokenId));
+            });
+
+            heights.add(orderBookInfo.getCurrBlockheight());
+
+            if (orderBookInfo.getCurrOrders().size() < pageCnt) {
+                break;
+            }
+
+            idx++;
+        }
+        // System.out.println(heights);
+        Long maxHeight = heights.stream().max(Long::compareTo).get();
+        return OrderBookInfo.fromOrderModelsAndHeight(orderModels, maxHeight);
     }
 }

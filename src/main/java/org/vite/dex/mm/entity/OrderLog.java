@@ -5,14 +5,13 @@ import lombok.Data;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.OrderStatus;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
+import org.vite.dex.mm.orderbook.Tokens;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.decode.BytesUtils;
-import org.vitej.core.protocol.methods.response.TokenInfo;
 import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.util.Map;
 
 import static org.vite.dex.mm.constant.constants.MarketMiningConst.UnderscoreStr;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getOrderCTimeByParseOrderId;
@@ -54,7 +53,7 @@ public class OrderLog {
     }
 
     public static OrderLog fromUpdateOrder(Vmlog vmlog, DexTradeEvent.OrderUpdateInfo orderUpdateInfo, OrderTx tx,
-            Map<String, TokenInfo> tokens) {
+            Tokens tokens) {
         OrderLog result = new OrderLog();
         byte[] orderIdBytes = orderUpdateInfo.getId().toByteArray();
         String orderId = Hex.toHexString(orderIdBytes);
@@ -70,22 +69,22 @@ public class OrderLog {
         result.rawLog = vmlog;
 
         if (result.getStatus() == OrderStatus.Cancelled) {
-            TokenInfo tradeTokenInfo = tokens.get(tradeToken);
-            TokenInfo quoteTokenInfo = tokens.get(quoteToken);
+            int tradeDecimals = tokens.getDecimals(tradeToken);
+            int quoteDecimals = tokens.getDecimals(quoteToken);
 
             if (result.isSide()) {
                 // real quantity
                 result.setChangeQuantity(
                         BytesUtils.quantityToBigDecimal(orderUpdateInfo.getRefundQuantity().toByteArray()));
                 BigDecimal rawAmount = calculateRawAmount(result.getChangeQuantity(), result.getPrice(),
-                        tradeTokenInfo.getDecimals() - quoteTokenInfo.getDecimals());
+                        tradeDecimals - quoteDecimals);
                 result.setChangeAmount(rawAmount);
             } else {
                 // the refund quantity is actually RefundAmount
                 result.setChangeAmount(
                         BytesUtils.quantityToBigDecimal(orderUpdateInfo.getRefundQuantity().toByteArray()));
                 BigDecimal rawQuantity = calculateRawQuantity(result.getChangeAmount(), result.getPrice(),
-                        tradeTokenInfo.getDecimals() - quoteTokenInfo.getDecimals());
+                        tradeDecimals - quoteDecimals);
                 result.setChangeQuantity(rawQuantity);
             }
         } else {
