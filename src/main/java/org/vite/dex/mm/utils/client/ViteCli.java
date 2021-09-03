@@ -9,6 +9,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
 import org.vite.dex.mm.entity.AccBlockVmLogs;
 import org.vite.dex.mm.entity.CurrentOrder;
+import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vitej.core.protocol.HttpService;
 import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
@@ -32,6 +33,7 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -136,7 +138,7 @@ public class ViteCli {
             resp = vitej.getAccountBlocks(new Address(TRADE_CONTRACT_ADDRESS), currentHash, null, cnt).send();
             result = resp.getResult();
         } catch (Exception e) {
-            log.error("getEventsByHeightRange failed,the err:" + e);
+            log.error("getAccountBlocksBelowCurrentHash failed,the err:" + e);
             throw e;
         }
         return result;
@@ -149,7 +151,7 @@ public class ViteCli {
             resp = vitej.getTokenInfoList(pageIdx, pageSize).send();
             result = resp.getResult().getTokenInfoList();
         } catch (Exception e) {
-            log.error("getEventsByHeightRange failed,the err:" + e);
+            log.error("getTokenInfoList failed,the err:" + e);
             throw e;
         }
         return result;
@@ -164,7 +166,7 @@ public class ViteCli {
             // resp = vitej.getSnapshotBlockByHeight(height).send();
             result = resp.getResult().get(0);
         } catch (Exception e) {
-            log.error("getEventsByHeightRange failed,the err:" + e);
+            log.error("getSnapshotBlockByHeight failed,the err:" + e);
             throw e;
         }
         return result;
@@ -177,7 +179,7 @@ public class ViteCli {
             resp = vitej.getTokenInfoById(TokenId.stringToTokenId(tokenId)).send();
             result = resp.getResult();
         } catch (Exception e) {
-            log.error("getEventsByHeightRange failed,the err:" + e);
+            log.error("getTokenInfo failed,the err:" + e);
             throw e;
         }
         return result;
@@ -189,30 +191,41 @@ public class ViteCli {
             CommonResponse response = vitej.commonMethod("ledger_getSnapshotBlockBeforeTime", beforeTime).send();
             snapshotBlock = JSONObject.parseObject(JSON.toJSONString(response.getResult()), SnapshotBlock.class);
         } catch (Exception e) {
-            log.error("getEventsByHeightRange failed,the err:" + e);
+            log.error("getSnapshotBlockBeforeTime failed,the err:" + e);
             throw e;
         }
         return snapshotBlock;
     }
 
-    public List<CurrentOrder> getOrdersFromMarket(String tradeTokenId, String quoteTokenId, boolean side, int startIdx,
-            int limit) throws IOException {
+    public OrderBookInfo getOrdersFromMarket(String tradeTokenId, String quoteTokenId, int sellStartIdx, int sellLimit,
+            int buyStartIdx, int buyLimit) throws IOException {
+        OrderBookInfo orderBookInfo = null;
         List<CurrentOrder> orders = null;
         try {
-            CommonResponse response = vitej
-                    .commonMethod("dextrade_getOrdersFromMarket", tradeTokenId, quoteTokenId, side, startIdx, limit)
-                    .send();
+            Map<String, Object> params = new HashMap<>();
+            params.put("tradeToken", tradeTokenId);
+            params.put("quoteToken", quoteTokenId);
+            params.put("sellBegin", sellStartIdx);
+            params.put("sellEnd", sellLimit);
+            params.put("buyBegin", buyStartIdx);
+            params.put("buyEnd", buyLimit);
+
+            CommonResponse response = vitej.commonMethod("dextrade_getMarketOrders", params).send();
             if (response.getResult() == null) {
-                return orders;
+                return orderBookInfo;
             }
             JSONArray jsonArr = JSONObject.parseObject(JSON.toJSONString(response.getResult())).getJSONArray("orders");
+            Long queryEndHeight = JSONObject.parseObject(JSON.toJSONString(response.getResult()))
+                    .getJSONObject("queryEnd").getLong("height");
             if (jsonArr != null) {
                 orders = jsonArr.toJavaList(CurrentOrder.class);
             }
+
+            orderBookInfo = OrderBookInfo.fromCurrOrdersAndHeight(orders, queryEndHeight);
         } catch (Exception e) {
             log.error("getOrderBook failed,the err:" + e);
             throw e;
         }
-        return orders;
+        return orderBookInfo;
     }
 }

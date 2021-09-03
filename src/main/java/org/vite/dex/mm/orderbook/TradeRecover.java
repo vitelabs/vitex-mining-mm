@@ -8,7 +8,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.AccBlockVmLogs;
-import org.vite.dex.mm.entity.CurrentOrder;
+import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
@@ -23,7 +23,9 @@ import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -109,13 +111,9 @@ public class TradeRecover {
             for (TradePair tp : tradePairs) {
                 OrderBook orderBook = new OrderBook.Impl();
                 String tradePairSymbol = tp.getTradePair();
-                // get sell orders of the trade-pair
-                List<OrderModel> sellOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), true,
-                        100);
-                // get buy orders of the trade-pair
-                List<OrderModel> buyOrders = getSingleSideOrders(tp.getTradeTokenId(), tp.getQuoteTokenId(), false,
-                        100);
-                orderBook.init(buyOrders, sellOrders);
+                // get orders of the trade-pair
+                OrderBookInfo orderBookInfo = getOrdersFromMarket(tp.getTradeTokenId(), tp.getQuoteTokenId(), 100);
+                orderBook.init(orderBookInfo.getOrderModels(), orderBookInfo.getCurrBlockheight());
                 this.orderBooks.put(tradePairSymbol, orderBook);
                 log.info("the order book of tradePair [{}] is prepared", tp.getTradePair());
             }
@@ -126,36 +124,41 @@ public class TradeRecover {
     }
 
     /**
-     * get the single side orders from the order book
-     *
+     * get orders from specified order book of trade-pair
+     * 
      * @param tradeTokenId
      * @param quoteTokenId
-     * @param side
+     * @param pageCnt
      * @return
      * @throws IOException
      */
-    public List<OrderModel> getSingleSideOrders(String tradeTokenId, String quoteTokenId, boolean side, int pageCnt)
-            throws IOException {
-        List<OrderModel> singleSideOrders = Lists.newLinkedList();
-        int round = 0;
+    public OrderBookInfo getOrdersFromMarket(String tradeTokenId, String quoteTokenId, int pageCnt) throws IOException {
+        List<OrderModel> orderModels = Lists.newLinkedList();
+        List<Long> heights = Lists.newLinkedList();
+
+        int idx = 0;
         while (true) {
-            List<CurrentOrder> orders = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, side, pageCnt * round,
-                    pageCnt * (round + 1));
-            if (CollectionUtils.isEmpty(orders)) {
+            OrderBookInfo orderBookInfo = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, pageCnt * idx,
+                    pageCnt * (idx + 1), pageCnt * idx, pageCnt * (idx + 1));
+            if (orderBookInfo == null || CollectionUtils.isEmpty(orderBookInfo.getCurrOrders())) {
                 break;
             }
 
-            orders.forEach(currOrder -> {
-                singleSideOrders.add(OrderModel.fromCurrentOrder(currOrder, tradeTokenId, quoteTokenId));
+            orderBookInfo.getCurrOrders().forEach(currOrder -> {
+                orderModels.add(OrderModel.fromCurrentOrder(currOrder, tradeTokenId, quoteTokenId));
             });
 
-            if (orders.size() < pageCnt) {
+            heights.add(orderBookInfo.getCurrBlockheight());
+
+            if (orderBookInfo.getCurrOrders().size() < pageCnt) {
                 break;
             }
 
-            round++;
+            idx++;
         }
-        return singleSideOrders;
+        // System.out.println(heights);
+        Long maxHeight = heights.stream().max(Long::compareTo).get();
+        return OrderBookInfo.fromOrderModelsAndHeight(orderModels, maxHeight);
     }
 
     /**
@@ -195,16 +198,128 @@ public class TradeRecover {
         log.info("parse vmLogs and divide them into different group successfully");
     }
 
-    // TODOdifficult to solve. Assuming that the filtered event is right
-    public void filterEvents() {
-        // tradePairs.forEach(tp -> {
-        // EventStream events = eventStreams.get(tp.getTradePair());
-        // OrderBook orderBook = orderBooks.get(tp.getTradePair());
+    public void revertOrderBooksByEventStream(long startTime) throws Exception {
+        long fixedTime = getFixedTime();
+        // for each trade-pair,revert the orderbook
+        int N = 5;
+        for (TradePair tp : tradePairs) {
+            List<OrderBook> l = new ArrayList<>();
+            for (int i = 0; i < N; i++) {
+                // 1. 拿到当前的orderBook
+                OrderBook orderBook = new OrderBook.Impl();
+                OrderBookInfo orderBookInfo = getOrdersFromMarket(tp.getTradeTokenId(), tp.getQuoteTokenId(), 100);
+                
+                List<OrderModel> orders = orderBookInfo.getOrderModels();
+                Long endQueryHeight = orderBookInfo.getCurrBlockheight();
+                orderBook.init(orderBookInfo.getOrderModels(), orderBookInfo.getCurrBlockheight());
 
-        // if (events != null && orderBook != null) {
-        // events.filter(orderBook);
-        // }
-        // });
+                // 2. 拿到从[12:30, endQueryHeight]的所有事件
+                AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
+                Hash currentHash = latestAccountBlock.getHash();
+                AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, currentHash);
+                if (cycleStartBlock == null) {
+                    throw new Exception("cycle start block is not exist");
+                }
+                Long startHeight = cycleStartBlock.getHeight();
+                List<AccBlockVmLogs> vmLogInfoList = viteCli.getAccBlocksByHeightRange(startHeight, endQueryHeight,
+                        1000);
+
+                // parse vmLogs and group these vmLogs by trade-pair
+                EventStream eventStream = new EventStream();
+                for (AccBlockVmLogs accBlock : vmLogInfoList) {
+                    List<OrderEvent> orderEvents = OrderEvent.fromAccBlockVmLogs(accBlock, getTokens());
+
+                    orderEvents.forEach(orderEvent -> {
+                        if (orderEvent.tradePair().equals(tp.getTradePair()) && !orderEvent.ignore()) {
+                            AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
+                            if (block != null) {
+                                orderEvent.setTimestamp(block.getTimestampRaw());
+                            }
+                            eventStream.addEvent(orderEvent);
+                        }
+                    });
+                }
+
+                // 3. revert 回去
+                if (orderBook == null || eventStream == null) {
+                    continue;
+                }
+                List<OrderEvent> events = reverseOrderEvents(eventStream.getEvents());
+                for (OrderEvent event : events) {
+                    orderBook.revert(event);
+                }
+                l.add(orderBook);
+            }
+
+            // 4.compare 这几次的origin order book ,得到一个12：30的OrderBook
+            OrderBook orderBook = compareOrderBooks(l);
+
+            // 5.获取从12：30到前一天中午12点的所有事件
+            AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
+            Hash currentHash = latestAccountBlock.getHash();
+            List<AccountBlock> blocks = getAccountBlocks(startTime, currentHash);
+            List<AccountBlock> fixedblocks = getAccountBlocks(fixedTime, currentHash);
+            List<AccBlockVmLogs> vmLogInfoList = viteCli.getAccBlocksByHeightRange(blocks.get(0).getHeight(),
+                    fixedblocks.get(0).getHeight(), 1000);
+
+            // parse vmLogs and group these vmLogs by trade-pair
+            EventStream eventStream = new EventStream();
+            for (AccBlockVmLogs accBlock : vmLogInfoList) {
+                List<OrderEvent> orderEvents = OrderEvent.fromAccBlockVmLogs(accBlock, getTokens());
+
+                orderEvents.forEach(orderEvent -> {
+                    if (orderEvent.tradePair().equals(tp.getTradePair()) && !orderEvent.ignore()) {
+                        AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
+                        if (block != null) {
+                            orderEvent.setTimestamp(block.getTimestampRaw());
+                        }
+                        eventStream.addEvent(orderEvent);
+                    }
+                });
+            }
+
+            // 6.从12：30的OrderBook开始往前revert
+            if (orderBook == null || eventStream == null) {
+                continue;
+            }
+            List<OrderEvent> events = reverseOrderEvents(eventStream.getEvents());
+            for (OrderEvent event : events) {
+                orderBook.revert(event);
+            }
+            this.orderBooks.put(tp.getTradePair(), orderBook);
+            this.eventStreams.put(tp.getTradePair(), eventStream);
+        }
+    }
+
+    private OrderBook compareOrderBooks(List<OrderBook> l) {
+        Map<BigDecimal, List<OrderBook>> orderBookMap = l.stream()
+                .collect(Collectors.groupingBy(OrderBook::getAmountSum));
+
+        List<OrderBook> maxOccurOrderBooks = orderBookMap.values().stream().max(Comparator.comparingInt(w -> w.size()))
+                .get();
+        return maxOccurOrderBooks.get(0);
+    }
+
+    // Get the timestamp at 12:30 pm every day
+    private Long getFixedTime() {
+        Calendar c = Calendar.getInstance();
+        c.set(Calendar.HOUR_OF_DAY, 12);
+        c.set(Calendar.MINUTE, 30);
+        c.set(Calendar.SECOND, 0);
+
+        return c.getTime().getTime() / 1000; // seconds
+    }
+
+    // Todo difficult to solve. Assuming that the filtered event is right
+    public void filterEvents() {
+        tradePairs.forEach(tp -> {
+            EventStream events = eventStreams.get(tp.getTradePair());
+            OrderBook orderBook = orderBooks.get(tp.getTradePair());
+
+            if (events != null && orderBook != null) {
+                events.filter(orderBook);
+            }
+        });
     }
 
     private Long getContractChainHeight(long time) throws IOException {

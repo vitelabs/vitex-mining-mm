@@ -6,7 +6,6 @@ import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,13 +41,8 @@ public class EventStream {
      * @param orderBook
      */
     public void filter(OrderBook orderBook) {
-        Map<String, OrderModel> orders = new HashMap<>();
-        orderBook.getBuys().forEach(order -> {
-            orders.put(order.getOrderId(), order);
-        });
-        orderBook.getSells().forEach(order -> {
-            orders.put(order.getOrderId(), order);
-        });
+        Long currBlockHeight = orderBook.getCurrBlockHeight();
+        Map<String, OrderModel> orders = orderBook.getOrders();
 
         OrderEvent left = indexOfLeftPoint(orders);
         Optional<OrderEvent> right = indexOfRightPoint(orders, left);

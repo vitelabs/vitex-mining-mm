@@ -12,11 +12,13 @@ import org.vite.dex.mm.entity.OrderLog;
 import org.vite.dex.mm.entity.OrderModel;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public interface OrderBook {
@@ -27,7 +29,7 @@ public interface OrderBook {
     void onward(OrderEvent event);
 
     // init method
-    void init(List<OrderModel> buys, List<OrderModel> sells);
+    void init(List<OrderModel> orderModels, Long blockHeight);
 
     List<OrderModel> getBuys();
 
@@ -38,6 +40,10 @@ public interface OrderBook {
     BigDecimal getBuy1Price();
 
     BigDecimal getSell1Price();
+
+    Long getCurrBlockHeight();
+
+    BigDecimal getAmountSum();
 
     int getAddCnt();
 
@@ -53,6 +59,9 @@ public interface OrderBook {
 
         @Getter
         protected Map<String, OrderModel> orders = Maps.newHashMap();
+
+        @Getter
+        private Long currBlockHeight;
 
         @Getter
         private int addCnt;
@@ -181,22 +190,28 @@ public interface OrderBook {
         }
 
         @Override
-        public void init(List<OrderModel> buys, List<OrderModel> sells) {
-            this.buys = Lists.newLinkedList(buys);
-            this.sells = Lists.newLinkedList(sells);
-            Map<String, OrderModel> buyMap = buys.stream()
-                    .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (o1, o2) -> o1));
-            Map<String, OrderModel> sellMap = sells.stream()
+        public void init(List<OrderModel> orderModels, Long blockHeight) {
+            // distinct by orderId
+            this.buys = Lists.newLinkedList(orderModels.stream().filter(o -> !o.isSide())
+                    .collect(Collectors.collectingAndThen(
+                            Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(OrderModel::getOrderId))),
+                            ArrayList::new)));
+
+            this.sells = Lists.newLinkedList(orderModels.stream().filter(o -> o.isSide())
+                    .collect(Collectors.collectingAndThen(
+                            Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(OrderModel::getOrderId))),
+                            ArrayList::new)));
+
+            this.currBlockHeight = blockHeight;
+
+            Map<String, OrderModel> orderMap = orderModels.stream()
                     .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (o1, o2) -> o1));
 
-            this.orders.putAll(buyMap);
-            this.orders.putAll(sellMap);
+            this.orders.putAll(orderMap);
         }
 
         public OrderBook initFromOrders(List<OrderModel> orders) {
-            Map<Boolean, List<OrderModel>> orderMap = orders.stream()
-                    .collect(Collectors.groupingBy(OrderModel::isSide));
-            init(orderMap.get(false), orderMap.get(true));
+            init(orders, 0l);
             return this;
         }
 
@@ -214,6 +229,12 @@ public interface OrderBook {
                 return null;
             }
             return this.sells.stream().min(Comparator.comparing(OrderModel::getPrice)).get().getPrice();
+        }
+
+        public BigDecimal getAmountSum() {
+            BigDecimal amountSum = this.orders.values().stream().map(OrderModel::getAmount).reduce(BigDecimal.ZERO,
+                    BigDecimal::add);
+            return amountSum;
         }
     }
 }

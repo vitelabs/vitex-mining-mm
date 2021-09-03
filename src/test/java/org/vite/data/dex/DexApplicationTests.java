@@ -9,7 +9,7 @@ import org.apache.commons.codec.binary.Hex;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
-import org.vite.dex.mm.entity.CurrentOrder;
+import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.orderbook.TradeRecover;
@@ -47,18 +47,12 @@ class DexApplicationTests {
     @Test
     public void testGetOrderBooks() throws Exception {
         TradeRecover tradeRecover = new TradeRecover(viteCli);
-        List<OrderModel> first = tradeRecover.getSingleSideOrders("tti_687d8a93915393b219212c73",
-                "tti_80f3751485e4e83456059473", true, 1000);
-        List<OrderModel> two = tradeRecover.getSingleSideOrders("tti_687d8a93915393b219212c73",
-                "tti_80f3751485e4e83456059473", false, 1000);
-        first.forEach(t -> {
+        OrderBookInfo orderBook = tradeRecover.getOrdersFromMarket("tti_687d8a93915393b219212c73",
+                "tti_80f3751485e4e83456059473", 1000);
+
+        orderBook.getCurrOrders().forEach(t -> {
             System.out.println(t.getOrderId());
         });
-        two.forEach(t -> {
-            System.out.println(t.getOrderId());
-        });
-        System.out.println(first.size());
-        System.out.println(two.size());
     }
 
     @Test
@@ -235,10 +229,10 @@ class DexApplicationTests {
     }
 
     @Test
-    public void testGetOrderSide() throws IOException {
+    public void testGetAllOrderBook() throws IOException {
         String tradeTokenId = "tti_687d8a93915393b219212c73";
         String quoteTokenId = "tti_80f3751485e4e83456059473";
-        List<CurrentOrder> orders = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, true, 0, 100);
-        System.out.println(orders);
+        OrderBookInfo orderBookInfo = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, 0, 100, 0, 100);
+        System.out.println(orderBookInfo.getCurrOrders());
     }
 }
