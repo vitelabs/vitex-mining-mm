@@ -47,6 +47,8 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
 
     String hash();
 
+    void setOrderAware(IOrderEventHandleAware aware);
+
     @Slf4j
     class Impl implements OrderBook {
         @Getter
@@ -67,94 +69,133 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
         @Getter
         private int removeCnt;
 
-        public Impl() {}
+        private IOrderEventHandleAware aware;
+
+        public Impl() {
+        }
+
+        @Override
+        public void revert(BlockEvent event) {
+            if (event.getHeight() <= this.currBlockHeight) {
+                event.action(this, true, true);
+                this.currBlockHeight = event.getHeight();
+            }
+        }
+
+        @Override
+        public void onward(BlockEvent event) {
+            if (event.getHeight() >= this.currBlockHeight) {
+                event.action(this, false, false);
+                this.currBlockHeight = event.getHeight();
+            }
+        }
 
         // backtrace according to an event
         @Override
         public void revert(OrderEvent event) {
+            if (aware == null) {
+                revertInternal(event);
+            } else {
+                aware.beforeRevert(this, event);
+                revertInternal(event);
+                aware.afterRevert(this, event);
+            }
+        }
+
+        /**
+         * make the orderBook go onward and execute aspect logic (calc market mining
+         * reward)
+         *
+         * @param event
+         */
+        @Override
+        public void onward(OrderEvent event) {
+            if (aware == null) {
+                onwardInternal(event);
+            } else {
+                aware.beforeOnward(this, event);
+                onwardInternal(event);
+                aware.aferOnward(this, event);
+            }
+        }
+
+        public void revertInternal(OrderEvent event) {
             try {
                 OrderModel orderModel;
                 EventType type = event.getType();
                 OrderLog orderLog = event.getOrderLog();
                 switch (type) {
-                    case NewOrder:
-                        if (orderLog.finished()) {
-                            break;
-                        }
-                        orderModel = orders.get(orderLog.getOrderId());
-                        if (orderModel != null) {
-                            this.removeOrder(orderModel);
-                        } else {
-                            System.out.println("[new order] not find order: " + orderLog.getOrderId() + ": "
-                                    + new Date(event.getTimestamp() * 1000) + ": " + orderLog.getStatus() + ":"
-                                    + event.getBlockHash());
-                            // throw new RuntimeException("[new order] not find order: " +
-                            // orderLog.getOrderId());
-                        }
-                        break;
-                    case UpdateOrder:
-                        if (orderLog.finished()) {
-                            orderModel = OrderModel.fromOrderLog(orderLog);
-                            this.addOrder(orderModel);
-                        } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
-                            orderModel = orders.get(orderLog.getOrderId());
-                            if (orderModel != null) {
-                                orderModel.revert(orderLog);
-                            } else {
-                                System.out.println("[update...] not find order: " + orderLog.getOrderId());
-                                // throw new RuntimeException("[new order] not find order: " +
-                                // orderLog.getOrderId());
-                            }
-                        }
-                    case TX:
-                        break;
-                    case Unknown:
-                        break;
-                    default:
-                        throw new AssertionError(type.name());
-                }
-            } catch (Exception e) {
-                log.error("revert failed,the err is :" + e);
-            }
-        }
-
-        /**
-         * update orderBook according to the new event.actually, make the orderBook go
-         * forward.
-         *
-         * @param event the orderLog
-         */
-        @Override
-        public void onward(OrderEvent event) {
-            OrderModel orderModel;
-            EventType type = event.getType();
-            OrderLog orderLog = event.getOrderLog();
-            switch (type) {
                 case NewOrder:
-                    if (!orderLog.finished()) {
-                        orderModel = OrderModel.fromOrderLog(orderLog);
-                        this.addOrder(orderModel);
+                    if (orderLog.finished()) {
+                        break;
+                    }
+                    orderModel = orders.get(orderLog.getOrderId());
+                    if (orderModel != null) {
+                        this.removeOrder(orderModel);
+                    } else {
+                        System.out.println("[new order] not find order: " + orderLog.getOrderId() + ": "
+                                + new Date(event.getTimestamp() * 1000) + ": " + orderLog.getStatus() + ":"
+                                + event.getBlockHash());
+                        // throw new RuntimeException("[new order] not find order: " +
+                        // orderLog.getOrderId());
                     }
                     break;
                 case UpdateOrder:
                     if (orderLog.finished()) {
-                        orderModel = orders.get(orderLog.getOrderId());
-                        if (orderModel != null) {
-                            this.removeOrder(orderModel);
-                        }
+                        orderModel = OrderModel.fromOrderLog(orderLog);
+                        this.addOrder(orderModel);
                     } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
                         orderModel = orders.get(orderLog.getOrderId());
                         if (orderModel != null) {
-                            orderModel.onward(orderLog);
+                            orderModel.revert(orderLog);
+                        } else {
+                            System.out.println("[update...] not find order: " + orderLog.getOrderId());
+                            // throw new RuntimeException("[new order] not find order: " +
+                            // orderLog.getOrderId());
                         }
                     }
-                    break;
                 case TX:
                     break;
                 case Unknown:
                     break;
                 default:
                     throw new AssertionError(type.name());
+                }
+            } catch (Exception e) {
+                log.error("revert failed,the err is :" + e);
+            }
+        }
+
+        private void onwardInternal(OrderEvent event) {
+            OrderModel orderModel;
+            EventType type = event.getType();
+            OrderLog orderLog = event.getOrderLog();
+            switch (type) {
+            case NewOrder:
+                if (!orderLog.finished()) {
+                    orderModel = OrderModel.fromOrderLog(orderLog);
+                    this.addOrder(orderModel);
+                }
+                break;
+            case UpdateOrder:
+                if (orderLog.finished()) {
+                    orderModel = orders.get(orderLog.getOrderId());
+                    if (orderModel != null) {
+                        this.removeOrder(orderModel);
+                    }
+                } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
+                    orderModel = orders.get(orderLog.getOrderId());
+                    if (orderModel != null) {
+                        orderModel.onward(orderLog);
+                    }
+                }
+                break;
+            case TX:
+                break;
+            case Unknown:
+                break;
+            default:
+                throw new AssertionError(type.name());
             }
         }
 
@@ -188,7 +229,7 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
 
         @Override
         public void init(List<OrderModel> orderModels, Long blockHeight) {
-            // distinct by orderId
+            // distinct
             this.buys = Lists.newLinkedList(orderModels.stream().filter(o -> !o.isSide())
                     .collect(Collectors.collectingAndThen(
                             Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(OrderModel::getOrderId))),
@@ -206,8 +247,6 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
 
             this.orders.putAll(orderMap);
         }
-
-
 
         public OrderBook initFromOrders(List<OrderModel> orders) {
             init(orders, 0l);
@@ -237,26 +276,14 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
         }
 
         @Override
-        public void revert(BlockEvent event) {
-            if (event.getHeight() <= this.currBlockHeight) {
-                event.forEach(this, true, true);
-                this.currBlockHeight = event.getHeight();
-            }
-        }
-
-        @Override
-        public void onward(BlockEvent event) {
-            if (event.getHeight() >= this.currBlockHeight) {
-                event.forEach(this, false, false);
-                this.currBlockHeight = event.getHeight();
-            }
+        public void setOrderAware(IOrderEventHandleAware aware) {
+            this.aware = aware;
         }
 
         @Override
         public String hash() {
-            String result =
-                    orders.values().stream().sorted(Comparator.comparing(OrderModel::getOrderId)).map(t -> t.hash())
-                            .collect(Collectors.joining("-"));
+            String result = orders.values().stream().sorted(Comparator.comparing(OrderModel::getOrderId))
+                    .map(t -> t.hash()).collect(Collectors.joining("-"));
             return DigestUtils.md5Hex(result);
         }
     }

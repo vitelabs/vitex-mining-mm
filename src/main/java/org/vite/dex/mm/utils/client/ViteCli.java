@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
@@ -34,9 +35,11 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static org.vite.dex.mm.constant.constants.MarketMiningConst.NODE_SERVER_URL;
@@ -69,7 +72,6 @@ public class ViteCli {
         return block;
     }
 
-
     public Long getLatestAccountHeight() throws IOException {
         AccountBlock block = null;
         try {
@@ -86,7 +88,7 @@ public class ViteCli {
     }
 
     /**
-     * get events by height range,pay attention to the event sequence
+     * get events by height range
      *
      * @param startHeight
      * @param endHeight
@@ -126,7 +128,47 @@ public class ViteCli {
         return events;
     }
 
-    public List<AccBlockVmLogs> getAccBlocksByHeightRange(long startHeight, long endHeight, int pageSize)
+    public List<AccountBlock> getAccoutBlocksByHeightRangePaging(long startHeight, long endHeight, int pageSize)
+            throws IOException {
+        if (startHeight > endHeight) {
+            return Collections.emptyList();
+        }
+
+        List<AccountBlock> res = new ArrayList<>();
+        // Paging fetch
+        int round = 0;
+        while (true) {
+            long from = startHeight + round * pageSize;
+            long to = startHeight + (round + 1) * pageSize - 1;
+            if (from > endHeight) {
+                return res;
+            }
+            if (to > endHeight) {
+                to = endHeight;
+            }
+
+            // [from,to]
+            List<AccountBlock> blocks = getAccountBlocksByHeightRange(from, to);
+            if (blocks == null || blocks.isEmpty()) {
+                break;
+            }
+            res.addAll(blocks);
+            round++;
+        }
+
+        return res;
+    }
+
+    /**
+     * get AccBlockVmLogs between startHeight and endHeight
+     * 
+     * @param startHeight
+     * @param endHeight
+     * @param pageSize
+     * @return
+     * @throws IOException
+     */
+    public List<AccBlockVmLogs> getAccBlockVmLogsByHeightRange(long startHeight, long endHeight, int pageSize)
             throws IOException {
         List<VmLogInfo> vmlogs = getEventsByHeightRange(startHeight, endHeight, pageSize);
         if (CollectionUtils.isEmpty(vmlogs)) {
@@ -134,10 +176,10 @@ public class ViteCli {
         }
 
         List<AccBlockVmLogs> result = Lists.newArrayList();
-        Map<Long, List<VmLogInfo>> height2Vmlogs = vmlogs.stream()
+        Map<Long, List<VmLogInfo>> blockHeight2Vmlogs = vmlogs.stream()
                 .collect(Collectors.groupingBy(VmLogInfo::getAccountBlockHeight));
 
-        height2Vmlogs.forEach((height, logs) -> {
+        blockHeight2Vmlogs.forEach((height, logs) -> {
             AccBlockVmLogs accBlockVmLogs = new AccBlockVmLogs();
             accBlockVmLogs.setHeight(height);
             accBlockVmLogs.setHash(logs.get(0).getAccountBlockHashRaw());
@@ -157,6 +199,19 @@ public class ViteCli {
             result = resp.getResult();
         } catch (Exception e) {
             log.error("getAccountBlocksBelowCurrentHash failed,the err:" + e);
+            throw e;
+        }
+        return result;
+    }
+
+    public List<AccountBlock> getAccountBlocksByHeightRange(long startHeight, long endHeight) throws IOException {
+        List<AccountBlock> result = null;
+        try {
+            CommonResponse response = vitej.commonMethod("ledger_getAccountBlocksByHeightRange", TRADE_CONTRACT_ADDRESS,
+                    startHeight, endHeight).send();
+            result = JSON.parseArray(JSON.toJSONString(response.getResult()), AccountBlock.class);
+        } catch (Exception e) {
+            log.error("getAccountBlocksByHeightRange failed,the err:" + e);
             throw e;
         }
         return result;
@@ -192,8 +247,7 @@ public class ViteCli {
         return endHeight;
     }
 
-
-    // TODOthe vitej interface has big bug!!!use alter
+    // TODOthe vitej api has a bug!use the alternative ones
     public SnapshotBlock getSnapshotBlockByHeight(long height) throws IOException {
         SnapshotBlocksResponse resp = null;
         SnapshotBlock result = null;
@@ -266,14 +320,14 @@ public class ViteCli {
     }
 
     /**
-    * get orders from specified order book of trade-pair
-    * 
-    * @param tradeTokenId
-    * @param quoteTokenId
-    * @param pageCnt
-    * @return
-    * @throws IOException
-    */
+     * get orders from specified order book of trade-pair
+     * 
+     * @param tradeTokenId
+     * @param quoteTokenId
+     * @param pageCnt
+     * @return
+     * @throws IOException
+     */
     public OrderBookInfo getOrdersFromMarket(String tradeTokenId, String quoteTokenId, int pageCnt) throws IOException {
         List<OrderModel> orderModels = Lists.newLinkedList();
         List<Long> heights = Lists.newLinkedList();
@@ -298,8 +352,81 @@ public class ViteCli {
 
             idx++;
         }
-        // System.out.println(heights);
+
         Long maxHeight = heights.stream().max(Long::compareTo).get();
         return OrderBookInfo.fromOrderModelsAndHeight(orderModels, maxHeight);
+    }
+
+    /**
+     * get all account blocks whose created time is greater than the startTime and
+     * its hash is lower than endHash
+     * 
+     * @param startTime
+     * @param endHash
+     * @return
+     * @throws IOException
+     */
+    private List<AccountBlock> getAccountBlocks(long startTime, Hash endHash) throws IOException {
+        List<AccountBlock> blocks = Lists.newArrayList();
+        while (true) {
+            // the result contains the endHash block [startHash, endHash]
+            List<AccountBlock> result = getAccountBlocksBelowCurrentHash(endHash, 1000);
+            if (CollectionUtils.isEmpty(result)) {
+                break;
+            }
+
+            // sort blocks in descending order of height
+            result.sort((block0, block1) -> block1.getHeight().compareTo(block0.getHeight()));
+            for (AccountBlock aBlock : result) {
+                if (aBlock.getTimestampRaw() >= startTime) {
+                    blocks.add(aBlock);
+                    endHash = aBlock.getHash();
+                } else {
+                    // ignore
+                    return blocks;
+                }
+            }
+        }
+        return blocks;
+    }
+
+    /**
+     * get the blocks from previous timepoint of hash to currentHash
+     * 
+     * @param startTime
+     * @param currentHash
+     * @return
+     * @throws IOException
+     */
+    public Map<String, AccountBlock> getAccountBlockMap(long startTime, Hash currentHash) throws IOException {
+        if (currentHash == null) {
+            return null;
+        }
+
+        Map<String, AccountBlock> accountBlockMap = Maps.newHashMap();
+        List<AccountBlock> blocks = getAccountBlocks(startTime, currentHash);
+        if (CollectionUtils.isEmpty(blocks)) {
+            return null;
+        }
+        blocks = blocks.stream()
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(o -> o.getHeight()))),
+                        ArrayList::new));
+        accountBlockMap = blocks.stream()
+                .collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block, (b0, b1) -> b0));
+        return accountBlockMap;
+    }
+
+    public Map<String, AccountBlock> getAccountBlockMap(long startHeight, long endHeight) throws IOException {
+        List<AccountBlock> blocks = getAccoutBlocksByHeightRangePaging(startHeight, endHeight, 5000);
+        if (CollectionUtils.isEmpty(blocks)) {
+            return null;
+        }
+
+        Map<String, AccountBlock> accountBlockMap = Maps.newHashMap();
+        accountBlockMap = blocks.stream()
+                .collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block, (b0, b1) -> b0));
+
+        return accountBlockMap;
     }
 }

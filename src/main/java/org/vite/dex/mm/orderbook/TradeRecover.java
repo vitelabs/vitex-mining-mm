@@ -7,17 +7,16 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
-import org.vite.dex.mm.entity.AccBlockVmLogs;
-import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
+import org.vite.dex.mm.reward.RewardKeeper;
+import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
+import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
-import org.vitej.core.protocol.methods.Hash;
-import org.vitej.core.protocol.methods.response.AccountBlock;
 import org.vitej.core.protocol.methods.response.TokenInfo;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.Vmlog;
@@ -25,13 +24,11 @@ import org.vitej.core.protocol.methods.response.Vmlog;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -47,19 +44,35 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 @Slf4j
 public class TradeRecover {
     private final Map<String, EventStream> eventStreams = Maps.newHashMap(); // <TradePairSymbol,EventStream>
-    private final Map<String, OrderBook> orderBooks = Maps.newHashMap(); // <TradePairSymbol,OrderBook>
-    private Map<String, AccountBlock> accountBlockMap = Maps.newHashMap(); // <Hash,AccountBlock>
-    private static List<TradePair> tradePairs = getMarketMiningOpenedTp();
-    private Map<String, TokenInfo> tokens = Maps.newHashMap();
+    private Map<String, OrderBook> orderBooks = Maps.newHashMap(); // <TradePairSymbol,OrderBook>
+    private BlockEventStream blockEventStream = null;
 
-    public Map<String, TokenInfo> getTokens() {
-        return tokens;
-    }
+    private static List<TradePair> tradePairs = getMarketMiningOpenedTp();
 
     private final ViteCli viteCli;
 
     public TradeRecover(ViteCli viteCli) {
         this.viteCli = viteCli;
+    }
+
+    public Map<String, EventStream> getEventStreams() {
+        return eventStreams;
+    }
+
+    public Map<String, OrderBook> getOrderBooks() {
+        return orderBooks;
+    }
+
+    public void setOrderBooks(Map<String, OrderBook> orderBooks) {
+        this.orderBooks = orderBooks;
+    }
+
+    public BlockEventStream getBlockEventStream() {
+        return blockEventStream;
+    }
+
+    public void setBlockEventStream(BlockEventStream blockEventStream) {
+        this.blockEventStream = blockEventStream;
     }
 
     // TODO get data from contract
@@ -80,6 +93,18 @@ public class TradeRecover {
         return res;
     }
 
+    public Map<String, MiningRewardCfg> miningRewardCfgMap() {
+        Map<String, MiningRewardCfg> tradePairCfgMap = new HashMap<>();
+
+        getMarketMiningOpenedTp().stream().forEach(tp -> {
+            String symbol = tp.getTradePair();
+            MiningRewardCfg miningRewardCfg = MiningRewardCfg.fromTradePair(tp);
+            tradePairCfgMap.put(symbol, miningRewardCfg);
+        });
+
+        return tradePairCfgMap;
+    }
+
     public Map<String, TokenInfo> getAllTokenInfo() throws IOException {
         List<TokenInfo> tokenInfos = viteCli.getTokenInfoList(0, 500);
         Map<String, TokenInfo> tokenId2TokenInfoMap = tokenInfos.stream()
@@ -90,34 +115,12 @@ public class TradeRecover {
     /**
      * prerequisite data is necessary
      */
-    public void prepareData() throws Exception {
+    public Tokens prepareData() throws Exception {
         try {
-            tokens = getAllTokenInfo();
-            log.info("prerequisite data has been prepared");
+            Map<String, TokenInfo> tokensMap = getAllTokenInfo();
+            return new Tokens(tokensMap);
         } catch (Exception e) {
             log.error("failed to prepare prerequisite data, err: ", e);
-            throw e;
-        }
-    }
-
-    /**
-     * prepare order books, get the order book of all market on current time
-     *
-     * @throws IOException
-     */
-    public void prepareOrderBooks() throws IOException {
-        try {
-            for (TradePair tp : tradePairs) {
-                OrderBook orderBook = new OrderBook.Impl();
-                String tradePairSymbol = tp.getTradePair();
-                // get orders of the trade-pair
-                OrderBookInfo orderBookInfo = getOrdersFromMarket(tp.getTradeTokenId(), tp.getQuoteTokenId(), 100);
-                orderBook.init(orderBookInfo.getOrderModels(), orderBookInfo.getCurrBlockheight());
-                this.orderBooks.put(tradePairSymbol, orderBook);
-                log.info("the order book of tradePair [{}] is prepared", tp.getTradePair());
-            }
-        } catch (Exception e) {
-            log.error("prepareOrderBooks occurs exception,the err:", e);
             throw e;
         }
     }
@@ -161,263 +164,20 @@ public class TradeRecover {
     }
 
     /**
-     * 1. get trade contract vmLogs 2. parse and group vmLogs
-     *
-     * @param startTime second
-     */
-    public void prepareEvents(long startTime) throws Exception {
-        // 1. get all events
-        AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
-        Hash currentHash = latestAccountBlock.getHash();
-        AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, currentHash);
-        if (cycleStartBlock == null) {
-            throw new Exception("cycle start block is not exist");
-        }
-        Long startHeight = cycleStartBlock.getHeight();
-        Long endHeight = latestAccountBlock.getHeight();
-        List<AccBlockVmLogs> vmLogInfoList = viteCli.getAccBlocksByHeightRange(startHeight, endHeight, 1000);
-        log.info("succeed to get events from height {} to {} of the trade-contract chain", startHeight, endHeight);
-
-        // 2. parse vmLogs and group these vmLogs by trade-pair
-        for (AccBlockVmLogs accBlock : vmLogInfoList) {
-            BlockEvent blockEvent = BlockEvent.fromAccBlockVmLogs(accBlock, getTokens());
-
-            blockEvent.getOrderEvents().forEach(orderEvent -> {
-                if (!orderEvent.ignore()) {
-                    AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
-                    if (block != null) {
-                        orderEvent.setTimestamp(block.getTimestampRaw());
-                    }
-                    EventStream eventStream = eventStreams.getOrDefault(orderEvent.tradePair(), new EventStream());
-                    eventStream.addEvent(orderEvent);
-                    eventStreams.put(orderEvent.tradePair(), eventStream);
-                }
-            });
-        }
-        log.info("parse vmLogs and divide them into different group successfully");
-    }
-
-    public void revertOrderBooksByEventStream(long startTime) throws Exception {
-        long fixedTime = getFixedTime();
-        // for each trade-pair,revert the orderbook
-        int N = 5;
-        for (TradePair tp : tradePairs) {
-            List<OrderBook> l = new ArrayList<>();
-            for (int i = 0; i < N; i++) {
-                // 1. 拿到当前的orderBook
-                OrderBook orderBook = new OrderBook.Impl();
-                OrderBookInfo orderBookInfo = getOrdersFromMarket(tp.getTradeTokenId(), tp.getQuoteTokenId(), 100);
-
-                Long endQueryHeight = orderBookInfo.getCurrBlockheight();
-                orderBook.init(orderBookInfo.getOrderModels(), orderBookInfo.getCurrBlockheight());
-
-                // 2. 拿到从[12:30, endQueryHeight]的所有事件
-                AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
-                Hash currentHash = latestAccountBlock.getHash();
-                AccountBlock cycleStartBlock = getLastCycleStartAccountBlock(startTime, currentHash);
-                if (cycleStartBlock == null) {
-                    throw new Exception("cycle start block is not exist");
-                }
-                Long startHeight = cycleStartBlock.getHeight();
-                List<AccBlockVmLogs> vmLogInfoList = viteCli.getAccBlocksByHeightRange(startHeight, endQueryHeight,
-                        1000);
-
-                // parse vmLogs and group these vmLogs by trade-pair
-                EventStream eventStream = new EventStream();
-                for (AccBlockVmLogs accBlock : vmLogInfoList) {
-                    BlockEvent blockEvent = BlockEvent.fromAccBlockVmLogs(accBlock, getTokens());
-
-                    blockEvent.getOrderEvents().forEach(orderEvent -> {
-                        if (orderEvent.tradePair().equals(tp.getTradePair()) && !orderEvent.ignore()) {
-                            AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
-                            if (block != null) {
-                                orderEvent.setTimestamp(block.getTimestampRaw());
-                            }
-                            eventStream.addEvent(orderEvent);
-                        }
-                    });
-                }
-
-                // 3. revert 回去
-                if (orderBook == null || eventStream == null) {
-                    continue;
-                }
-                List<OrderEvent> events = reverseOrderEvents(eventStream.getEvents());
-                for (OrderEvent event : events) {
-                    orderBook.revert(event);
-                }
-                l.add(orderBook);
-            }
-
-            // 4.compare 这几次的origin order book ,得到一个12：30的OrderBook
-            OrderBook orderBook = compareOrderBooks(l);
-
-            // 5.获取从12：30到前一天中午12点的所有事件
-            AccountBlock latestAccountBlock = viteCli.getLatestAccountBlock();
-            Hash currentHash = latestAccountBlock.getHash();
-            List<AccountBlock> blocks = getAccountBlocks(startTime, currentHash);
-            List<AccountBlock> fixedblocks = getAccountBlocks(fixedTime, currentHash);
-            List<AccBlockVmLogs> vmLogInfoList = viteCli.getAccBlocksByHeightRange(blocks.get(0).getHeight(),
-                    fixedblocks.get(0).getHeight(), 1000);
-
-            // parse vmLogs and group these vmLogs by trade-pair
-            EventStream eventStream = new EventStream();
-            for (AccBlockVmLogs accBlock : vmLogInfoList) {
-                BlockEvent blockEvent = BlockEvent.fromAccBlockVmLogs(accBlock, getTokens());
-
-                blockEvent.getOrderEvents.forEach(orderEvent -> {
-                    if (orderEvent.tradePair().equals(tp.getTradePair()) && !orderEvent.ignore()) {
-                        AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
-                        if (block != null) {
-                            orderEvent.setTimestamp(block.getTimestampRaw());
-                        }
-                        eventStream.addEvent(orderEvent);
-                    }
-                });
-            }
-
-            // 6.从12：30的OrderBook开始往前revert
-            if (orderBook == null || eventStream == null) {
-                continue;
-            }
-            List<OrderEvent> events = reverseOrderEvents(eventStream.getEvents());
-            for (OrderEvent event : events) {
-                orderBook.revert(event);
-            }
-            this.orderBooks.put(tp.getTradePair(), orderBook);
-            this.eventStreams.put(tp.getTradePair(), eventStream);
-        }
-    }
-
-    private OrderBook compareOrderBooks(List<OrderBook> l) {
-        Map<BigDecimal, List<OrderBook>> orderBookMap = l.stream()
-                .collect(Collectors.groupingBy(OrderBook::getAmountSum));
-
-        List<OrderBook> maxOccurOrderBooks = orderBookMap.values().stream().max(Comparator.comparingInt(w -> w.size()))
-                .get();
-        return maxOccurOrderBooks.get(0);
-    }
-
-    // Get the timestamp at 12:30 pm every day
-    private Long getFixedTime() {
-        Calendar c = Calendar.getInstance();
-        c.set(Calendar.HOUR_OF_DAY, 12);
-        c.set(Calendar.MINUTE, 30);
-        c.set(Calendar.SECOND, 0);
-
-        return c.getTime().getTime() / 1000; // seconds
-    }
-
-    // Todo difficult to solve. Assuming that the filtered event is right
-    public void filterEvents() {
-        tradePairs.forEach(tp -> {
-            EventStream events = eventStreams.get(tp.getTradePair());
-            OrderBook orderBook = orderBooks.get(tp.getTradePair());
-
-            if (events != null && orderBook != null) {
-                events.filter(orderBook);
-            }
-        });
-    }
-
-
-    /**
-     * get the start account block
-     *
-     * @param startTime
-     * @param currentHash
-     * @return
-     * @throws IOException
-     */
-    private AccountBlock getLastCycleStartAccountBlock(long startTime, Hash currentHash) throws IOException {
-        if (currentHash == null) {
-            return null;
-        }
-
-        List<AccountBlock> blocks = getAccountBlocks(startTime, currentHash);
-        if (CollectionUtils.isEmpty(blocks)) {
-            return null;
-        }
-        blocks = blocks.stream()
-                .collect(Collectors.collectingAndThen(
-                        Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(o -> o.getHeight()))),
-                        ArrayList::new));
-        this.accountBlockMap = blocks.stream()
-                .collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block, (b0, b1) -> b0));
-        return blocks.get(0);
-    }
-
-    /**
-     * get all account blocks whose created time is greater than the startTime and
-     * its hash is lower than endHash
-     * 
-     * @param startTime
-     * @param endHash
-     * @return
-     * @throws IOException
-     */
-    private List<AccountBlock> getAccountBlocks(long startTime, Hash endHash) throws IOException {
-        List<AccountBlock> blocks = Lists.newArrayList();
-        while (true) {
-            // the result contains the endHash block [startHash, endHash]
-            List<AccountBlock> result = viteCli.getAccountBlocksBelowCurrentHash(endHash, 1000);
-            if (CollectionUtils.isEmpty(result)) {
-                break;
-            }
-
-            // sort blocks in descending order of height
-            result.sort((block0, block1) -> block1.getHeight().compareTo(block0.getHeight()));
-            for (AccountBlock aBlock : result) {
-                if (aBlock.getTimestampRaw() >= startTime) {
-                    blocks.add(aBlock);
-                    endHash = aBlock.getHash();
-                } else {
-                    // ignore
-                    return blocks;
-                }
-            }
-        }
-        return blocks;
-    }
-
-    /**
-     * recover order book of all trade pair to the previous cycle
-     */
-    public void revertOrderBooks() throws Exception {
-        for (TradePair tp : tradePairs) {
-            String tradePairSymbol = tp.getTradePair();
-            OrderBook orderBook = orderBooks.get(tradePairSymbol);
-            EventStream eventStream = eventStreams.get(tradePairSymbol);
-            if (orderBook == null || eventStream == null) {
-                continue;
-            }
-
-            List<OrderEvent> events = reverseOrderEvents(eventStream.getEvents());
-            for (OrderEvent event : events) {
-                orderBook.revert(event);
-            }
-            log.info("the order book[{}] has been reverted, the addCnt {}, the removeCnt {}", tp.getTradePair(),
-                    orderBook.getAddCnt(), orderBook.getRemoveCnt());
-
-            fillAddressForOrdersGroupByTimeUnit(orderBook.getOrders().values());
-            log.info("revert the order book [{}] to the start time of last cycle", tp.getTradePair());
-        }
-    }
-
-    private List<OrderEvent> reverseOrderEvents(List<OrderEvent> l) {
-        List<OrderEvent> events = new ArrayList<>();
-        events.addAll(l);
-        Collections.reverse(events);
-        return events;
-    }
-
-    /**
      * divide and conquer: group orders by timeUnit and filled with address
+     * respectively
      * 
      * @param orders
      * @throws Exception
      */
-    private void fillAddressForOrdersGroupByTimeUnit(Collection<OrderModel> orders) throws Exception {
+    public void fillAddressForOrdersGroupByTimeUnit(Map<String, OrderBook> books) throws Exception {
+        List<OrderModel> allOrders = new ArrayList<>();
+        books.values().forEach(orderBook -> {
+            allOrders.addAll(orderBook.getOrders().values());
+        });
+
+        List<OrderModel> orders = allOrders;
+
         orders = orders.stream().filter(t -> t.emptyAddress()).collect(Collectors.toList());
 
         Map<Long, List<OrderModel>> orderGroups = orders.stream()
@@ -491,8 +251,8 @@ public class TradeRecover {
      */
     private Map<String, OrderModel> fillAddressForOrders(Map<String, OrderModel> orderMap, long startTime, long endTime)
             throws IOException {
-        Long startHeight = getContractChainHeight(startTime);
-        Long endHeight = getContractChainHeight(endTime);
+        Long startHeight = viteCli.getContractChainHeight(startTime);
+        Long endHeight = viteCli.getContractChainHeight(endTime);
 
         List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 1000);
 
@@ -515,23 +275,37 @@ public class TradeRecover {
         return orderMap;
     }
 
-    public Map<String, EventStream> getEventStreams() {
-        return eventStreams;
+    public void run(long prevTime, long endTime) throws Exception {
+        Traveller traveller = new Traveller();
+        long snapshotTime = CommonUtils.getFixedTime();
+
+        Tokens tokens = prepareData();
+        OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
+        OrderBooks originOrderBooks = recoverInTime(snapshotOrderBooks, prevTime, tokens, viteCli);
+        fillAddressForOrdersGroupByTimeUnit(originOrderBooks.getBooks());
+        this.setOrderBooks(originOrderBooks.getBooks());
+
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        double totalReleasedViteAmount = 1000000.0;
+        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(originOrderBooks,
+                getBlockEventStream(), totalReleasedViteAmount, prevTime, endTime, miningRewardCfgMap());
+        System.out.println(finalRes);
     }
 
-    public Map<String, OrderBook> getOrderBooks() {
+    // recover all orderbooks to start time of last cycle
+    public OrderBooks recoverInTime(OrderBooks orderBooks, Long time, Tokens tokens, ViteCli viteCli)
+            throws IOException {
+        Long startHeight = viteCli.getContractChainHeight(time);
+        Long endHeight = viteCli.getLatestAccountHeight();
+
+        BlockEventStream stream = new BlockEventStream(startHeight, endHeight);
+        stream.init(viteCli, tokens);
+        stream.patchTimestampToOrderEvent(viteCli);
+        this.setBlockEventStream(stream);
+
+        stream.action(orderBooks, true, true);
+
         return orderBooks;
-    }
-
-    public Map<String, AccountBlock> getAccountBlockMap() {
-        return accountBlockMap;
-    }
-
-    public void run(long pointTime) throws Exception {
-        prepareOrderBooks();
-        prepareEvents(pointTime);
-        filterEvents();
-        revertOrderBooks();
     }
 
     public void initFrom(Map<String, List<OrderModel>> orders, Map<String, List<OrderEvent>> events) {

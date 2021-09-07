@@ -34,10 +34,11 @@ public class RewardOrder {
         return orderModel.getAmount();
     }
 
-    public void deal(MiningRewardCfg cfg, OrderEvent event, BigDecimal topPrice) {
+    public void deal(OrderEvent event, MiningRewardCfg cfg, BigDecimal topPrice) {
+        // long startTime = Math.max(calculateStartTime, this.orderModel.getTimestamp());
         long startTime = calculateStartTime;
         long endTime = event.getTimestamp();
-        if (endTime - this.orderModel.getTimestamp() < 300) {
+        if (startTime >= endTime || endTime - this.orderModel.getTimestamp() < 300) {
             return;
         }
 

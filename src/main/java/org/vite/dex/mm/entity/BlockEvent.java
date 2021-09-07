@@ -7,6 +7,11 @@ import org.vite.dex.mm.orderbook.Tokens;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * BlockEvent is a collection containing a set of OrderEvents which located in
+ * the same block.
+ * 
+ */
 @Data
 public class BlockEvent {
 	private final List<OrderEvent> orderEvents;
@@ -21,14 +26,12 @@ public class BlockEvent {
 		this.hash = hash;
 	}
 
-
-	public static BlockEvent fromAccBlockVmLogs(AccBlockVmLogs accBlockVmLogs, Tokens tokens) {
-		accBlockVmLogs.parseTransaction();
-
+	public static BlockEvent fromAccBlockVmlogs(AccBlockVmLogs accBlockVmLogs, Tokens tokens) {
+		accBlockVmLogs.parseTransaction(); // parse Tx in the block
 		List<OrderEvent> events = new ArrayList<>();
 		accBlockVmLogs.getVmLogs().forEach(vmLog -> {
 			OrderEvent orderEvent = new OrderEvent();
-			orderEvent.parse(vmLog.getVmlog(), accBlockVmLogs, tokens);
+			orderEvent.parse(vmLog.getVmlog(), accBlockVmLogs, tokens); // parse NewOrder/UpdateOrder event
 			orderEvent.setBlockHash(vmLog.getAccountBlockHashRaw());
 			events.add(orderEvent);
 		});
@@ -37,8 +40,7 @@ public class BlockEvent {
 		return result;
 	}
 
-
-	public void forEach(IOrderEventHandler handler, boolean reverted, boolean reversed) {
+	public void action(IOrderEventHandler handler, boolean reverted, boolean reversed) {
 		if (reversed) {
 			for (int i = orderEvents.size() - 1; i >= 0; i--) {
 				OrderEvent t = orderEvents.get(i);

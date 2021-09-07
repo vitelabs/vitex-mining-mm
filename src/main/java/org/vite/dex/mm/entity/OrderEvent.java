@@ -18,8 +18,7 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 public class OrderEvent {
     private OrderLog orderLog;
 
-    // the order event emit timestamp
-    private long timestamp;
+    private long timestamp; // emited timestamp
 
     private EventType type;
 
@@ -38,7 +37,6 @@ public class OrderEvent {
     }
 
     public OrderStatus getStatus() {
-
         return orderLog.getStatus();
     }
 
@@ -58,31 +56,28 @@ public class OrderEvent {
             byte[] event = vmlog.getData();
             EventType eventType = getEventType(vmlog.getTopicsRaw());
             switch (eventType) {
-                case NewOrder:
-                    DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
-                    this.setType(NewOrder);
-                    this.orderLog = OrderLog.fromNewOrder(vmlog, dexOrder);
-                    break;
-                case UpdateOrder:
-                    // both cancel and filled order will emit the updateEvent
-                    DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
-                    String orderId = Hex.toHexString(orderUpdateInfo.getId().toByteArray());
-                    OrderTx tx = vmlogs.getTx(orderId);
-                    this.orderLog = OrderLog.fromUpdateOrder(vmlog, orderUpdateInfo, tx, tokens);
-                    this.setType(UpdateOrder);
-                    break;
-                case TX:
-                    this.setType(TX);
-                    break;
-                case Unknown:
-                    this.setType(Unknown);
-                    break;
-                default:
-                    throw new AssertionError(eventType.name());
+            case NewOrder:
+                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
+                this.setType(NewOrder);
+                this.orderLog = OrderLog.fromNewOrder(dexOrder, vmlog);
+                break;
+            case UpdateOrder:
+                DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
+                OrderTx tx = vmlogs.getTx(Hex.toHexString(orderUpdateInfo.getId().toByteArray()));
+                this.orderLog = OrderLog.fromUpdateOrder(orderUpdateInfo, vmlog, tx, tokens);
+                this.setType(UpdateOrder);
+                break;
+            case TX:
+                this.setType(TX);
+                break;
+            case Unknown:
+                this.setType(Unknown);
+                break;
+            default:
+                throw new AssertionError(eventType.name());
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
-
 }

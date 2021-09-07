@@ -8,11 +8,12 @@ import java.util.Map;
 public class Tokens {
 	private Map<String, TokenInfo> tokenMap = new HashMap<String, TokenInfo>();
 
+	public Tokens(Map<String, TokenInfo> tokenMap) {
+		this.tokenMap = tokenMap;
+	}
 
-
-	//@todo
 	public int getDecimals(String tti) {
-		return 0;
+		return tokenMap.get(tti).getDecimals();
 	}
 
 }

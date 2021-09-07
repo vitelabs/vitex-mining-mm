@@ -20,9 +20,8 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getPriceByParseOrderId;
 
 @Data
 public class OrderLog {
-    private String logId; // optional
-    private Long orderCreateTime;
     private String orderId;
+    private Long orderCreateTime;
     private BigDecimal price;
     private BigDecimal changeQuantity;
     private BigDecimal changeAmount;
@@ -32,7 +31,7 @@ public class OrderLog {
     private OrderStatus status;
     private Vmlog rawLog;
 
-    public static OrderLog fromNewOrder(Vmlog vmlog, DexTradeEvent.NewOrderInfo dexOrder) {
+    public static OrderLog fromNewOrder(DexTradeEvent.NewOrderInfo dexOrder, Vmlog vmlog) {
         OrderLog result = new OrderLog();
         DexTradeEvent.Order order = dexOrder.getOrder();
         byte[] orderIdBytes = order.getId().toByteArray();
@@ -52,7 +51,8 @@ public class OrderLog {
         return result;
     }
 
-    public static OrderLog fromUpdateOrder(Vmlog vmlog, DexTradeEvent.OrderUpdateInfo orderUpdateInfo, OrderTx tx,
+    // both cancel and filled order will emit the updateEvent
+    public static OrderLog fromUpdateOrder(DexTradeEvent.OrderUpdateInfo orderUpdateInfo, Vmlog vmlog, OrderTx tx,
             Tokens tokens) {
         OrderLog result = new OrderLog();
         byte[] orderIdBytes = orderUpdateInfo.getId().toByteArray();

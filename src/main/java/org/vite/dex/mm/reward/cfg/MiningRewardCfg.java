@@ -1,6 +1,7 @@
 package org.vite.dex.mm.reward.cfg;
 
 import lombok.Data;
+import org.vite.dex.mm.entity.TradePair;
 
 /**
  * the config is taken from Contract on ViteX
@@ -24,4 +25,15 @@ public class MiningRewardCfg {
 
     //the multiplier factor for a trade-pair
     double maxSellFactorThanBuy = 0.01;
+
+    public static MiningRewardCfg fromTradePair(TradePair tp){
+        MiningRewardCfg miningRewardCfg = new MiningRewardCfg();
+        miningRewardCfg.setMarketId(tp.getMarket());
+        miningRewardCfg.setTradePairSymbol(tp.getTradePair());
+        miningRewardCfg.setEffectiveDist(tp.getMmEffectiveInterval());
+        miningRewardCfg.setMiningRewardMultiple(tp.getMmRewardMultiple());
+        miningRewardCfg.setMaxBuyFactorThanSell(tp.getBuyAmountThanSellRatio());
+        miningRewardCfg.setMaxSellFactorThanBuy(tp.getSellAmountThanBuyRatio());
+        return miningRewardCfg;
+    }
 }

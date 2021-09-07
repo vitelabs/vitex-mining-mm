@@ -10,12 +10,12 @@ import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class BlockEventStream {
 	private List<BlockEvent> events = Lists.newArrayList();
 	private final Long startHeight;
 	private final Long endHeight;
-
 
 	public BlockEventStream(long startHeight, long endHeight) {
 		this.startHeight = startHeight;
@@ -36,33 +36,31 @@ public class BlockEventStream {
 		events.add(event);
 	}
 
-
+	// get vmLogs between startHeight and endHeight and parse them into BlockEvent
 	public void init(ViteCli viteCli, Tokens tokens) throws IOException {
-		List<AccBlockVmLogs> vmLogInfoList = viteCli.getAccBlocksByHeightRange(startHeight, endHeight,
-				1000);
-
-		// parse vmLogs and group these vmLogs by trade-pair
-		for (AccBlockVmLogs accBlock : vmLogInfoList) {
-			BlockEvent blockEvent = BlockEvent.fromAccBlockVmLogs(accBlock, tokens);
+		List<AccBlockVmLogs> accBlockVmlogList = viteCli.getAccBlockVmLogsByHeightRange(startHeight, endHeight, 1000);
+		for (AccBlockVmLogs accBlockVmLogs : accBlockVmlogList) {
+			BlockEvent blockEvent = BlockEvent.fromAccBlockVmlogs(accBlockVmLogs, tokens);
 			this.addEvent(blockEvent);
 		}
-		//@todo patch timestamp
 	}
 
-	public void patchTimestampToOrderEvent(Map<String, AccountBlock> accountBlockMap) {
+	public void patchTimestampToOrderEvent(ViteCli viteCli) throws IOException {
+		// inject block`timestamp to vmLogs
+		Map<String, AccountBlock> accountBlockMap = viteCli.getAccountBlockMap(startHeight, endHeight);
 		events.forEach(blockEvent -> {
 			blockEvent.getOrderEvents().forEach(orderEvent -> {
 				if (!orderEvent.ignore()) {
-					AccountBlock block = accountBlockMap.get(orderEvent.getBlockHash());
-					if (block != null) {
-						orderEvent.setTimestamp(block.getTimestampRaw());
+					AccountBlock accountBlock = accountBlockMap.get(orderEvent.getBlockHash());
+					if (accountBlock != null) {
+						orderEvent.setTimestamp(accountBlock.getTimestampRaw());
 					}
 				}
 			});
 		});
 	}
 
-	public void forEach(IBlockEventHandler handler, boolean reverted, boolean reversed) {
+	public void action(IBlockEventHandler handler, boolean reversed, boolean reverted) {
 		if (reversed) {
 			for (int i = events.size() - 1; i >= 0; i--) {
 				BlockEvent t = events.get(i);
@@ -83,15 +81,10 @@ public class BlockEventStream {
 		}
 	}
 
-
-	// @todo for example subString
 	public BlockEventStream subStream(Long start, Long end) {
-		return null;
-	}
-
-	// @todo
-
-	public BlockEventStream concat(BlockEventStream a, BlockEventStream b) {
-		return null;
+		List<BlockEvent> subEvents = this.events.stream()
+				.filter(blockEvent -> blockEvent.getHeight() >= start && blockEvent.getHeight() <= end)
+				.collect(Collectors.toList());
+		return new BlockEventStream(start, end, subEvents);
 	}
 }
