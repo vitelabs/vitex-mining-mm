@@ -2,6 +2,7 @@ package org.vite.dex.mm.reward.bean;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
@@ -11,6 +12,7 @@ import java.math.RoundingMode;
 
 @Data
 @NoArgsConstructor
+@Slf4j
 public class RewardOrder {
     private OrderModel orderModel;
     private long calculateStartTime; // the start time of each calculate interval
@@ -35,10 +37,15 @@ public class RewardOrder {
     }
 
     public void deal(OrderEvent event, MiningRewardCfg cfg, BigDecimal topPrice) {
-        // long startTime = Math.max(calculateStartTime, this.orderModel.getTimestamp());
-        long startTime = calculateStartTime;
+        long startTime = Math.max(calculateStartTime, this.orderModel.getTimestamp());
         long endTime = event.getTimestamp();
-        if (startTime >= endTime || endTime - this.orderModel.getTimestamp() < 300) {
+        if (startTime > endTime) {
+            this.calculateStartTime = event.getTimestamp();
+            log.info("time diff.....,{}, {}, {}", event.getBlockHash(), event.getOrderId(), startTime - endTime);
+            return;
+        }
+        
+        if (endTime - this.orderModel.getTimestamp() < 300) {
             return;
         }
 

@@ -1,5 +1,6 @@
 package org.vite.dex.mm.orderbook;
 
+import lombok.Getter;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderBookInfo;
@@ -20,6 +21,7 @@ public class OrderBooks implements IBlockEventHandler {
 	private ViteCli viteCli;
 
 	// current trade contract height
+	@Getter
 	private Long currentHeight;
 
 	public List<TradePair> getTradePairs() {

@@ -88,7 +88,7 @@ public class ViteCli {
     }
 
     /**
-     * get events by height range
+     * get events by height range  [start,end]
      *
      * @param startHeight
      * @param endHeight
@@ -160,7 +160,7 @@ public class ViteCli {
     }
 
     /**
-     * get AccBlockVmLogs between startHeight and endHeight
+     * get AccBlockVmLogs between startHeight and endHeight [start, end]
      * 
      * @param startHeight
      * @param endHeight

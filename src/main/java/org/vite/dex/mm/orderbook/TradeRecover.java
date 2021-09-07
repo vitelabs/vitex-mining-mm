@@ -8,7 +8,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.OrderBookInfo;
-import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
@@ -43,7 +42,6 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
  */
 @Slf4j
 public class TradeRecover {
-    private final Map<String, EventStream> eventStreams = Maps.newHashMap(); // <TradePairSymbol,EventStream>
     private Map<String, OrderBook> orderBooks = Maps.newHashMap(); // <TradePairSymbol,OrderBook>
     private BlockEventStream blockEventStream = null;
 
@@ -53,10 +51,6 @@ public class TradeRecover {
 
     public TradeRecover(ViteCli viteCli) {
         this.viteCli = viteCli;
-    }
-
-    public Map<String, EventStream> getEventStreams() {
-        return eventStreams;
     }
 
     public Map<String, OrderBook> getOrderBooks() {
@@ -295,8 +289,8 @@ public class TradeRecover {
     // recover all orderbooks to start time of last cycle
     public OrderBooks recoverInTime(OrderBooks orderBooks, Long time, Tokens tokens, ViteCli viteCli)
             throws IOException {
-        Long startHeight = viteCli.getContractChainHeight(time);
-        Long endHeight = viteCli.getLatestAccountHeight();
+        Long startHeight = viteCli.getContractChainHeight(time) + 1;
+        Long endHeight = orderBooks.getCurrentHeight() - 1;
 
         BlockEventStream stream = new BlockEventStream(startHeight, endHeight);
         stream.init(viteCli, tokens);
@@ -306,17 +300,5 @@ public class TradeRecover {
         stream.action(orderBooks, true, true);
 
         return orderBooks;
-    }
-
-    public void initFrom(Map<String, List<OrderModel>> orders, Map<String, List<OrderEvent>> events) {
-        orders.forEach((k, v) -> {
-            orderBooks.put(k, new OrderBook.Impl().initFromOrders(v));
-        });
-
-        events.forEach((k, v) -> {
-            EventStream es = new EventStream(
-                    v.stream().sorted(Comparator.comparing(OrderEvent::getTimestamp)).collect(Collectors.toList()));
-            eventStreams.put(k, es);
-        });
     }
 }

@@ -103,7 +103,38 @@ class DexApplicationTests {
         // 2.recover orderbooks
         OrderBooks orderBooks = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime, tokens, viteCli);
         tradeRecover.fillAddressForOrdersGroupByTimeUnit(orderBooks.getBooks());
-        tradeRecover.setOrderBooks(orderBooks.getBooks());
+        tradeRecover.setOrderBooks(orderBooks.getBooks()); 
+
+        // 3.market-mining
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        double totalReleasedViteAmount = 1000000.0;
+        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(orderBooks,
+                tradeRecover.getBlockEventStream(), totalReleasedViteAmount, prevTime, endTime,
+                tradeRecover.miningRewardCfgMap());
+        System.out.println(finalRes);
+    }
+
+    @Test
+    public void testMarketMining1() throws Exception {
+        Traveller traveller = new Traveller();
+        TradeRecover tradeRecover = new TradeRecover(viteCli);
+
+        // long snapshotTime = CommonUtils.getFixedTime();
+        long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2019-10-03 12:30:00", new ParsePosition(0)).getTime() / 1000;
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-02 12:00:00", new ParsePosition(0))
+                .getTime() / 1000;
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
+                .getTime() / 1000;
+        List<TradePair> tradePairs = TradeRecover.getMarketMiningOpenedTp();
+        Tokens tokens = tradeRecover.prepareData();
+        // 1.travel to snapshot time
+        OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
+
+        // 2.recover orderbooks
+        OrderBooks orderBooks = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime, tokens, viteCli);
+        tradeRecover.fillAddressForOrdersGroupByTimeUnit(orderBooks.getBooks());
+        tradeRecover.setOrderBooks(orderBooks.getBooks()); 
 
         // 3.market-mining
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
@@ -136,9 +167,9 @@ class DexApplicationTests {
             orderMap.put(k, v.getOrders().values());
         });
 
-        tradeRecover.getEventStreams().forEach((k, v) -> {
-            eventMap.put(k, v.getEvents());
-        });
+        // tradeRecover.getEventStreams().forEach((k, v) -> {
+        //     eventMap.put(k, v.getEvents());
+        // });
 
         Map<String, Object> result = new HashMap<>();
         result.put("orderbook", orderMap);
@@ -155,7 +186,7 @@ class DexApplicationTests {
         Map<String, List<OrderModel>> orders = data.getOrderbook();
         Map<String, List<OrderEvent>> events = data.getEvents();
 
-        tradeRecover.initFrom(orders, events);
+        // tradeRecover.initFrom(orders, events);
         // tradeRecover.revertOrderBooks();
     }
 
@@ -177,9 +208,9 @@ class DexApplicationTests {
             orderMap.put(k, v.getOrders().values());
         });
 
-        tradeRecover.getEventStreams().forEach((k, v) -> {
-            eventMap.put(k, v.getEvents());
-        });
+        // tradeRecover.getEventStreams().forEach((k, v) -> {
+        //     eventMap.put(k, v.getEvents());
+        // });
 
         Map<String, Object> result = new HashMap<>();
         result.put("orderbook", orderMap);
@@ -207,7 +238,7 @@ class DexApplicationTests {
         Map<String, List<OrderModel>> orders = data.getOrderbook();
         Map<String, List<OrderEvent>> events = data.getEvents();
 
-        tradeRecover.initFrom(orders, events);
+        // tradeRecover.initFrom(orders, events);
 
         // RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
         // Map<String, Map<Integer, BigDecimal>> finalRes =
