@@ -27,6 +27,14 @@ public class BlockEventStream {
 		this.events.addAll(events);
 	}
 
+	public Long getStartHeight() {
+		return startHeight;
+	}
+
+	public Long getEndHeight() {
+		return endHeight;
+	}
+
 	public List<BlockEvent> getEvents() {
 		events.sort(Comparator.comparing(BlockEvent::getHeight));
 		return events;
@@ -39,15 +47,20 @@ public class BlockEventStream {
 	// get vmLogs between startHeight and endHeight and parse them into BlockEvent
 	public void init(ViteCli viteCli, Tokens tokens) throws IOException {
 		List<AccBlockVmLogs> accBlockVmlogList = viteCli.getAccBlockVmLogsByHeightRange(startHeight, endHeight, 1000);
+
 		for (AccBlockVmLogs accBlockVmLogs : accBlockVmlogList) {
 			BlockEvent blockEvent = BlockEvent.fromAccBlockVmlogs(accBlockVmLogs, tokens);
 			this.addEvent(blockEvent);
 		}
 	}
 
+	// inject block`timestamp to OrderEvent
 	public void patchTimestampToOrderEvent(ViteCli viteCli) throws IOException {
-		// inject block`timestamp to vmLogs
 		Map<String, AccountBlock> accountBlockMap = viteCli.getAccountBlockMap(startHeight, endHeight);
+		patchTimestampToOrderEvent(accountBlockMap);
+	}
+
+	public void patchTimestampToOrderEvent(Map<String, AccountBlock> accountBlockMap) throws IOException {
 		events.forEach(blockEvent -> {
 			blockEvent.getOrderEvents().forEach(orderEvent -> {
 				if (!orderEvent.ignore()) {
@@ -60,7 +73,7 @@ public class BlockEventStream {
 		});
 	}
 
-	public void action(IBlockEventHandler handler, boolean reversed, boolean reverted) {
+	public void travel(IBlockEventHandler handler, boolean reversed, boolean reverted) {
 		if (reversed) {
 			for (int i = events.size() - 1; i >= 0; i--) {
 				BlockEvent t = events.get(i);

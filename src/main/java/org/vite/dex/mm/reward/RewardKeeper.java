@@ -37,14 +37,14 @@ public class RewardKeeper implements IOrderEventHandleAware {
     public Map<String, RewardOrder> mmMining(OrderBooks books, BlockEventStream stream, Long startTime, Long endTime,
             Map<String, MiningRewardCfg> tradePairCfgMap) throws IOException {
 
-        log.debug("start onwarding for orderbooks and calc the market mining factor of orders");
+        log.info("start onwarding for orderbooks and calc the market mining factor of orders");
         Long startHeight = viteCli.getContractChainHeight(startTime) + 1;
         Long endHeight = viteCli.getContractChainHeight(endTime);
         stream = stream.subStream(startHeight, endHeight);
 
         MminingAware aware = new MminingAware(startTime, endTime, tradePairCfgMap);
         books.setOrderAware(aware);
-        stream.action(books, false, false);
+        stream.travel(books, false, false);
         books.setOrderAware(null);
 
         return aware.orderRewards;
@@ -69,7 +69,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
         // 1.go onward OrderBooks and calc factor of each Order
         Map<String, RewardOrder> totalRewardOrders = mmMining(books, stream, startTime, endTime, tradePairCfgMap);
 
-        // 2. calc reward VX for each order
+        // 2. calc rewardVX for per Order
         log.debug("calculating reward VX for each Order");
         Map<Integer, List<RewardOrder>> marketOrderRewards = totalRewardOrders.values().stream()
                 .collect(Collectors.groupingBy(RewardOrder::getMarket));

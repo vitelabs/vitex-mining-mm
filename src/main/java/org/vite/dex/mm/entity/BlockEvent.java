@@ -27,7 +27,9 @@ public class BlockEvent {
 	}
 
 	public static BlockEvent fromAccBlockVmlogs(AccBlockVmLogs accBlockVmLogs, Tokens tokens) {
-		accBlockVmLogs.parseTransaction(); // parse Tx in the block
+		// parse Tx in the block
+		accBlockVmLogs.parseTransaction(); 
+
 		List<OrderEvent> events = new ArrayList<>();
 		accBlockVmLogs.getVmLogs().forEach(vmLog -> {
 			OrderEvent orderEvent = new OrderEvent();
@@ -40,7 +42,13 @@ public class BlockEvent {
 		return result;
 	}
 
-	public void action(IOrderEventHandler handler, boolean reverted, boolean reversed) {
+	/**
+	 * make orderbook travel by OrderEvents resided in BlockEvent
+	 * @param handler
+	 * @param reverted
+	 * @param reversed
+	 */
+	public void travel(IOrderEventHandler handler, boolean reverted, boolean reversed) {
 		if (reversed) {
 			for (int i = orderEvents.size() - 1; i >= 0; i--) {
 				OrderEvent t = orderEvents.get(i);

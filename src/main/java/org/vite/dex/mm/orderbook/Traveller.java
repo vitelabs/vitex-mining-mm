@@ -38,11 +38,10 @@ public class Traveller {
 		Long endHeight = viteCli.getLatestAccountHeight();
 		BlockEventStream stream = new BlockEventStream(startHeight, endHeight);
 		stream.init(viteCli, tokens);
-		stream.patchTimestampToOrderEvent(viteCli);
 
 		// revert as a whole to previous time
 		candidates.forEach(orderBooks -> {
-			stream.action(orderBooks, true, true);
+			stream.travel(orderBooks, true, true);
 		});
 
 		// elect the most suitable candidate

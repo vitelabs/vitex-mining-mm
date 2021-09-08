@@ -12,6 +12,8 @@ import org.vite.dex.mm.entity.AccBlockVmLogs;
 import org.vite.dex.mm.entity.CurrentOrder;
 import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderModel;
+import org.vite.dex.mm.entity.TradePair;
+import org.vite.dex.mm.orderbook.Tokens;
 import org.vitej.core.protocol.HttpService;
 import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
@@ -88,7 +90,7 @@ public class ViteCli {
     }
 
     /**
-     * get events by height range  [start,end]
+     * get events by height range [start,end]
      *
      * @param startHeight
      * @param endHeight
@@ -228,6 +230,25 @@ public class ViteCli {
             throw e;
         }
         return result;
+    }
+
+    public Tokens getAllTokenInfos() throws IOException {
+        List<TokenInfo> allTokenInfos = new ArrayList<>();
+        int pageIdx = 0;
+        int pageSize = 100;
+
+        while (true) {
+            List<TokenInfo> tokenInfos = getTokenInfoList(pageIdx, pageSize);
+            if (CollectionUtils.isEmpty(tokenInfos)) {
+                break;
+            }
+            allTokenInfos.addAll(tokenInfos);
+            pageIdx++;
+        }
+
+        Map<String, TokenInfo> tokenId2TokenInfoMap = allTokenInfos.stream()
+                .collect(Collectors.toMap(TokenInfo::getTokenIdRaw, tokenInfo -> tokenInfo, (k1, k2) -> k1));
+        return new Tokens(tokenId2TokenInfoMap);
     }
 
     public Long getContractChainHeight(long time) throws IOException {
@@ -428,5 +449,47 @@ public class ViteCli {
                 .collect(Collectors.toMap(AccountBlock::getHashRaw, block -> block, (b0, b1) -> b0));
 
         return accountBlockMap;
+    }
+
+    // TODOget data from setting files(move)
+    public List<TradePair> getMarketMiningTradePairs() {
+        List<TradePair> res = new ArrayList<>();
+        TradePair tp = new TradePair();
+        tp.setTradeTokenSymbol("ETH-000");
+        tp.setQuoteTokenSymbol("USDT-000");
+        tp.setTradeTokenId("tti_687d8a93915393b219212c73"); // ETH
+        tp.setQuoteTokenId("tti_80f3751485e4e83456059473"); // USDT
+        tp.setMmEffectiveInterval(0.2);
+        tp.setMarketMiningOpen(true);
+        tp.setMmRewardMultiple(5.0);
+        tp.setBuyAmountThanSellRatio(10);
+        tp.setSellAmountThanBuyRatio(10);
+        res.add(tp);
+
+        TradePair tp1 = new TradePair();
+        tp1.setTradeTokenSymbol("VITE-000");
+        tp1.setQuoteTokenSymbol("USDT-000");
+        tp1.setTradeTokenId("tti_5649544520544f4b454e6e40"); // VITE
+        tp1.setQuoteTokenId("tti_80f3751485e4e83456059473"); // USDT
+        tp1.setMmEffectiveInterval(0.15);
+        tp1.setMarketMiningOpen(true);
+        tp1.setMmRewardMultiple(5.0);
+        tp1.setBuyAmountThanSellRatio(100);
+        tp1.setSellAmountThanBuyRatio(0.01);
+        res.add(tp1);
+
+        TradePair tp2 = new TradePair();
+        tp2.setTradeTokenSymbol("ETH-000");
+        tp2.setQuoteTokenSymbol("BTC-000");
+        tp2.setTradeTokenId("tti_687d8a93915393b219212c73"); // ETH
+        tp2.setQuoteTokenId("tti_80f3751485e4e83456059473"); // BTC
+        tp2.setMmEffectiveInterval(0.2);
+        tp2.setMarketMiningOpen(true);
+        tp2.setMmRewardMultiple(1.0);
+        tp2.setBuyAmountThanSellRatio(10);
+        tp2.setSellAmountThanBuyRatio(10);
+        res.add(tp2);
+
+        return res;
     }
 }

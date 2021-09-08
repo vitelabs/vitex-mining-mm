@@ -1,27 +1,21 @@
 package org.vite.dex.mm.orderbook;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import lombok.Builder;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
-import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
-import org.vite.dex.mm.reward.RewardKeeper;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
-import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
-import org.vitej.core.protocol.methods.response.TokenInfo;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.Vmlog;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -35,126 +29,51 @@ import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 /**
- * 1. prepare order book, get the current order book 2. prepare events, get all
- * events from last cycle to current 3. recover order book, recover order order
- * to last cycle by events 4. mm mining, calculate the market making mining
- * rewards
+ * 1. prepare order book, get the current order book 
+ * 2. prepare events, get all events from last cycle to current
+ * 3. recover order book, recover order order to last cycle by events
+ * 4. mm mining, calculate the market making mining rewards
  */
 @Slf4j
 public class TradeRecover {
-    private Map<String, OrderBook> orderBooks = Maps.newHashMap(); // <TradePairSymbol,OrderBook>
-    private BlockEventStream blockEventStream = null;
 
-    private static List<TradePair> tradePairs = getMarketMiningOpenedTp();
-
-    private final ViteCli viteCli;
-
-    public TradeRecover(ViteCli viteCli) {
-        this.viteCli = viteCli;
-    }
-
-    public Map<String, OrderBook> getOrderBooks() {
-        return orderBooks;
-    }
-
-    public void setOrderBooks(Map<String, OrderBook> orderBooks) {
-        this.orderBooks = orderBooks;
-    }
-
-    public BlockEventStream getBlockEventStream() {
-        return blockEventStream;
-    }
-
-    public void setBlockEventStream(BlockEventStream blockEventStream) {
-        this.blockEventStream = blockEventStream;
-    }
-
-    // TODO get data from contract
-    public static List<TradePair> getMarketMiningOpenedTp() {
-        List<TradePair> res = new ArrayList<>();
-        TradePair tp = new TradePair();
-        tp.setTradeTokenSymbol("ETH-000");
-        tp.setQuoteTokenSymbol("USDT-000");
-        tp.setTradeTokenId("tti_687d8a93915393b219212c73"); // ETH
-        tp.setQuoteTokenId("tti_80f3751485e4e83456059473"); // USDT
-        tp.setMmEffectiveInterval(0.2);
-        tp.setMarketMiningOpen(true);
-        tp.setMmRewardMultiple(5.0);
-        tp.setBuyAmountThanSellRatio(10);
-        tp.setSellAmountThanBuyRatio(10);
-        res.add(tp);
-
-        return res;
-    }
-
-    public Map<String, MiningRewardCfg> miningRewardCfgMap() {
+    public Map<String, MiningRewardCfg> miningRewardCfgMap(ViteCli viteCli) {
         Map<String, MiningRewardCfg> tradePairCfgMap = new HashMap<>();
+        List<TradePair> tradePairs = viteCli.getMarketMiningTradePairs();
 
-        getMarketMiningOpenedTp().stream().forEach(tp -> {
+        tradePairs.stream().forEach(tp -> {
             String symbol = tp.getTradePair();
             MiningRewardCfg miningRewardCfg = MiningRewardCfg.fromTradePair(tp);
             tradePairCfgMap.put(symbol, miningRewardCfg);
         });
-
         return tradePairCfgMap;
     }
 
-    public Map<String, TokenInfo> getAllTokenInfo() throws IOException {
-        List<TokenInfo> tokenInfos = viteCli.getTokenInfoList(0, 500);
-        Map<String, TokenInfo> tokenId2TokenInfoMap = tokenInfos.stream()
-                .collect(Collectors.toMap(TokenInfo::getTokenIdRaw, tokenInfo -> tokenInfo, (k1, k2) -> k1));
-        return tokenId2TokenInfoMap;
-    }
-
     /**
-     * prerequisite data is necessary
-     */
-    public Tokens prepareData() throws Exception {
-        try {
-            Map<String, TokenInfo> tokensMap = getAllTokenInfo();
-            return new Tokens(tokensMap);
-        } catch (Exception e) {
-            log.error("failed to prepare prerequisite data, err: ", e);
-            throw e;
-        }
-    }
-
-    /**
-     * get orders from specified order book of trade-pair
-     * 
-     * @param tradeTokenId
-     * @param quoteTokenId
-     * @param pageCnt
+     * recover all orderbooks to start time of last cycle
+     * @param orderBooks
+     * @param time
+     * @param tokens
+     * @param viteCli
      * @return
      * @throws IOException
      */
-    public OrderBookInfo getOrdersFromMarket(String tradeTokenId, String quoteTokenId, int pageCnt) throws IOException {
-        List<OrderModel> orderModels = Lists.newLinkedList();
-        List<Long> heights = Lists.newLinkedList();
+    public RecoverResult recoverInTime(OrderBooks orderBooks, Long time, Tokens tokens, ViteCli viteCli)
+            throws IOException {
+        Long startHeight = viteCli.getContractChainHeight(time) + 1;
+        Long endHeight = orderBooks.getCurrentHeight() - 1;
+        BlockEventStream stream = new BlockEventStream(startHeight, endHeight);
+        stream.init(viteCli, tokens);
 
-        int idx = 0;
-        while (true) {
-            OrderBookInfo orderBookInfo = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, pageCnt * idx,
-                    pageCnt * (idx + 1), pageCnt * idx, pageCnt * (idx + 1));
-            if (orderBookInfo == null || CollectionUtils.isEmpty(orderBookInfo.getCurrOrders())) {
-                break;
-            }
+        return recoverInTime(orderBooks, stream, tokens, viteCli);
+    }
 
-            orderBookInfo.getCurrOrders().forEach(currOrder -> {
-                orderModels.add(OrderModel.fromCurrentOrder(currOrder, tradeTokenId, quoteTokenId));
-            });
+    public RecoverResult recoverInTime(OrderBooks orderBooks, BlockEventStream stream, Tokens tokens, ViteCli viteCli)
+            throws IOException {
+        stream.travel(orderBooks, true, true);
+        RecoverResult result = RecoverResult.builder().orderBooks(orderBooks).stream(stream).build();
 
-            heights.add(orderBookInfo.getCurrBlockheight());
-
-            if (orderBookInfo.getCurrOrders().size() < pageCnt) {
-                break;
-            }
-
-            idx++;
-        }
-        // System.out.println(heights);
-        Long maxHeight = heights.stream().max(Long::compareTo).get();
-        return OrderBookInfo.fromOrderModelsAndHeight(orderModels, maxHeight);
+        return result;
     }
 
     /**
@@ -164,7 +83,7 @@ public class TradeRecover {
      * @param orders
      * @throws Exception
      */
-    public void fillAddressForOrdersGroupByTimeUnit(Map<String, OrderBook> books) throws Exception {
+    public void fillAddressForOrdersGroupByTimeUnit(Map<String, OrderBook> books, ViteCli viteCli) throws Exception {
         List<OrderModel> allOrders = new ArrayList<>();
         books.values().forEach(orderBook -> {
             allOrders.addAll(orderBook.getOrders().values());
@@ -178,7 +97,7 @@ public class TradeRecover {
                 .collect(Collectors.groupingBy(t -> t.getTimestamp() / TimeUnit.MINUTES.toSeconds(10)));
 
         for (List<OrderModel> v : orderGroups.values()) {
-            fillAddressForOrders(v);
+            fillAddressForOrders(v, viteCli);
         }
 
         orders.stream().forEach(order -> {
@@ -193,7 +112,7 @@ public class TradeRecover {
      * @param orders
      * @throws IOException
      */
-    private void fillAddressForOrders(Collection<OrderModel> orders) throws Exception {
+    private void fillAddressForOrders(Collection<OrderModel> orders, ViteCli viteCli) throws Exception {
         Map<String, OrderModel> orderMap = orders.stream()
                 .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (k0, k1) -> k0));
 
@@ -203,7 +122,7 @@ public class TradeRecover {
         start = start - TimeUnit.MINUTES.toSeconds(5);
         end = end + TimeUnit.MINUTES.toSeconds(5);
 
-        orderMap = fillAddressForOrders(orderMap, start, end);
+        orderMap = fillAddressForOrders(orderMap, start, end, viteCli);
         if (orderMap.isEmpty()) {
             return;
         }
@@ -212,13 +131,13 @@ public class TradeRecover {
         int cnt = 1;
         while (true) {
             long start0 = start - TimeUnit.MINUTES.toSeconds(5);
-            orderMap = fillAddressForOrders(orderMap, start0, start);
+            orderMap = fillAddressForOrders(orderMap, start0, start, viteCli);
             if (orderMap.isEmpty()) {
                 break;
             }
 
             long end1 = end + TimeUnit.MINUTES.toSeconds(5);
-            orderMap = fillAddressForOrders(orderMap, end, end1);
+            orderMap = fillAddressForOrders(orderMap, end, end1, viteCli);
             if (orderMap.isEmpty()) {
                 break;
             }
@@ -227,15 +146,16 @@ public class TradeRecover {
             end = end1;
 
             if (++cnt >= 3) {
+                log.error("address of Order is not found");
                 throw new RuntimeException("the address of Order is not found!");
             }
         }
     }
 
     /**
-     * 1.get height range of contract-chain between startTime to endTime 2.get
-     * eventLogs in the range of height 3.find NewOrder eventLog, filled the address
-     * in Order
+     * 1.get height range of contract-chain between startTime to endTime 
+     * 2.get eventLogs in the range of height
+     * 3.find NewOrder eventLog, filled the address in Order
      *
      * @param orderMap
      * @param startTime
@@ -243,8 +163,8 @@ public class TradeRecover {
      * @return
      * @throws IOException
      */
-    private Map<String, OrderModel> fillAddressForOrders(Map<String, OrderModel> orderMap, long startTime, long endTime)
-            throws IOException {
+    private Map<String, OrderModel> fillAddressForOrders(Map<String, OrderModel> orderMap, long startTime, long endTime,
+            ViteCli viteCli) throws IOException {
         Long startHeight = viteCli.getContractChainHeight(startTime);
         Long endHeight = viteCli.getContractChainHeight(endTime);
 
@@ -269,36 +189,10 @@ public class TradeRecover {
         return orderMap;
     }
 
-    public void run(long prevTime, long endTime) throws Exception {
-        Traveller traveller = new Traveller();
-        long snapshotTime = CommonUtils.getFixedTime();
-
-        Tokens tokens = prepareData();
-        OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
-        OrderBooks originOrderBooks = recoverInTime(snapshotOrderBooks, prevTime, tokens, viteCli);
-        fillAddressForOrdersGroupByTimeUnit(originOrderBooks.getBooks());
-        this.setOrderBooks(originOrderBooks.getBooks());
-
-        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        double totalReleasedViteAmount = 1000000.0;
-        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(originOrderBooks,
-                getBlockEventStream(), totalReleasedViteAmount, prevTime, endTime, miningRewardCfgMap());
-        System.out.println(finalRes);
-    }
-
-    // recover all orderbooks to start time of last cycle
-    public OrderBooks recoverInTime(OrderBooks orderBooks, Long time, Tokens tokens, ViteCli viteCli)
-            throws IOException {
-        Long startHeight = viteCli.getContractChainHeight(time) + 1;
-        Long endHeight = orderBooks.getCurrentHeight() - 1;
-
-        BlockEventStream stream = new BlockEventStream(startHeight, endHeight);
-        stream.init(viteCli, tokens);
-        stream.patchTimestampToOrderEvent(viteCli);
-        this.setBlockEventStream(stream);
-
-        stream.action(orderBooks, true, true);
-
-        return orderBooks;
+    @Data
+    @Builder
+    public static class RecoverResult {
+        private OrderBooks orderBooks;
+        private BlockEventStream stream;
     }
 }

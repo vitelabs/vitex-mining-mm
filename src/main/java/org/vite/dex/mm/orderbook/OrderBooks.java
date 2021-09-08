@@ -4,6 +4,7 @@ import lombok.Getter;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderBookInfo;
+import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.utils.client.ViteCli;
 
@@ -20,7 +21,7 @@ public class OrderBooks implements IBlockEventHandler {
 	private Map<String, OrderBook> books = new HashMap<String, OrderBook>();
 	private ViteCli viteCli;
 
-	// current trade contract height
+	// current BlockEvent height
 	@Getter
 	private Long currentHeight;
 
@@ -35,6 +36,10 @@ public class OrderBooks implements IBlockEventHandler {
 	public OrderBooks(ViteCli viteCli, List<TradePair> tradePairs) {
 		this.viteCli = viteCli;
 		this.tradePairs = tradePairs;
+	}
+
+	public OrderBooks(ViteCli viteCli) {
+		this.viteCli = viteCli;
 	}
 
 	/**
@@ -85,5 +90,13 @@ public class OrderBooks implements IBlockEventHandler {
 
 		String result = orderBooks.stream().map(t -> t.hash()).collect(Collectors.joining("-"));
 		return DigestUtils.md5Hex(result);
+	}
+
+	public void initFrom(Map<String, List<OrderModel>> orders, Long currentHeight) {
+		this.currentHeight = currentHeight;
+
+		orders.forEach((tradePair, book) -> {
+			books.put(tradePair, new OrderBook.Impl().initFromOrders(book, currentHeight));
+		});
 	}
 }

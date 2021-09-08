@@ -16,7 +16,6 @@ import org.vite.dex.mm.entity.OrderModel;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +61,8 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
 
         @Getter
         private Long currBlockHeight;
-        // true -> onward, false -> rewart
+
+        // true -> onward, false -> revert
         private boolean lastAction = true;
 
         @Getter
@@ -76,25 +76,27 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
         public Impl() {
         }
 
+        // backtrace according to BlockEvent
         @Override
         public void revert(BlockEvent event) {
             if (validAction(false, event.getHeight())) {
-                event.action(this, true, true);
+                event.travel(this, true, true);
                 this.currBlockHeight = event.getHeight();
                 this.lastAction = false;
             }
         }
 
+        // make the orderBook go onward according to BlockEvent
         @Override
         public void onward(BlockEvent event) {
             if (validAction(true, event.getHeight())) {
-                event.action(this, false, false);
+                event.travel(this, false, false);
                 this.currBlockHeight = event.getHeight();
                 this.lastAction = true;
             }
         }
 
-        // backtrace according to an event
+        // backtrace according to an OrderEvent
         @Override
         public void revert(OrderEvent event) {
             if (aware == null) {
@@ -106,12 +108,8 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
             }
         }
 
-        /**
-         * make the orderBook go onward and execute aspect logic (calc market mining
-         * reward)
-         *
-         * @param event
-         */
+        // make the orderBook go onward and execute aspect logic(calc Reward) according
+        // to an OrderEvent
         @Override
         public void onward(OrderEvent event) {
             if (aware == null) {
@@ -136,11 +134,9 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
                 if (orderModel != null) {
                     this.removeOrder(orderModel);
                 } else {
-                    System.out.println("[new order] not find order: " + orderLog.getOrderId() + ": "
-                            + new Date(event.getTimestamp() * 1000) + ": " + orderLog.getStatus() + ":"
-                            + event.getBlockHash());
-                    // throw new RuntimeException("[new order] not find order: " +
-                    // orderLog.getOrderId());
+                    log.error("[new order] not find, orderId {} , orderStatus {}, blockHash {}", orderLog.getOrderId(),
+                            orderLog.getStatus(), event.getBlockHash());
+                    throw new RuntimeException("[new order] not find order: " + orderLog.getOrderId());
                 }
                 break;
             case UpdateOrder:
@@ -152,9 +148,8 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
                     if (orderModel != null) {
                         orderModel.revert(orderLog);
                     } else {
-                        System.out.println("[update...] not find order: " + orderLog.getOrderId());
-                        // throw new RuntimeException("[new order] not find order: " +
-                        // orderLog.getOrderId());
+                        log.error("[update...] not find order, orderId {}", orderLog.getOrderId());
+                        throw new RuntimeException("[new order] not find order: " + orderLog.getOrderId());
                     }
                 }
             case TX:
@@ -249,8 +244,8 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
             this.orders.putAll(orderMap);
         }
 
-        public OrderBook initFromOrders(List<OrderModel> orders) {
-            init(orders, 0l);
+        public OrderBook initFromOrders(List<OrderModel> orders, Long blockHeight) {
+            init(orders, blockHeight);
             return this;
         }
 

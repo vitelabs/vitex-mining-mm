@@ -4,18 +4,21 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.google.common.io.Files;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
+import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderBookInfo;
-import org.vite.dex.mm.entity.OrderEvent;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
+import org.vite.dex.mm.orderbook.BlockEventStream;
 import org.vite.dex.mm.orderbook.OrderBooks;
 import org.vite.dex.mm.orderbook.Tokens;
 import org.vite.dex.mm.orderbook.TradeRecover;
+import org.vite.dex.mm.orderbook.TradeRecover.RecoverResult;
 import org.vite.dex.mm.orderbook.Traveller;
 import org.vite.dex.mm.reward.RewardKeeper;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
@@ -40,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 
 @SpringBootTest(classes = DexApplication.class)
+@Slf4j
 class DexApplicationTests {
 
     @Resource
@@ -51,42 +55,117 @@ class DexApplicationTests {
 
     @Test
     public void testGetOrderBooks() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        OrderBookInfo orderBook = tradeRecover.getOrdersFromMarket("tti_687d8a93915393b219212c73",
+        OrderBookInfo orderBook = viteCli.getOrdersFromMarket("tti_687d8a93915393b219212c73",
                 "tti_80f3751485e4e83456059473", 1000);
-
         orderBook.getCurrOrders().forEach(t -> {
             System.out.println(t.getOrderId());
         });
     }
 
     @Test
-    public void testTraveller() throws Exception {
+    public void testTravel() throws Exception {
         Traveller traveller = new Traveller();
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
+        List<TradePair> tradePairs = viteCli.getMarketMiningTradePairs();
+        Tokens tokens = viteCli.getAllTokenInfos();
 
-        // long snapshotTime = CommonUtils.getFixedTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
                 .parse("2019-10-03 12:30:00", new ParsePosition(0)).getTime() / 1000;
-        List<TradePair> tradePairs = TradeRecover.getMarketMiningOpenedTp();
-        Tokens tokens = tradeRecover.prepareData();
+
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
-        int size = snapshotOrderBooks.getBooks().get("tti_687d8a93915393b219212c73_tti_80f3751485e4e83456059473")
-                .getOrders().values().size();
-        int buySize = snapshotOrderBooks.getBooks().get("tti_687d8a93915393b219212c73_tti_80f3751485e4e83456059473")
-                .getBuys().size();
-        int sellSize = snapshotOrderBooks.getBooks().get("tti_687d8a93915393b219212c73_tti_80f3751485e4e83456059473")
-                .getSells().size();
-        assert (size == 277);
-        assert (buySize == 154);
-        assert (sellSize == 123);
-        System.out.println(snapshotOrderBooks);
+
+        // serialize
+        Map<String, Collection<OrderModel>> books = new HashMap<>();
+        snapshotOrderBooks.getBooks().forEach((tradePair, orderBook) -> {
+            books.put(tradePair, orderBook.getOrders().values());
+        });
+        Long currentHeight = snapshotOrderBooks.getCurrentHeight();
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderbooks", books);
+        result.put("currentHeight", currentHeight);
+
+        File file = new File("dataset_orderbooks_snapshot.raw");
+        Files.write(JSON.toJSONBytes(result), file);
+    }
+
+    @Test
+    public void testRecoverOrderBooks() throws Exception {
+        Tokens tokens = viteCli.getAllTokenInfos();
+        TradeRecover tradeRecover = new TradeRecover();
+        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
+        // unserialize from snapshot
+        OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_snapshot.raw")),
+                OrderBooksData.class);
+        Map<String, List<OrderModel>> books = data.getOrderbooks();
+        Long currentHeight = data.getCurrentHeight();
+        OrderBooks snapshotOrderBooks = new OrderBooks(viteCli);
+
+        snapshotOrderBooks.initFrom(books, currentHeight);
+
+        // recover
+        RecoverResult res = tradeRecover.recoverInTime(snapshotOrderBooks, startTime, tokens, viteCli);
+
+        OrderBooks recoverdOrderBooks = res.getOrderBooks();
+        BlockEventStream eventStream = res.getStream();
+        eventStream.patchTimestampToOrderEvent(viteCli);
+        tradeRecover.fillAddressForOrdersGroupByTimeUnit(recoverdOrderBooks.getBooks(), viteCli);
+
+        // serialize
+        Map<String, Collection<OrderModel>> orderbooks = new HashMap<>();
+        List<BlockEvent> events = eventStream.getEvents();
+        recoverdOrderBooks.getBooks().forEach((tradePair, orderBook) -> {
+            orderbooks.put(tradePair, orderBook.getOrders().values());
+        });
+        currentHeight = recoverdOrderBooks.getCurrentHeight();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderbooks", orderbooks);
+        result.put("currentHeight", currentHeight);
+        result.put("events", events);
+
+        File file = new File("dataset_orderbooks_recovered.raw");
+        Files.write(JSON.toJSONBytes(result), file);
+    }
+
+    @Data
+    public static class OrderBooksData {
+        private Map<String, List<OrderModel>> orderbooks;
+        private Long currentHeight;
+        private List<BlockEvent> events;
+    }
+
+    @Test
+    public void testMarketMiningFromFile() throws Exception {
+        TradeRecover tradeRecover = new TradeRecover();
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-02 12:00:00", new ParsePosition(0))
+                .getTime() / 1000;
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
+                .getTime() / 1000;
+
+        // unserialize
+        OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_recovered.raw")),
+                OrderBooksData.class);
+        Map<String, List<OrderModel>> books = data.getOrderbooks();
+        Long currentHeight = data.getCurrentHeight();
+        List<BlockEvent> blockEvents = data.getEvents();
+
+        OrderBooks recoveOrderBooks = new OrderBooks(viteCli);
+        recoveOrderBooks.initFrom(books, currentHeight);
+        BlockEventStream eventStream = new BlockEventStream(blockEvents.get(0).getHeight(),
+                blockEvents.get(blockEvents.size() - 1).getHeight(), blockEvents);
+
+        // calc rewards
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        double totalReleasedViteAmount = 1000000.0;
+        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
+                eventStream, totalReleasedViteAmount, prevTime, endTime, tradeRecover.miningRewardCfgMap(viteCli));
+        log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
     }
 
     @Test
     public void testMarketMining() throws Exception {
         Traveller traveller = new Traveller();
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
+        TradeRecover tradeRecover = new TradeRecover();
 
         // long snapshotTime = CommonUtils.getFixedTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
@@ -95,53 +174,23 @@ class DexApplicationTests {
                 .getTime() / 1000;
         long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        List<TradePair> tradePairs = TradeRecover.getMarketMiningOpenedTp();
-        Tokens tokens = tradeRecover.prepareData();
+
+        List<TradePair> tradePairs = viteCli.getMarketMiningTradePairs();
+        Tokens tokens = viteCli.getAllTokenInfos();
         // 1.travel to snapshot time
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
         // 2.recover orderbooks
-        OrderBooks orderBooks = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime, tokens, viteCli);
-        tradeRecover.fillAddressForOrdersGroupByTimeUnit(orderBooks.getBooks());
-        tradeRecover.setOrderBooks(orderBooks.getBooks()); 
+        RecoverResult res = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime, tokens, viteCli);
+        OrderBooks recovedOrderBooks = res.getOrderBooks();
+        BlockEventStream eventStream = res.getStream();
+        tradeRecover.fillAddressForOrdersGroupByTimeUnit(recovedOrderBooks.getBooks(), viteCli);
 
         // 3.market-mining
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         double totalReleasedViteAmount = 1000000.0;
-        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(orderBooks,
-                tradeRecover.getBlockEventStream(), totalReleasedViteAmount, prevTime, endTime,
-                tradeRecover.miningRewardCfgMap());
-        System.out.println(finalRes);
-    }
-
-    @Test
-    public void testMarketMining1() throws Exception {
-        Traveller traveller = new Traveller();
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-
-        // long snapshotTime = CommonUtils.getFixedTime();
-        long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-03 12:30:00", new ParsePosition(0)).getTime() / 1000;
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-02 12:00:00", new ParsePosition(0))
-                .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
-                .getTime() / 1000;
-        List<TradePair> tradePairs = TradeRecover.getMarketMiningOpenedTp();
-        Tokens tokens = tradeRecover.prepareData();
-        // 1.travel to snapshot time
-        OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
-
-        // 2.recover orderbooks
-        OrderBooks orderBooks = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime, tokens, viteCli);
-        tradeRecover.fillAddressForOrdersGroupByTimeUnit(orderBooks.getBooks());
-        tradeRecover.setOrderBooks(orderBooks.getBooks()); 
-
-        // 3.market-mining
-        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        double totalReleasedViteAmount = 1000000.0;
-        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(orderBooks,
-                tradeRecover.getBlockEventStream(), totalReleasedViteAmount, prevTime, endTime,
-                tradeRecover.miningRewardCfgMap());
+        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
+                eventStream, totalReleasedViteAmount, prevTime, endTime, tradeRecover.miningRewardCfgMap(viteCli));
         System.out.println(finalRes);
     }
 
@@ -149,123 +198,6 @@ class DexApplicationTests {
     public void testGetSnapshotBlockByHeight() throws Exception {
         List<AccountBlock> a = viteCli.getAccountBlocksByHeightRange(1000, 1000);
         System.out.println(a);
-    }
-
-    @Test
-    public void testGetCurrentOrderBookAndEvent() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
-        // tradeRecover.prepareOrderBooks();
-        /*
-         * tradeRecover.prepareEvents(startTime); tradeRecover.filterEvents();
-         */
-
-        Map<String, Collection<OrderModel>> orderMap = new HashMap<>();
-        Map<String, Collection<OrderEvent>> eventMap = new HashMap<>();
-        tradeRecover.getOrderBooks().forEach((k, v) -> {
-            orderMap.put(k, v.getOrders().values());
-        });
-
-        // tradeRecover.getEventStreams().forEach((k, v) -> {
-        //     eventMap.put(k, v.getEvents());
-        // });
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("orderbook", orderMap);
-        result.put("events", eventMap);
-
-        File file = new File("dataset_origin.raw");
-        Files.write(JSON.toJSONBytes(result), file);
-    }
-
-    @Test
-    public void testRevertOrderBook() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        SData data = JSONObject.parseObject(new FileInputStream(new File("dataset_origin.raw")), SData.class);
-        Map<String, List<OrderModel>> orders = data.getOrderbook();
-        Map<String, List<OrderEvent>> events = data.getEvents();
-
-        // tradeRecover.initFrom(orders, events);
-        // tradeRecover.revertOrderBooks();
-    }
-
-    @Test
-    public void testRevertOrderBookToFile() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
-        tradeRecover.prepareData();
-        // tradeRecover.prepareOrderBooks();
-        // tradeRecover.prepareEvents(startTime);
-        // tradeRecover.filterEvents();
-        // tradeRecover.revertOrderBooks();
-
-        Map<String, Collection<OrderModel>> orderMap = new HashMap<>();
-        Map<String, Collection<OrderEvent>> eventMap = new HashMap<>();
-
-        tradeRecover.getOrderBooks().forEach((k, v) -> {
-            orderMap.put(k, v.getOrders().values());
-        });
-
-        // tradeRecover.getEventStreams().forEach((k, v) -> {
-        //     eventMap.put(k, v.getEvents());
-        // });
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("orderbook", orderMap);
-        result.put("events", eventMap);
-
-        File file = new File("dataset_reverted.raw");
-        Files.write(JSON.toJSONBytes(result), file);
-    }
-
-    @Data
-    public static class SData {
-        private Map<String, List<OrderModel>> orderbook;
-        private Map<String, List<OrderEvent>> events;
-    }
-
-    @Test
-    public void testRewardResultFromFile() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
-                .getTime() / 1000;
-
-        SData data = JSONObject.parseObject(new FileInputStream(new File("dataset_reverted.raw")), SData.class);
-        Map<String, List<OrderModel>> orders = data.getOrderbook();
-        Map<String, List<OrderEvent>> events = data.getEvents();
-
-        // tradeRecover.initFrom(orders, events);
-
-        // RewardKeeper rewardKeeper = new RewardKeeper(tradeRecover);
-        // Map<String, Map<Integer, BigDecimal>> finalRes =
-        // rewardKeeper.calcAddressMarketReward(1000000.0, startTime,
-        // endTime);
-        // System.out.println(finalRes);
-    }
-
-    // test reward result
-    @Test
-    public void testRewardResult() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover(viteCli);
-        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
-                .getTime() / 1000;
-
-        /* tradeRecover.prepareOrderBooks();
-        tradeRecover.prepareEvents(startTime);
-        tradeRecover.filterEvents();
-        tradeRecover.revertOrderBooks();
-
-        double totalReleasedViteAmount = 1000000.0;
-        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(totalReleasedViteAmount,
-                startTime, endTime);
-        System.out.println("aaaaa"); */
     }
 
     @Test

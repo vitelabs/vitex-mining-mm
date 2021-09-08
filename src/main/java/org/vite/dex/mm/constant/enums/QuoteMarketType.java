@@ -3,9 +3,9 @@ package org.vite.dex.mm.constant.enums;
 import lombok.Getter;
 
 public enum QuoteMarketType {
-    BTCMarket(1, "btc market"),
+    VITEMarket(1, "vite market"),
     ETHMarket(2, "eth market"),
-    VITEMarket(3, "vite market"),
+    BTCMarket(3, "btc market"),
     USDTMarket(4, "usdt market");
 
     QuoteMarketType(int value, String desc) {

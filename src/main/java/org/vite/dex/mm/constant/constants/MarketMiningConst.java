@@ -23,16 +23,16 @@ public class MarketMiningConst {
 
     public static final int OrderIdBytesLength = 22;
 
-    public static final double btcSharedRatio = 0.05;
-    public static final double ethSharedRatio = 0.015;
     public static final double viteSharedRatio = 0.015;
+    public static final double ethSharedRatio = 0.015;
+    public static final double btcSharedRatio = 0.05;
     public static final double usdtSharedRatio = 0.02;
 
     public static final Map<Integer, Double> getMarketSharedRatio() {
         HashMap<Integer, Double> marketSharedVXRatio = new HashMap<>();
-        marketSharedVXRatio.put(QuoteMarketType.BTCMarket.getValue(), btcSharedRatio);
-        marketSharedVXRatio.put(QuoteMarketType.ETHMarket.getValue(), ethSharedRatio);
         marketSharedVXRatio.put(QuoteMarketType.VITEMarket.getValue(), viteSharedRatio);
+        marketSharedVXRatio.put(QuoteMarketType.ETHMarket.getValue(), ethSharedRatio);
+        marketSharedVXRatio.put(QuoteMarketType.BTCMarket.getValue(), btcSharedRatio);
         marketSharedVXRatio.put(QuoteMarketType.USDTMarket.getValue(), usdtSharedRatio);
         return marketSharedVXRatio;
     }
