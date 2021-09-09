@@ -7,9 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.OrderModel;
-import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
-import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
@@ -19,7 +17,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -31,26 +28,15 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 /**
  * 1. prepare order book, get the current order book 
  * 2. prepare events, get all events from last cycle to current
- * 3. recover order book, recover order order to last cycle by events
+ * 3. recover order book, recover order order to last cycle by events 
  * 4. mm mining, calculate the market making mining rewards
  */
 @Slf4j
 public class TradeRecover {
 
-    public Map<String, MiningRewardCfg> miningRewardCfgMap(ViteCli viteCli) {
-        Map<String, MiningRewardCfg> tradePairCfgMap = new HashMap<>();
-        List<TradePair> tradePairs = viteCli.getMarketMiningTradePairs();
-
-        tradePairs.stream().forEach(tp -> {
-            String symbol = tp.getTradePair();
-            MiningRewardCfg miningRewardCfg = MiningRewardCfg.fromTradePair(tp);
-            tradePairCfgMap.put(symbol, miningRewardCfg);
-        });
-        return tradePairCfgMap;
-    }
-
     /**
      * recover all orderbooks to start time of last cycle
+     * 
      * @param orderBooks
      * @param time
      * @param tokens
@@ -154,7 +140,7 @@ public class TradeRecover {
 
     /**
      * 1.get height range of contract-chain between startTime to endTime 
-     * 2.get eventLogs in the range of height
+     * 2.get eventLogs in the range of height 
      * 3.find NewOrder eventLog, filled the address in Order
      *
      * @param orderMap

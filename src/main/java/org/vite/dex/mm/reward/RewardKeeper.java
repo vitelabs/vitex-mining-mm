@@ -9,6 +9,7 @@ import org.vite.dex.mm.orderbook.OrderBooks;
 import org.vite.dex.mm.reward.bean.RewardMarket;
 import org.vite.dex.mm.reward.bean.RewardOrder;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
+import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 
 import java.io.IOException;
@@ -60,12 +61,12 @@ public class RewardKeeper implements IOrderEventHandleAware {
      * @throws IOException
      */
     public Map<String, Map<Integer, BigDecimal>> calcAddressMarketReward(OrderBooks books, BlockEventStream stream,
-            double dailyReleasedVX, long startTime, long endTime, Map<String, MiningRewardCfg> tradePairCfgMap)
-            throws IOException {
+            double dailyReleasedVX, long startTime, long endTime) throws IOException {
 
         Map<String, Map<Integer, BigDecimal>> finalRes = Maps.newHashMap(); // <Address, Map<MarketId,RewardMarket>>
         Map<Integer, RewardMarket> marketRewards = new HashMap<>(); // <MarketId, RewardMarket>
-
+        Map<String, MiningRewardCfg> tradePairCfgMap = CommonUtils.miningRewardCfgMap();
+        
         // 1.go onward OrderBooks and calc factor of each Order
         Map<String, RewardOrder> totalRewardOrders = mmMining(books, stream, startTime, endTime, tradePairCfgMap);
 

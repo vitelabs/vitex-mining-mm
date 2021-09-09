@@ -1,8 +1,65 @@
 package org.vite.dex.mm.utils;
 
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
+import org.vite.dex.mm.constant.constants.MarketMiningConst;
+import org.vite.dex.mm.entity.TradePair;
+import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class CommonUtils {
+    /**
+     * get trade pair settings from file
+     * 
+     * @note the returned content is text/plain, convert to String before unserialize  
+     * @return
+     * @throws IOException
+     */
+    public static List<TradePair> getMarketMiningTradePairs() throws IOException {
+        List<TradePair> res = new ArrayList<>();
+        URL url = new URL(MarketMiningConst.TRADE_PAIR_SETTING_URL);
+
+        BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()));
+        char[] buf = new char[512];
+        int len = 0;
+        StringBuffer contentBuffer = new StringBuffer();
+        while ((len = reader.read(buf)) != -1) {
+            contentBuffer.append(buf, 0, len);
+        }
+
+        JSONArray jsonArr = JSONObject.parseObject(contentBuffer.toString()).getJSONArray("tradepairs");
+        if (jsonArr != null) {
+            res = jsonArr.toJavaList(TradePair.class);
+        }
+        return res;
+    }
+    
+    /**
+     * get miningReward config of each tradePair market
+     * @return
+     * @throws IOException
+     */
+    public static Map<String, MiningRewardCfg> miningRewardCfgMap() throws IOException {
+        Map<String, MiningRewardCfg> tradePairCfgMap = new HashMap<>();
+        List<TradePair> tradePairs = getMarketMiningTradePairs();
+
+        tradePairs.stream().forEach(tp -> {
+            String symbol = tp.getTradePair();
+            MiningRewardCfg miningRewardCfg = MiningRewardCfg.fromTradePair(tp);
+            tradePairCfgMap.put(symbol, miningRewardCfg);
+        });
+        return tradePairCfgMap;
+    }
+    
     // Get the timestamp at 12:30 pm every day
     public static Long getFixedTime() {
         Calendar c = Calendar.getInstance();

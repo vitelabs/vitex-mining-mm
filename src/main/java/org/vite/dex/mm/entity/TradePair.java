@@ -6,9 +6,6 @@ import static org.vite.dex.mm.constant.constants.MarketMiningConst.UnderscoreStr
 
 @Data
 public class TradePair {
-    // trade-pair symbol
-    String symbol;
-
     String tradeTokenSymbol;
 
     String quoteTokenSymbol;

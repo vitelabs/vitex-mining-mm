@@ -21,6 +21,7 @@ import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.orderbook.TradeRecover.RecoverResult;
 import org.vite.dex.mm.orderbook.Traveller;
 import org.vite.dex.mm.reward.RewardKeeper;
+import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vite.dex.mm.utils.decode.BytesUtils;
@@ -65,7 +66,7 @@ class DexApplicationTests {
     @Test
     public void testTravel() throws Exception {
         Traveller traveller = new Traveller();
-        List<TradePair> tradePairs = viteCli.getMarketMiningTradePairs();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
         Tokens tokens = viteCli.getAllTokenInfos();
 
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
@@ -158,7 +159,7 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         double totalReleasedViteAmount = 1000000.0;
         Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
-                eventStream, totalReleasedViteAmount, prevTime, endTime, tradeRecover.miningRewardCfgMap(viteCli));
+                eventStream, totalReleasedViteAmount, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
     }
 
@@ -175,7 +176,7 @@ class DexApplicationTests {
         long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
-        List<TradePair> tradePairs = viteCli.getMarketMiningTradePairs();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
         Tokens tokens = viteCli.getAllTokenInfos();
         // 1.travel to snapshot time
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
@@ -190,7 +191,7 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         double totalReleasedViteAmount = 1000000.0;
         Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
-                eventStream, totalReleasedViteAmount, prevTime, endTime, tradeRecover.miningRewardCfgMap(viteCli));
+                eventStream, totalReleasedViteAmount, prevTime, endTime);
         System.out.println(finalRes);
     }
 
@@ -264,5 +265,11 @@ class DexApplicationTests {
         String quoteTokenId = "tti_80f3751485e4e83456059473";
         OrderBookInfo orderBookInfo = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, 0, 100, 0, 100);
         System.out.println(orderBookInfo.getCurrOrders());
+    }
+
+    @Test
+    public void testHttpReqUtils() throws IOException {
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+        System.out.println(tradePairs);
     }
 }

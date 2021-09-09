@@ -1,0 +1,37 @@
+{
+    "tradepairs": [
+        {
+            "tradeTokenSymbol": "ETH-000", 
+            "quoteTokenSymbol": "USDT-000",
+            "tradeTokenId": "tti_687d8a93915393b219212c73",
+            "quoteTokenId": "tti_80f3751485e4e83456059473",
+            "mmEffectiveInterval": 0.2,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 5.0
+        },
+        {
+            "tradeTokenSymbol": "VITE-000",
+            "quoteTokenSymbol": "USDT-000",
+            "tradeTokenId": "tti_5649544520544f4b454e6e40",
+            "quoteTokenId": "tti_80f3751485e4e83456059473",
+            "mmEffectiveInterval": 0.15,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 100,
+            "sellAmountThanBuyRatio": 0.01,
+            "mmRewardMultiple": 5.0
+        },
+        {
+            "tradeTokenSymbol": "ETH-000",
+            "quoteTokenSymbol": "BTC-000",
+            "tradeTokenId": "tti_687d8a93915393b219212c73",
+            "quoteTokenId": "tti_80f3751485e4e83456059473",
+            "mmEffectiveInterval": 0.2,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 1.0
+        }
+    ]
+}
