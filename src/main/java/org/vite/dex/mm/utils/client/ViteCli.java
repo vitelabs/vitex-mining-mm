@@ -18,11 +18,15 @@ import org.vitej.core.protocol.Vitej;
 import org.vitej.core.protocol.methods.Address;
 import org.vitej.core.protocol.methods.Hash;
 import org.vitej.core.protocol.methods.TokenId;
+import org.vitej.core.protocol.methods.enums.EBlockType;
+import org.vitej.core.protocol.methods.request.Request;
+import org.vitej.core.protocol.methods.request.TransactionParams;
 import org.vitej.core.protocol.methods.request.VmLogFilter;
 import org.vitej.core.protocol.methods.response.AccountBlock;
 import org.vitej.core.protocol.methods.response.AccountBlockResponse;
 import org.vitej.core.protocol.methods.response.AccountBlocksResponse;
 import org.vitej.core.protocol.methods.response.CommonResponse;
+import org.vitej.core.protocol.methods.response.EmptyResponse;
 import org.vitej.core.protocol.methods.response.SnapshotBlock;
 import org.vitej.core.protocol.methods.response.SnapshotBlocksResponse;
 import org.vitej.core.protocol.methods.response.TokenInfo;
@@ -30,10 +34,15 @@ import org.vitej.core.protocol.methods.response.TokenInfoListWithTotalResponse;
 import org.vitej.core.protocol.methods.response.TokenInfoResponse;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.VmlogInfosResponse;
+import org.vitej.core.utils.ProtocolUtils;
+import org.vitej.core.utils.abi.Abi;
+import org.vitej.core.wallet.KeyPair;
+import org.vitej.core.wallet.Wallet;
 
 import javax.annotation.PostConstruct;
 
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -50,15 +59,70 @@ import static org.vite.dex.mm.constant.constants.MarketMiningConst.TRADE_CONTRAC
 @Slf4j
 public class ViteCli {
 
-    private static Vitej vitej;
-
-    public static Vitej getViteClient() {
-        return vitej;
-    }
+    private Vitej vitej;
 
     @PostConstruct
     public void init() {
         vitej = new Vitej(new HttpService(NODE_SERVER_URL));
+
+    }
+
+    /**
+     * get keyPair of wallet from mnemonic
+     * 
+     * @param mnemonic
+     * @return
+     * @throws IOException
+     */
+    public KeyPair getKeyPair(String mnemonic, int idx) throws IOException {
+        Wallet wallet = new Wallet(mnemonic);
+        return wallet.deriveKeyPair(idx);
+    }
+
+    /**
+     * call contract`s specified method
+     * 
+     * @param keyPair
+     * @param fromAddress
+     * @param toAddress
+     * @param tokenId
+     * @param amount
+     * @param abiStr
+     * @param methodName
+     * @param methodParams
+     * @return
+     * @throws IOException
+     */
+    public boolean callContract(KeyPair keyPair, String fromAddress, String toAddress, String tokenId, String amount,
+            String abiStr, String methodName, List<Object> methodParams) throws IOException {
+
+        Abi abi = Abi.fromJson(abiStr);
+        byte[] callContractData = abi.encodeFunction(methodName, methodParams.toArray());
+        Request<?, EmptyResponse> request = vitej.sendTransaction(keyPair,
+                new TransactionParams().setBlockType(EBlockType.SEND_CALL.getValue())
+                        // smart contract address
+                        .setToAddress(new Address(toAddress))
+                        // transfer amount
+                        .setAmount(new BigInteger(amount))
+                        // transfer token id
+                        .setTokenId(TokenId.stringToTokenId(tokenId)).setData(callContractData),
+                true);
+        Hash sendBlockHash = ((TransactionParams) request.getParams().get(0)).getHashRaw();
+        boolean callSuccess = ProtocolUtils.checkCallContractResult(vitej, sendBlockHash);
+
+        return callSuccess;
+    }
+
+    public int getCurrentCycleKey() throws IOException {
+        int cycleKey = 0;
+        try {
+            CommonResponse response = vitej.commonMethod("sbpstats_time2Index", null, 2).send();
+            cycleKey = (Integer) response.getResult();
+        } catch (Exception e) {
+            log.error("getCurrentCycleKey failed,the err:" + e);
+            throw e;
+        }
+        return cycleKey;
     }
 
     public AccountBlock getLatestAccountBlock() throws IOException {
@@ -67,7 +131,7 @@ public class ViteCli {
             AccountBlockResponse response = vitej.getLatestAccountBlock(new Address(TRADE_CONTRACT_ADDRESS)).send();
             block = response.getResult();
         } catch (Exception e) {
-            log.error("getHashOfLatestAccountBlock failed,the err:" + e);
+            log.error("getLatestAccountBlock failed,the err:" + e);
             throw e;
         }
         return block;
@@ -450,5 +514,4 @@ public class ViteCli {
         return accountBlockMap;
     }
 
-    
 }

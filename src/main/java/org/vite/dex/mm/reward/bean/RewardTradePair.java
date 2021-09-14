@@ -21,7 +21,7 @@ public class RewardTradePair {
 
     private BigDecimal sellAmountSum;
     private BigDecimal buyAmountSum;
-    
+
     private BigDecimal sellSharedVx;
     private BigDecimal buySharedVx;
     private MiningRewardCfg cfg;

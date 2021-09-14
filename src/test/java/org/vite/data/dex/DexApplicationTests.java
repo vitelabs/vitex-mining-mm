@@ -8,18 +8,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
+import org.vite.dex.mm.entity.AddressMarketReward;
 import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
+import org.vite.dex.mm.mapper.AddressMarketRewardRepository;
 import org.vite.dex.mm.orderbook.BlockEventStream;
 import org.vite.dex.mm.orderbook.OrderBooks;
 import org.vite.dex.mm.orderbook.Tokens;
 import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.orderbook.TradeRecover.RecoverResult;
 import org.vite.dex.mm.orderbook.Traveller;
+import org.vite.dex.mm.reward.RewardEngine;
 import org.vite.dex.mm.reward.RewardKeeper;
 import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
@@ -39,6 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +54,12 @@ class DexApplicationTests {
 
     @Resource
     private ViteCli viteCli;
+
+    @Autowired
+    AddressMarketRewardRepository addressMarketRewardRepository;
+
+    @Autowired
+    RewardEngine engine;
 
     @Test
     void contextLoads() {
@@ -137,7 +148,6 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMiningFromFile() throws Exception {
-        TradeRecover tradeRecover = new TradeRecover();
         long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-02 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
         long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
@@ -161,6 +171,7 @@ class DexApplicationTests {
         Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
                 eventStream, totalReleasedViteAmount, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
+        engine.saveRewards(finalRes, totalReleasedViteAmount);
     }
 
     @Test
@@ -271,5 +282,26 @@ class DexApplicationTests {
     public void testHttpReqUtils() throws IOException {
         List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
         System.out.println(tradePairs);
+    }
+
+    @Test
+    public void testGetCurrCycleKey() throws IOException {
+        int cycleKey = viteCli.getCurrentCycleKey();
+        System.out.println(cycleKey);
+    }
+
+    @Test
+    public void testSaveDB() throws IOException {
+        AddressMarketReward s = new AddressMarketReward();
+        s.setAddress("12345");
+        s.setAmount(new BigDecimal("1234.4556643"));
+        s.setDataPage(1);
+        s.setCycleKey(336);
+        s.setQuoteTokenType(2);
+        s.setSettleStatus(1);
+        s.setFactorRatio(new BigDecimal("0.4556643"));
+        s.setCtime(new Date());
+        s.setUtime(new Date());
+        addressMarketRewardRepository.save(s);
     }
 }
