@@ -66,13 +66,14 @@ public class RewardEngine {
 
                 // 3.market-mining
                 RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-                double totalReleasedViteAmount = 1000000.0;//
+                int cycleKey = viteCli.getCurrentCycleKey();
+                BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
                 Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(
                                 recoveredOrderBooks, stream, totalReleasedViteAmount, prevTime, endTime);
                 log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
                 // 4.write reward results to DB and FundContract chain
-                saveRewards(finalRes, totalReleasedViteAmount);
+                saveRewards(finalRes, totalReleasedViteAmount, cycleKey);
         }
 
         /**
@@ -82,13 +83,12 @@ public class RewardEngine {
          * @param finalRes
          * @throws IOException
          */
-        public void saveRewards(Map<String, Map<Integer, BigDecimal>> finalRes, double totalReleasedViteAmount)
-                        throws Exception {
+        public void saveRewards(Map<String, Map<Integer, BigDecimal>> finalRes, BigDecimal totalReleasedViteAmount,
+                        int cycleKey) throws Exception {
 
                 try {
-                        int cycleKey = viteCli.getCurrentCycleKey();
                         saveMiningRewardToDB(finalRes, totalReleasedViteAmount, cycleKey);
-                        // saveMiningRewardToFundChain(finalRes, totalReleasedViteAmount, cycleKey);
+                        saveMiningRewardToFundChain(finalRes, totalReleasedViteAmount, cycleKey);
                 } catch (Exception e) {
                         log.error("save vx reward failed ", e);
                         throw e;
@@ -96,7 +96,7 @@ public class RewardEngine {
         }
 
         private List<AddressSettleReward> getAddressSettleRewards(Map<String, Map<Integer, BigDecimal>> finalRes,
-                        double totalReleasedViteAmount, int cycleKey) throws IOException {
+                        BigDecimal totalReleasedViteAmount, int cycleKey) throws IOException {
                 List<AddressSettleReward> settleRewards = new ArrayList<>();
 
                 finalRes.forEach((addr, rewardMap) -> {
@@ -104,8 +104,8 @@ public class RewardEngine {
                         settleReward.setAddress(addr);
                         settleReward.setTotalAmount(
                                         rewardMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
-                        settleReward.setAmountPercent(settleReward.getTotalAmount()
-                                        .divide(BigDecimal.valueOf(totalReleasedViteAmount), 12, RoundingMode.DOWN));
+                        settleReward.setAmountPercent(settleReward.getTotalAmount().divide(totalReleasedViteAmount, 12,
+                                        RoundingMode.DOWN));
                         settleReward.setCycleKey(cycleKey);
                         settleReward.setDataPage(finalRes.size() / 30 + 1);
 
@@ -124,7 +124,7 @@ public class RewardEngine {
          * @throws Exception
          */
         public void saveMiningRewardToFundChain(Map<String, Map<Integer, BigDecimal>> finalRes,
-                        double totalReleasedViteAmount, int cycleKey) throws Exception {
+                        BigDecimal totalReleasedViteAmount, int cycleKey) throws Exception {
                 List<AddressSettleReward> addrRewards = getAddressSettleRewards(finalRes, totalReleasedViteAmount,
                                 cycleKey);
                 if (CollectionUtils.isEmpty(addrRewards)) {
@@ -159,8 +159,8 @@ public class RewardEngine {
                 assert success;
         }
 
-        public void saveMiningRewardToDB(Map<String, Map<Integer, BigDecimal>> finalRes, double totalReleasedViteAmount,
-                        int cycleKey) {
+        public void saveMiningRewardToDB(Map<String, Map<Integer, BigDecimal>> finalRes,
+                        BigDecimal totalReleasedViteAmount, int cycleKey) {
                 List<AddressMarketReward> addrRewards = new ArrayList<>();
 
                 int i = 0;
@@ -175,10 +175,10 @@ public class RewardEngine {
                                         addrMarketReward.setAmount(market2Reward.getValue());
                                         addrMarketReward.setCycleKey(cycleKey);
                                         addrMarketReward.setDataPage(i / 30 + 1);
-                                        double marketShared = totalReleasedViteAmount
-                                                        * MarketMiningConst.getMarketSharedRatio().get(market);
-                                        addrMarketReward.setFactorRatio(vxAmount.divide(new BigDecimal(marketShared),
-                                                        12, RoundingMode.DOWN));
+                                        BigDecimal marketShared = totalReleasedViteAmount.multiply(BigDecimal
+                                                        .valueOf(MarketMiningConst.getMarketSharedRatio().get(market)));
+                                        addrMarketReward.setFactorRatio(
+                                                        vxAmount.divide(marketShared, 12, RoundingMode.DOWN));
                                         addrMarketReward.setSettleStatus(3);
                                         addrMarketReward.setCtime(new Date());
                                         addrMarketReward.setUtime(new Date());

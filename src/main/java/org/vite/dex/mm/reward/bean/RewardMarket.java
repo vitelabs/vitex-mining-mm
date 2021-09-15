@@ -28,17 +28,19 @@ public class RewardMarket {
                 .collect(Collectors.groupingBy(RewardOrder::getTradePair));
 
         tradePairRewardOrders.forEach((tradePair, rewardOrderList) -> {
-            this.tradePairRewards.put(tradePair, new RewardTradePair(tradePair, rewardOrderList, tradePair2Cfg.get(tradePair)));
+            this.tradePairRewards.put(tradePair,
+                    new RewardTradePair(tradePair, rewardOrderList, tradePair2Cfg.get(tradePair)));
         });
     }
 
     /**
-     * 1. calculate the total number of VX allocated to each market
+     * 1. calculate the total number of VX allocated to each market 
      * 2. calculate the number of VX that each trading pair should get in the market
      */
-    public void apply(double releasedVx, double f) {
-        double sharedVX = releasedVx * f;
-        this.marketFactorSum = this.rewardOrders.stream().map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO,BigDecimal::add);
+    public void apply(BigDecimal releasedVx, double f) {
+        BigDecimal sharedVX = releasedVx.multiply(BigDecimal.valueOf(f));
+        this.marketFactorSum = this.rewardOrders.stream().map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO,
+                BigDecimal::add);
 
         this.tradePairRewards.values().forEach(rewardTradePair -> {
             rewardTradePair.applyRule(this.marketFactorSum, sharedVX, tradePair2Cfg.get(rewardTradePair.getTp()));

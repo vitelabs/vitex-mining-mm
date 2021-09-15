@@ -167,11 +167,12 @@ class DexApplicationTests {
 
         // calc rewards
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        double totalReleasedViteAmount = 1000000.0;
+        int cycleKey = viteCli.getCurrentCycleKey();
+        BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
                 eventStream, totalReleasedViteAmount, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
-        engine.saveRewards(finalRes, totalReleasedViteAmount);
+        engine.saveRewards(finalRes, totalReleasedViteAmount, cycleKey);
     }
 
     @Test
@@ -200,7 +201,8 @@ class DexApplicationTests {
 
         // 3.market-mining
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        double totalReleasedViteAmount = 1000000.0;
+        int cycleKey = viteCli.getCurrentCycleKey();
+        BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
                 eventStream, totalReleasedViteAmount, prevTime, endTime);
         System.out.println(finalRes);
@@ -303,5 +305,16 @@ class DexApplicationTests {
         s.setCtime(new Date());
         s.setUtime(new Date());
         addressMarketRewardRepository.save(s);
+    }
+
+    @Test
+    public void testStartCycleIdx() throws Exception {
+        String dbtime1 = "2019-12-06";
+        String dbtime2 = "2021-09-15";
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd");
+        Date date1 = format.parse(dbtime1);
+        Date date2 = format.parse(dbtime2);
+        int a = (int) ((date2.getTime() - date1.getTime()) / (1000 * 3600 * 24));
+        System.out.println("multi: " + a);
     }
 }

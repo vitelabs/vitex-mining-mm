@@ -9,6 +9,8 @@ import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -20,7 +22,8 @@ public class CommonUtils {
     /**
      * get trade pair settings from file
      * 
-     * @note the returned content is text/plain, convert to String before unserialize  
+     * @note the returned content is text/plain, convert to String before
+     *       unserialize
      * @return
      * @throws IOException
      */
@@ -42,9 +45,10 @@ public class CommonUtils {
         }
         return res;
     }
-    
+
     /**
      * get miningReward config of each tradePair market
+     * 
      * @return
      * @throws IOException
      */
@@ -59,7 +63,7 @@ public class CommonUtils {
         });
         return tradePairCfgMap;
     }
-    
+
     // Get the timestamp at 12:30 pm every day
     public static Long getFixedTime() {
         Calendar c = Calendar.getInstance();
@@ -68,5 +72,38 @@ public class CommonUtils {
         c.set(Calendar.SECOND, 0);
 
         return c.getTime().getTime() / 1000; // seconds
+    }
+
+    /**
+     * get daily total released VX by cycleKey
+     * @param cycleKey
+     * @return
+     */
+    public static BigDecimal getVxAmountByCycleKey(int cycleKey) {
+        int firstPeriodId = 199;
+        BigDecimal amount = BigDecimal.ZERO;
+        BigDecimal ascendRate = new BigDecimal("1.0180435");
+        BigDecimal descendRate = new BigDecimal("0.99810276");
+        BigDecimal preheatMinedAmtPerPeriod = new BigDecimal(10000);
+        if (cycleKey <= firstPeriodId && cycleKey >= 111) {
+            return preheatMinedAmtPerPeriod;
+        } else if (cycleKey < 111) {
+            return amount;
+        }
+
+        cycleKey = cycleKey - firstPeriodId;
+
+        for (int i = 0; i <= cycleKey; i++) {
+            if (i == 0) {
+                amount = preheatMinedAmtPerPeriod;
+            } else if (i < 90) {
+                amount = amount.multiply(ascendRate).setScale(12, RoundingMode.DOWN);
+            } else if (i == 90) {
+                amount = preheatMinedAmtPerPeriod.multiply(new BigDecimal(5));
+            } else {
+                amount = amount.multiply(descendRate).setScale(12, RoundingMode.DOWN);
+            }
+        }
+        return amount;
     }
 }

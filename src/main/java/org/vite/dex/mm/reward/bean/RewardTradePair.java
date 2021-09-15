@@ -41,12 +41,12 @@ public class RewardTradePair {
      * @param marketSharedVX
      * @param cfg
      */
-    public void applyRule(BigDecimal marketFactorSum, double marketSharedVX, MiningRewardCfg cfg) {
+    public void applyRule(BigDecimal marketFactorSum, BigDecimal marketSharedVX, MiningRewardCfg cfg) {
         this.cfg = cfg;
         this.pairFactorSum = this.rewardOrders.stream().map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO,
                 BigDecimal::add);
         this.pairSharedVX = this.pairFactorSum.divide(marketFactorSum, 12, RoundingMode.DOWN)
-                .multiply(BigDecimal.valueOf(marketSharedVX)).setScale(12, RoundingMode.DOWN);
+                .multiply(marketSharedVX).setScale(12, RoundingMode.DOWN);
 
         this.pairSellFactorSum = this.rewardOrders.stream().filter(reward -> reward.getOrderSide())
                 .map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO, BigDecimal::add);
