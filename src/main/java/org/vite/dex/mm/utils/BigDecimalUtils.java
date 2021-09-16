@@ -28,14 +28,14 @@ public class BigDecimalUtils {
     }
 
     public static BigDecimal subtract(BigDecimal a, BigDecimal b) {
-        return a.subtract(b).setScale(8, BigDecimal.ROUND_DOWN);
+        return a.subtract(b).setScale(18, BigDecimal.ROUND_DOWN);
     }
 
     public static BigDecimal divide(BigDecimal f, BigDecimal t) {
         if (BigDecimalUtils.isZero(t)) {
-            return new BigDecimal("0").setScale(8, BigDecimal.ROUND_HALF_UP);
+            return new BigDecimal("0").setScale(18, BigDecimal.ROUND_HALF_UP);
         }
-        return f.divide(t, 8, BigDecimal.ROUND_HALF_UP);
+        return f.divide(t, 18, BigDecimal.ROUND_HALF_UP);
     }
 
     public static BigDecimal divide(BigDecimal f, BigDecimal t, Integer scale) {
@@ -66,11 +66,11 @@ public class BigDecimalUtils {
     }
 
     public static BigDecimal add(BigDecimal a, BigDecimal b) {
-        return a.add(b).setScale(8, BigDecimal.ROUND_DOWN);
+        return a.add(b).setScale(18, BigDecimal.ROUND_DOWN);
     }
 
     public static BigDecimal priceFormat(String price) {
-        return new BigDecimal(price).setScale(12, RoundingMode.DOWN);
+        return new BigDecimal(price).setScale(18, RoundingMode.DOWN);
     }
 
     public static BigDecimal feeFormat(String value, int tokenDecimals) {

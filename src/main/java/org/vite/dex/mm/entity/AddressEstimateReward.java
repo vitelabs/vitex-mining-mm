@@ -18,8 +18,8 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "mining_address")
-public class AddressSettleReward {
+@Table(name = "address_estimate_reward")
+public class AddressEstimateReward {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -30,24 +30,24 @@ public class AddressSettleReward {
     @Column(name = "address")
     private String address;
 
-    @Column(name = "amount", precision = 50, scale = 18)
-    private BigDecimal totalAmount;
+    @Column(name = "order_mining_total", precision = 50, scale = 18)
+    private BigDecimal orderMiningTotal;
 
-    @Column(name = "amount_percent", precision = 50, scale = 18)
-    private BigDecimal amountPercent;
+    @Column(name = "vite_market_reward", precision = 50, scale = 18)
+    private BigDecimal viteMarketReward;
 
-    @Column(name = "data_page")
-    private Integer dataPage;
+    @Column(name = "eth_market_reward", precision = 50, scale = 18)
+    private BigDecimal ethMarketReward;
 
-    @Column(name = "settle_status")
-    private Integer settleStatus;
+    @Column(name = "btc_market_reward", precision = 50, scale = 18)
+    private BigDecimal btcMarketReward;
+
+    @Column(name = "usdt_market_reward", precision = 50, scale = 18)
+    private BigDecimal usdtMarketReward;
 
     @Column(name = "ctime")
     private Date ctime;
 
     @Column(name = "utime")
     private Date utime;
-
-    @Column(name = "remark")
-    private String remark;
 }

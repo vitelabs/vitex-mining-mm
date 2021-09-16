@@ -45,8 +45,8 @@ public class RewardTradePair {
         this.cfg = cfg;
         this.pairFactorSum = this.rewardOrders.stream().map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO,
                 BigDecimal::add);
-        this.pairSharedVX = this.pairFactorSum.divide(marketFactorSum, 12, RoundingMode.DOWN)
-                .multiply(marketSharedVX).setScale(12, RoundingMode.DOWN);
+        this.pairSharedVX = this.pairFactorSum.divide(marketFactorSum, 18, RoundingMode.DOWN)
+                .multiply(marketSharedVX).setScale(18, RoundingMode.DOWN);
 
         this.pairSellFactorSum = this.rewardOrders.stream().filter(reward -> reward.getOrderSide())
                 .map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -75,17 +75,17 @@ public class RewardTradePair {
             if (sellMore < 1 || sellAmountSum.divide(buyAmountSum).doubleValue() >= sellMore) {
                 ratio = 1 / sellMore + 1;
             } else {
-                ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 12, RoundingMode.DOWN).doubleValue();
+                ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 18, RoundingMode.DOWN).doubleValue();
             }
         } else {
-            if (buyAmountSum.divide(sellAmountSum, 12, RoundingMode.DOWN).doubleValue() >= buyMore) {
+            if (buyAmountSum.divide(sellAmountSum, 18, RoundingMode.DOWN).doubleValue() >= buyMore) {
                 ratio = buyMore / (buyMore + 1);
             } else {
-                ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 12, RoundingMode.DOWN).doubleValue();
+                ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 18, RoundingMode.DOWN).doubleValue();
             }
         }
-        this.buySharedVx = pairSharedVX.multiply(BigDecimal.valueOf(ratio)).setScale(12, RoundingMode.DOWN);
-        this.sellSharedVx = pairSharedVX.multiply(new BigDecimal(1).subtract(BigDecimal.valueOf(ratio))).setScale(12,
+        this.buySharedVx = pairSharedVX.multiply(BigDecimal.valueOf(ratio)).setScale(18, RoundingMode.DOWN);
+        this.sellSharedVx = pairSharedVX.multiply(new BigDecimal(1).subtract(BigDecimal.valueOf(ratio))).setScale(18,
                 RoundingMode.DOWN);
     }
 

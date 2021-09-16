@@ -52,10 +52,10 @@ public class RewardOrder {
         BigDecimal dist = null;
         BigDecimal factor = BigDecimal.ZERO;
         if (orderModel.isSide()) {
-            dist = (orderModel.getPrice().subtract(topPrice).setScale(12, RoundingMode.DOWN)).divide(topPrice, 12,
+            dist = (orderModel.getPrice().subtract(topPrice).setScale(18, RoundingMode.DOWN)).divide(topPrice, 18,
                     RoundingMode.DOWN);
         } else {
-            dist = (topPrice.subtract(orderModel.getPrice().setScale(12, RoundingMode.DOWN))).divide(topPrice, 12,
+            dist = (topPrice.subtract(orderModel.getPrice().setScale(18, RoundingMode.DOWN))).divide(topPrice, 18,
                     RoundingMode.DOWN);
         }
         if (dist.compareTo(BigDecimal.ZERO) <= 0) {
@@ -66,12 +66,12 @@ public class RewardOrder {
         if (dist.compareTo(BigDecimal.valueOf(effectiveDist)) < 0) {
             // coefficient = 0.6^(1+9*d/a)
             BigDecimal exp = new BigDecimal(1).add(
-                    new BigDecimal(9).multiply(dist).divide(BigDecimal.valueOf(effectiveDist), 12, RoundingMode.DOWN));
-            BigDecimal coefficient = new BigDecimal(Math.pow(0.6, exp.doubleValue())).setScale(12, RoundingMode.DOWN);
+                    new BigDecimal(9).multiply(dist).divide(BigDecimal.valueOf(effectiveDist), 18, RoundingMode.DOWN));
+            BigDecimal coefficient = new BigDecimal(Math.pow(0.6, exp.doubleValue())).setScale(18, RoundingMode.DOWN);
 
             // factor = amount * timeDuration * coefficient * miningRewardMultiple
             factor = orderModel.getAmount().multiply(BigDecimal.valueOf(endTime - startTime)).multiply(coefficient)
-                    .multiply(BigDecimal.valueOf(cfg.getMiningRewardMultiple())).setScale(12, RoundingMode.DOWN);
+                    .multiply(BigDecimal.valueOf(cfg.getMiningRewardMultiple())).setScale(18, RoundingMode.DOWN);
 
             if (factor.compareTo(BigDecimal.ZERO) == -1) {
                 System.out.println(
@@ -95,9 +95,9 @@ public class RewardOrder {
 
     void applyReward(BigDecimal sellSharedVxPerFactor, BigDecimal buyShardVxPerFactor) {
         if (orderModel.isSide()) {
-            this.totalRewardVX = this.totalFactor.multiply(sellSharedVxPerFactor).setScale(16, RoundingMode.DOWN);
+            this.totalRewardVX = this.totalFactor.multiply(sellSharedVxPerFactor).setScale(18, RoundingMode.DOWN);
         } else {
-            this.totalRewardVX = this.totalFactor.multiply(buyShardVxPerFactor).setScale(16, RoundingMode.DOWN);
+            this.totalRewardVX = this.totalFactor.multiply(buyShardVxPerFactor).setScale(18, RoundingMode.DOWN);
         }
     }
 }

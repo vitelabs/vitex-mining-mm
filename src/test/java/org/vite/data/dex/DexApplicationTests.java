@@ -209,6 +209,66 @@ class DexApplicationTests {
     }
 
     @Test
+    public void testEstimateMarketMining() throws Exception {
+        Traveller traveller = new Traveller();
+        TradeRecover tradeRecover = new TradeRecover();
+
+        // long snapshotTime = CommonUtils.getFixedTime();
+        long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2020-09-13 16:20:00", new ParsePosition(0)).getTime() / 1000;
+        long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
+                .parse("2020-09-13 12:00:00", new ParsePosition(0)).getTime() / 1000;
+
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+        Tokens tokens = viteCli.getAllTokenInfos();
+        // 1.travel to snapshot time
+        OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
+
+        // 2.recover orderbooks
+        RecoverResult res = tradeRecover.recoverInTime(snapshotOrderBooks, startTime, tokens, viteCli);
+        OrderBooks recovedOrderBooks = res.getOrderBooks();
+        BlockEventStream eventStream = res.getStream();
+        tradeRecover.fillAddressForOrdersGroupByTimeUnit(recovedOrderBooks.getBooks(), viteCli);
+
+        // 3.market-mining
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        int cycleKey = viteCli.getCurrentCycleKey();
+        BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
+                eventStream, totalReleasedViteAmount, startTime, snapshotTime);
+        System.out.println(finalRes);
+    }
+
+    @Test
+    public void testEstimateMarketMiningFromFile() throws Exception {
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-02 12:00:00", new ParsePosition(0))
+                .getTime() / 1000;
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
+                .getTime() / 1000;
+
+        // unserialize
+        OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_recovered.raw")),
+                OrderBooksData.class);
+        Map<String, List<OrderModel>> books = data.getOrderbooks();
+        Long currentHeight = data.getCurrentHeight();
+        List<BlockEvent> blockEvents = data.getEvents();
+
+        OrderBooks recoveOrderBooks = new OrderBooks(viteCli);
+        recoveOrderBooks.initFrom(books, currentHeight);
+        BlockEventStream eventStream = new BlockEventStream(blockEvents.get(0).getHeight(),
+                blockEvents.get(blockEvents.size() - 1).getHeight(), blockEvents);
+
+        // calc rewards
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        int cycleKey = viteCli.getCurrentCycleKey();
+        BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
+                eventStream, totalReleasedViteAmount, prevTime, endTime);
+        log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
+        engine.saveEstimateRes(finalRes, totalReleasedViteAmount, cycleKey);
+    }
+
+    @Test
     public void testGetSnapshotBlockByHeight() throws Exception {
         List<AccountBlock> a = viteCli.getAccountBlocksByHeightRange(1000, 1000);
         System.out.println(a);

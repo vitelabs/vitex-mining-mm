@@ -96,13 +96,13 @@ public class OrderLog {
     }
 
     private static BigDecimal calculateRawQuantity(BigDecimal amount, BigDecimal price, int decimalsDiff) {
-        BigDecimal rawAmount = amount.divide(price, 12, RoundingMode.DOWN);
+        BigDecimal rawAmount = amount.divide(price, 18, RoundingMode.DOWN);
         if (decimalsDiff == 0) {
             return rawAmount;
         } else if (decimalsDiff > 0) {
             return rawAmount.multiply(new BigDecimal(10).pow(decimalsDiff));
         } else {
-            return rawAmount.divide(new BigDecimal(10).pow(Math.abs(decimalsDiff)), 12, RoundingMode.DOWN);
+            return rawAmount.divide(new BigDecimal(10).pow(Math.abs(decimalsDiff)), 18, RoundingMode.DOWN);
         }
     }
 
@@ -114,7 +114,7 @@ public class OrderLog {
         if (decimalsDiff == 0) {
             return sourceAmount;
         } else if (decimalsDiff > 0) {
-            return sourceAmount.divide(new BigDecimal(10).pow(decimalsDiff), 12, RoundingMode.DOWN);
+            return sourceAmount.divide(new BigDecimal(10).pow(decimalsDiff), 18, RoundingMode.DOWN);
         } else {
             return sourceAmount.multiply(new BigDecimal(10).pow(Math.abs(decimalsDiff)));
         }

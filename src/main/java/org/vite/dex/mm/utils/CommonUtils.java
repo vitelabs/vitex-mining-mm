@@ -97,11 +97,11 @@ public class CommonUtils {
             if (i == 0) {
                 amount = preheatMinedAmtPerPeriod;
             } else if (i < 90) {
-                amount = amount.multiply(ascendRate).setScale(12, RoundingMode.DOWN);
+                amount = amount.multiply(ascendRate).setScale(18, RoundingMode.DOWN);
             } else if (i == 90) {
                 amount = preheatMinedAmtPerPeriod.multiply(new BigDecimal(5));
             } else {
-                amount = amount.multiply(descendRate).setScale(12, RoundingMode.DOWN);
+                amount = amount.multiply(descendRate).setScale(18, RoundingMode.DOWN);
             }
         }
         return amount;
