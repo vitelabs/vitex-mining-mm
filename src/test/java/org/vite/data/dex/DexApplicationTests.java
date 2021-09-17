@@ -349,7 +349,7 @@ class DexApplicationTests {
     @Test
     public void testGetCurrCycleKey() throws IOException {
         int cycleKey = viteCli.getCurrentCycleKey();
-        System.out.println(cycleKey);
+        System.out.println(cycleKey);//
     }
 
     @Test
