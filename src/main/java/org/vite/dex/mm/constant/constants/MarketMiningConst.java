@@ -2,6 +2,7 @@ package org.vite.dex.mm.constant.constants;
 
 import org.vite.dex.mm.constant.enums.QuoteMarketType;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,6 +40,9 @@ public class MarketMiningConst {
     public static final double btcSharedRatio = 0.05;
 
     public static final double usdtSharedRatio = 0.02;
+
+    public final static BigDecimal PERCENT_25 = new BigDecimal("0.025");
+    public final static BigDecimal PERCENT_00125 = new BigDecimal("0.0125");
 
     public static final Map<Integer, Double> getMarketSharedRatio() {
         HashMap<Integer, Double> marketSharedVXRatio = new HashMap<>();

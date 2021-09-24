@@ -514,4 +514,16 @@ public class ViteCli {
         return accountBlockMap;
     }
 
+    public Map<String, String> getInvitee2InviterMap(List<String> invitees) throws IOException {
+        Map<String, String> invitee2InviterMap = new HashMap<>();
+        try {
+            CommonResponse response = vitej.commonMethod("dex_getInviter", invitees).send();
+            invitee2InviterMap = JSON.parseObject(JSON.toJSONString(response.getResult()), Map.class);
+        } catch (Exception e) {
+            log.error("getInvitee2InviterMap failed,the err:" + e);
+            throw e;
+        }
+        return invitee2InviterMap;
+    }
+
 }

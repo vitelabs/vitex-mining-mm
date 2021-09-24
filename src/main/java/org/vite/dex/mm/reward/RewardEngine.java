@@ -20,6 +20,7 @@ import org.vite.dex.mm.orderbook.OrderBooks;
 import org.vite.dex.mm.orderbook.Tokens;
 import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.orderbook.Traveller;
+import org.vite.dex.mm.reward.RewardKeeper.FinalResult;
 import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.wallet.KeyPair;
@@ -86,12 +87,12 @@ public class RewardEngine {
                 RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
                 int cycleKey = viteCli.getCurrentCycleKey() - 1;
                 BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-                Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(
-                                recoveredOrderBooks, stream, totalReleasedViteAmount, prevTime, endTime);
+                FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
+                                totalReleasedViteAmount, prevTime, endTime);
                 log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
                 // 4.write reward results to DB and FundContract chain
-                saveRewards(finalRes, totalReleasedViteAmount, cycleKey);
+                saveRewards(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount, cycleKey);
         }
 
         /**
@@ -127,12 +128,12 @@ public class RewardEngine {
                 RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
                 int cycleKey = viteCli.getCurrentCycleKey() - 1;
                 BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-                Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(
-                                recoveredOrderBooks, stream, totalReleasedViteAmount, startTime, estimateTime);
+                FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
+                                totalReleasedViteAmount, startTime, estimateTime);
                 log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
                 // 4.save estimated result to DB
-                saveEstimateRes(finalRes, totalReleasedViteAmount, cycleKey);
+                saveEstimateRes(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount, cycleKey);
         }
 
         /**
@@ -147,7 +148,7 @@ public class RewardEngine {
                         int cycleKey) throws Exception {
                 try {
                         saveMiningRewardToDB(finalRes, totalReleasedViteAmount, cycleKey);
-                        // saveMiningRewardToFundChain(finalRes, totalReleasedViteAmount, cycleKey);
+                        saveMiningRewardToFundChain(finalRes, totalReleasedViteAmount, cycleKey);
                 } catch (Exception e) {
                         log.error("save vx reward failed ", e);
                         throw e;
@@ -216,6 +217,7 @@ public class RewardEngine {
 
         /**
          * save MiningReward of each address to fund contract chain
+         * todo:shoud merge order mining and invite mining result
          * 
          * @param addrRewards
          * @throws Exception

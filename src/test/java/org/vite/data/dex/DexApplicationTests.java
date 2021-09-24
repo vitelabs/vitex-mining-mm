@@ -25,6 +25,7 @@ import org.vite.dex.mm.orderbook.TradeRecover.RecoverResult;
 import org.vite.dex.mm.orderbook.Traveller;
 import org.vite.dex.mm.reward.RewardEngine;
 import org.vite.dex.mm.reward.RewardKeeper;
+import org.vite.dex.mm.reward.RewardKeeper.FinalResult;
 import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
@@ -42,6 +43,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -169,10 +171,11 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
-                eventStream, totalReleasedViteAmount, prevTime, endTime);
-        log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
-        engine.saveRewards(finalRes, totalReleasedViteAmount, cycleKey);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
+                totalReleasedViteAmount, prevTime, endTime);
+        log.info("succeed to calc each address`s market mining rewards, the result {}",
+                finalRes.getOrderMiningFinalRes());
+        engine.saveRewards(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount, cycleKey);
     }
 
     @Test
@@ -203,7 +206,7 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
                 eventStream, totalReleasedViteAmount, prevTime, endTime);
         System.out.println(finalRes);
     }
@@ -234,7 +237,7 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
                 eventStream, totalReleasedViteAmount, startTime, snapshotTime);
         System.out.println(finalRes);
     }
@@ -262,10 +265,10 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        Map<String, Map<Integer, BigDecimal>> finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
                 eventStream, totalReleasedViteAmount, prevTime, endTime);
-        log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
-        engine.saveEstimateRes(finalRes, totalReleasedViteAmount, cycleKey);
+        log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes.getOrderMiningFinalRes());
+        engine.saveEstimateRes(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount, cycleKey);
     }
 
     @Test
@@ -376,5 +379,13 @@ class DexApplicationTests {
         Date date2 = format.parse(dbtime2);
         int a = (int) ((date2.getTime() - date1.getTime()) / (1000 * 3600 * 24));
         System.out.println("multi: " + a);
+    }
+
+    @Test
+    public void testInvitee2InviterMap() throws Exception {
+        List<String> l = Arrays.asList("vite_1934ae0ed27d135ae08a252bb3484824097497c82532b358ff",
+                "vite_2dcdd77a40162c2d5d954691be68bb2cf335124a0752d10ee2");
+        Map<String, String> res = viteCli.getInvitee2InviterMap(l);
+        System.out.println(res);
     }
 }

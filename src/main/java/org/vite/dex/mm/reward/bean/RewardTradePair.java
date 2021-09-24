@@ -2,6 +2,7 @@ package org.vite.dex.mm.reward.bean;
 
 import lombok.Data;
 import lombok.experimental.Accessors;
+import org.vite.dex.mm.entity.InviteOrderMiningReward;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
 import java.math.BigDecimal;
@@ -13,6 +14,7 @@ import java.util.List;
 public class RewardTradePair {
     private final String tp;
     private final List<RewardOrder> rewardOrders;
+    private final List<InviteOrderMiningReward> inviteRewards;
     private BigDecimal pairFactorSum;
     private BigDecimal pairSharedVX; // the trade-pair shared VX
 
@@ -26,9 +28,11 @@ public class RewardTradePair {
     private BigDecimal buySharedVx;
     private MiningRewardCfg cfg;
 
-    public RewardTradePair(String tp, List<RewardOrder> rewardOrders, MiningRewardCfg cfg) {
+    public RewardTradePair(String tp, List<RewardOrder> rewardOrders, List<InviteOrderMiningReward> inviteRewards,
+            MiningRewardCfg cfg) {
         this.tp = tp;
         this.rewardOrders = rewardOrders;
+        this.inviteRewards = inviteRewards;
         this.cfg = cfg;
     }
 
@@ -43,15 +47,26 @@ public class RewardTradePair {
      */
     public void applyRule(BigDecimal marketFactorSum, BigDecimal marketSharedVX, MiningRewardCfg cfg) {
         this.cfg = cfg;
-        this.pairFactorSum = this.rewardOrders.stream().map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO,
-                BigDecimal::add);
-        this.pairSharedVX = this.pairFactorSum.divide(marketFactorSum, 18, RoundingMode.DOWN)
-                .multiply(marketSharedVX).setScale(18, RoundingMode.DOWN);
+        BigDecimal tpMiningOrderFactor = this.rewardOrders.stream().map(RewardOrder::getTotalFactor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal tpInviteFactor = this.inviteRewards.stream().map(InviteOrderMiningReward::getFactor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        this.pairSellFactorSum = this.rewardOrders.stream().filter(reward -> reward.getOrderSide())
+        this.pairFactorSum = tpMiningOrderFactor.add(tpInviteFactor);
+        this.pairSharedVX = this.pairFactorSum.divide(marketFactorSum, 18, RoundingMode.DOWN).multiply(marketSharedVX)
+                .setScale(18, RoundingMode.DOWN);
+
+        BigDecimal tpMiningSellOrderFactor = this.rewardOrders.stream().filter(reward -> reward.getOrderSide())
                 .map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO, BigDecimal::add);
-        this.pairBuyFactorSum = this.rewardOrders.stream().filter(reward -> !reward.getOrderSide())
+        BigDecimal tpInviteSellOrderFactor = this.inviteRewards.stream().filter(invite -> invite.isSide())
+                .map(InviteOrderMiningReward::getFactor).reduce(BigDecimal.ZERO, BigDecimal::add);
+        this.pairSellFactorSum = tpMiningSellOrderFactor.add(tpInviteSellOrderFactor);
+
+        BigDecimal tpMiningBuyOrderFactor = this.rewardOrders.stream().filter(reward -> !reward.getOrderSide())
                 .map(RewardOrder::getTotalFactor).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal tpInviteBuyOrderFactor = this.inviteRewards.stream().filter(invite -> !invite.isSide())
+                .map(InviteOrderMiningReward::getFactor).reduce(BigDecimal.ZERO, BigDecimal::add);
+        this.pairBuyFactorSum = tpMiningBuyOrderFactor.add(tpInviteBuyOrderFactor);
 
         this.sellAmountSum = rewardOrders.stream().filter(reward -> reward.getOrderSide()).map(RewardOrder::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -98,6 +113,10 @@ public class RewardTradePair {
 
         this.rewardOrders.forEach(rewardOrder -> {
             rewardOrder.applyReward(sellSharedVxPerFactor, buyShardVxPerFactor);
+        });
+
+        this.inviteRewards.forEach(invite -> {
+            invite.applyInviteReward(sellSharedVxPerFactor, buyShardVxPerFactor);
         });
     }
 }

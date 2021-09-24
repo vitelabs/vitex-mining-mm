@@ -1,8 +1,11 @@
 package org.vite.dex.mm.reward;
 
 import com.google.common.collect.Maps;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.vite.dex.mm.constant.constants.MarketMiningConst;
+import org.vite.dex.mm.entity.InviteOrderMiningReward;
+import org.vite.dex.mm.entity.InviteOrderMiningStat;
 import org.vite.dex.mm.orderbook.BlockEventStream;
 import org.vite.dex.mm.orderbook.IOrderEventHandleAware;
 import org.vite.dex.mm.orderbook.OrderBooks;
@@ -14,6 +17,8 @@ import org.vite.dex.mm.utils.client.ViteCli;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,23 +65,30 @@ public class RewardKeeper implements IOrderEventHandleAware {
      * @return
      * @throws IOException
      */
-    public Map<String, Map<Integer, BigDecimal>> calcAddressMarketReward(OrderBooks books, BlockEventStream stream,
+    public FinalResult calcAddressMarketReward(OrderBooks books, BlockEventStream stream,
             BigDecimal dailyReleasedVX, long startTime, long endTime) throws IOException {
 
         Map<String, Map<Integer, BigDecimal>> finalRes = Maps.newHashMap(); // <Address, Map<MarketId,RewardMarket>>
         Map<Integer, RewardMarket> marketRewards = new HashMap<>(); // <MarketId, RewardMarket>
         Map<String, MiningRewardCfg> tradePairCfgMap = CommonUtils.miningRewardCfgMap();
-        
+        List<InviteOrderMiningReward> inviteRewardList = new ArrayList<>();
+        Map<String, InviteOrderMiningStat> inviteMiningFinalRes = new HashMap<>();
+
         // 1.go onward OrderBooks and calc factor of each Order
         Map<String, RewardOrder> totalRewardOrders = mmMining(books, stream, startTime, endTime, tradePairCfgMap);
+
+        adjustFactorByInviteRelation(totalRewardOrders, inviteRewardList);
 
         // 2. calc rewardVX for per Order
         log.debug("calculating reward VX for each Order");
         Map<Integer, List<RewardOrder>> marketOrderRewards = totalRewardOrders.values().stream()
                 .collect(Collectors.groupingBy(RewardOrder::getMarket));
 
+        Map<Integer, List<InviteOrderMiningReward>> marketInviteRewards = inviteRewardList.stream()
+                .collect(Collectors.groupingBy(InviteOrderMiningReward::getMarket));
+
         marketOrderRewards.forEach((market, rewardOrderList) -> marketRewards.put(market,
-                new RewardMarket(market, rewardOrderList, tradePairCfgMap)));
+                new RewardMarket(market, rewardOrderList, marketInviteRewards.get(market), tradePairCfgMap)));
 
         marketRewards.values().forEach(rewardMarket -> {
             double marketSharedRatio = MarketMiningConst.getMarketSharedRatio().get(rewardMarket.getMarket());
@@ -98,7 +110,63 @@ public class RewardKeeper implements IOrderEventHandleAware {
             });
             finalRes.put(address, marketVXMap);
         });
+
+        Map<String, List<InviteOrderMiningReward>> address2InviteRewardsMap = inviteRewardList.stream()
+                .collect(Collectors.groupingBy(InviteOrderMiningReward::getAddress));
+
+        address2InviteRewardsMap.forEach((address, inviteList) -> {
+            BigDecimal sum = inviteList.stream().map(InviteOrderMiningReward::getInviteRewardVX).reduce(BigDecimal.ZERO,
+                    BigDecimal::add);
+            InviteOrderMiningStat inviteOrderMiningStat = new InviteOrderMiningStat();
+            inviteOrderMiningStat.setAddress(address);
+            inviteOrderMiningStat.setAmount(sum);
+            inviteOrderMiningStat.setRatio(sum.divide(dailyReleasedVX, 18, RoundingMode.DOWN));
+            inviteMiningFinalRes.put(address, inviteOrderMiningStat);
+        });
+
+        FinalResult res = new FinalResult();
+        res.setOrderMiningFinalRes(finalRes);
+        res.setInviteMiningFinalRes(inviteMiningFinalRes);
         log.info("successfully calc the VX reward for each Address during the last cycle");
-        return finalRes;
+        return res;
+    }
+
+    @Data
+    public static class FinalResult {
+        Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes;
+        Map<String, InviteOrderMiningStat> inviteMiningFinalRes;
+    }
+
+    private void adjustFactorByInviteRelation(Map<String, RewardOrder> totalRewardOrders,
+            List<InviteOrderMiningReward> inviteRewardList) throws IOException {
+
+        List<String> addrs = totalRewardOrders.values().stream().map(e -> e.getOrderAddress()).distinct()
+                .collect(Collectors.toList());
+        Map<String, String> invitee2InviterMap = viteCli.getInvitee2InviterMap(addrs);
+        totalRewardOrders.forEach((orderId, rewardOrder) -> {
+            String addr = rewardOrder.getOrderAddress();
+            // be invited by others
+            if (invitee2InviterMap.containsKey(addr)) {
+                InviteOrderMiningReward inviteeReward = new InviteOrderMiningReward();
+                inviteeReward.setOrderId(orderId);
+                inviteeReward.setFactor(rewardOrder.getTotalFactor().multiply(MarketMiningConst.PERCENT_00125));
+                inviteeReward.setAddress(addr);
+                inviteeReward.setMarket(rewardOrder.getMarket());
+                inviteeReward.setTradePair(rewardOrder.getTradePair());
+                inviteeReward.setSide(rewardOrder.getOrderSide());
+                inviteRewardList.add(inviteeReward);
+
+                // contribute 2.5% factor to inviter
+                String inviterAddr = invitee2InviterMap.get(addr);
+                InviteOrderMiningReward inviterReward = new InviteOrderMiningReward();
+                inviterReward.setOrderId(orderId);
+                inviterReward.setFactor(rewardOrder.getTotalFactor().multiply(MarketMiningConst.PERCENT_25));
+                inviterReward.setAddress(inviterAddr);
+                inviterReward.setMarket(rewardOrder.getMarket());
+                inviterReward.setTradePair(rewardOrder.getTradePair());
+                inviterReward.setSide(rewardOrder.getOrderSide());
+                inviteRewardList.add(inviterReward);
+            }
+        });
     }
 }
