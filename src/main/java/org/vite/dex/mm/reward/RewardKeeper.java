@@ -65,14 +65,14 @@ public class RewardKeeper implements IOrderEventHandleAware {
      * @return
      * @throws IOException
      */
-    public FinalResult calcAddressMarketReward(OrderBooks books, BlockEventStream stream,
-            BigDecimal dailyReleasedVX, long startTime, long endTime) throws IOException {
+    public FinalResult calcAddressMarketReward(OrderBooks books, BlockEventStream stream, BigDecimal dailyReleasedVX,
+            long startTime, long endTime) throws IOException {
 
-        Map<String, Map<Integer, BigDecimal>> finalRes = Maps.newHashMap(); // <Address, Map<MarketId,RewardMarket>>
+        Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = Maps.newHashMap(); // <Address,
+        Map<String, InviteOrderMiningStat> inviteMiningFinalRes = new HashMap<>();
         Map<Integer, RewardMarket> marketRewards = new HashMap<>(); // <MarketId, RewardMarket>
         Map<String, MiningRewardCfg> tradePairCfgMap = CommonUtils.miningRewardCfgMap();
         List<InviteOrderMiningReward> inviteRewardList = new ArrayList<>();
-        Map<String, InviteOrderMiningStat> inviteMiningFinalRes = new HashMap<>();
 
         // 1.go onward OrderBooks and calc factor of each Order
         Map<String, RewardOrder> totalRewardOrders = mmMining(books, stream, startTime, endTime, tradePairCfgMap);
@@ -108,7 +108,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
                         BigDecimal::add);
                 marketVXMap.put(market, sum);
             });
-            finalRes.put(address, marketVXMap);
+            orderMiningFinalRes.put(address, marketVXMap);
         });
 
         Map<String, List<InviteOrderMiningReward>> address2InviteRewardsMap = inviteRewardList.stream()
@@ -125,7 +125,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
         });
 
         FinalResult res = new FinalResult();
-        res.setOrderMiningFinalRes(finalRes);
+        res.setOrderMiningFinalRes(orderMiningFinalRes);
         res.setInviteMiningFinalRes(inviteMiningFinalRes);
         log.info("successfully calc the VX reward for each Address during the last cycle");
         return res;

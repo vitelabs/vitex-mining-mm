@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
-import org.vite.dex.mm.entity.AddressMarketReward;
+import org.vite.dex.mm.entity.AddressMarketRewardDetail;
 import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderModel;
@@ -26,6 +26,7 @@ import org.vite.dex.mm.orderbook.Traveller;
 import org.vite.dex.mm.reward.RewardEngine;
 import org.vite.dex.mm.reward.RewardKeeper;
 import org.vite.dex.mm.reward.RewardKeeper.FinalResult;
+import org.vite.dex.mm.reward.SettleService;
 import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
@@ -62,6 +63,9 @@ class DexApplicationTests {
 
     @Autowired
     RewardEngine engine;
+
+    @Autowired
+    SettleService settleService;
 
     @Test
     void contextLoads() {
@@ -173,9 +177,9 @@ class DexApplicationTests {
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
                 totalReleasedViteAmount, prevTime, endTime);
-        log.info("succeed to calc each address`s market mining rewards, the result {}",
+        log.info("succeed to calc each address`s market mining rewards and invite mining rewards, the result {}",
                 finalRes.getOrderMiningFinalRes());
-        engine.saveRewards(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount, cycleKey);
+        settleService.saveAndSettleRewards(finalRes, totalReleasedViteAmount, cycleKey);
     }
 
     @Test
@@ -206,8 +210,8 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
-                eventStream, totalReleasedViteAmount, prevTime, endTime);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream,
+                totalReleasedViteAmount, prevTime, endTime);
         System.out.println(finalRes);
     }
 
@@ -237,8 +241,8 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks,
-                eventStream, totalReleasedViteAmount, startTime, snapshotTime);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream,
+                totalReleasedViteAmount, startTime, snapshotTime);
         System.out.println(finalRes);
     }
 
@@ -265,10 +269,13 @@ class DexApplicationTests {
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
-                eventStream, totalReleasedViteAmount, prevTime, endTime);
-        log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes.getOrderMiningFinalRes());
-        engine.saveEstimateRes(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount, cycleKey);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
+                totalReleasedViteAmount, prevTime, endTime);
+        log.info("succeed to calc each address`s market mining rewards, the result {}",
+                finalRes.getOrderMiningFinalRes());
+
+        SettleService settleService = new SettleService(viteCli);
+        settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount, cycleKey);
     }
 
     @Test
@@ -357,7 +364,7 @@ class DexApplicationTests {
 
     @Test
     public void testSaveDB() throws IOException {
-        AddressMarketReward s = new AddressMarketReward();
+        AddressMarketRewardDetail s = new AddressMarketRewardDetail();
         s.setAddress("12345");
         s.setAmount(new BigDecimal("1234.4556643"));
         s.setDataPage(1);

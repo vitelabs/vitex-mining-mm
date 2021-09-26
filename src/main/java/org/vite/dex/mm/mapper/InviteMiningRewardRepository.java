@@ -2,9 +2,9 @@ package org.vite.dex.mm.mapper;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import org.vite.dex.mm.entity.MiningAddressReward;
+import org.vite.dex.mm.entity.InviteOrderMiningStat;
 
 @Repository
-public interface AddressTotalRewardRepository extends JpaRepository<MiningAddressReward, Long> {
+public interface InviteMiningRewardRepository extends JpaRepository<InviteOrderMiningStat, Long> {
 
 }
