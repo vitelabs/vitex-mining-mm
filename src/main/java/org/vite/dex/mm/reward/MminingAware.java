@@ -36,6 +36,10 @@ public class MminingAware implements IOrderEventHandleAware {
         BigDecimal sell1Price = originOrderBook.getSell1Price();
         BigDecimal buy1Price = originOrderBook.getBuy1Price();
 
+        if (sell1Price == null || buy1Price == null) {
+            return;
+        }
+
         if (e.getTimestamp() > endTime) {
             log.debug("the event`s emit time is greater than cycle endTime");
             throw new RuntimeException("the event`s emit time is greater than cycle endTime");

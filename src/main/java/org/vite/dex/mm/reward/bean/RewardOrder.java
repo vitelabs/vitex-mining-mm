@@ -44,25 +44,29 @@ public class RewardOrder {
             log.info("time diff.....,{}, {}, {}", event.getBlockHash(), event.getOrderId(), startTime - endTime);
             return;
         }
-        
+
         if (endTime - this.orderModel.getTimestamp() < 300) {
             return;
         }
 
         BigDecimal dist = null;
         BigDecimal factor = BigDecimal.ZERO;
+        double effectiveDist = 0.0;
+
         if (orderModel.isSide()) {
             dist = (orderModel.getPrice().subtract(topPrice).setScale(18, RoundingMode.DOWN)).divide(topPrice, 18,
                     RoundingMode.DOWN);
+            effectiveDist = cfg.getSellEffectiveDist();
         } else {
             dist = (topPrice.subtract(orderModel.getPrice().setScale(18, RoundingMode.DOWN))).divide(topPrice, 18,
                     RoundingMode.DOWN);
+            effectiveDist = cfg.getBuyEffectiveDist();
         }
+
         if (dist.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
 
-        double effectiveDist = cfg.getEffectiveDist();
         if (dist.compareTo(BigDecimal.valueOf(effectiveDist)) < 0) {
             // coefficient = 0.6^(1+9*d/a)
             BigDecimal exp = new BigDecimal(1).add(

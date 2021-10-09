@@ -25,9 +25,9 @@ public class InviteOrderMiningReward {
 
     private String tradePair;
 
-    private BigDecimal factor;
+    private BigDecimal factor = BigDecimal.ZERO;
 
-    private BigDecimal inviteRewardVX;
+    private BigDecimal inviteRewardVX = BigDecimal.ZERO;
 
     /**
      * calculate the amount of VX obtained for the invitate mining order

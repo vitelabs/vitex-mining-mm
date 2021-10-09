@@ -38,7 +38,6 @@ public class RewardEngine {
          */
         public void runDaily(long prevTime, long endTime) throws Exception {
                 Traveller traveller = new Traveller();
-                TradeRecover tradeRecover = new TradeRecover();
                 long snapshotTime = CommonUtils.getFixedTime();
                 Tokens tokens = viteCli.getAllTokenInfos();
                 List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
@@ -49,6 +48,7 @@ public class RewardEngine {
                                 snapshotOrderBooks.getCurrentHeight());
 
                 // 2.recover orderbooks
+                TradeRecover tradeRecover = new TradeRecover();
                 TradeRecover.RecoverResult recoverResult = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime,
                                 tokens, viteCli);
                 OrderBooks recoveredOrderBooks = recoverResult.getOrderBooks();
@@ -59,9 +59,10 @@ public class RewardEngine {
                                 recoveredOrderBooks.getCurrentHeight(), stream.getStartHeight(), stream.getEndHeight());
 
                 // 3.market-mining
-                RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
                 int cycleKey = viteCli.getCurrentCycleKey() - 1;
                 BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+                
+                RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
                 FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
                                 totalReleasedViteAmount, prevTime, endTime);
                 log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);

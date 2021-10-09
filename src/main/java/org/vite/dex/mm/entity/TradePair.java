@@ -14,8 +14,11 @@ public class TradePair {
 
     String quoteTokenId;
 
-    // the effective interval of distance when market-mining
-    Double mmEffectiveInterval;
+    // sell side effective interval of distance 
+    Double sellEffectiveInterval;
+
+    // buy side effective interval of distance 
+    Double buyEffectiveInterval;
 
     // enable market-mining func for the trade pair
     boolean marketMiningOpen;

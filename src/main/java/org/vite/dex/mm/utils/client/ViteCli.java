@@ -404,7 +404,7 @@ public class ViteCli {
     }
 
     /**
-     * get orders from specified order book of trade-pair
+     * get orders from order book in specified trade-pair
      * 
      * @param tradeTokenId
      * @param quoteTokenId
@@ -415,7 +415,7 @@ public class ViteCli {
     public OrderBookInfo getOrdersFromMarket(String tradeTokenId, String quoteTokenId, int pageCnt) throws IOException {
         List<OrderModel> orderModels = Lists.newLinkedList();
         List<Long> heights = Lists.newLinkedList();
-
+        Long maxHeight = 0l;
         int idx = 0;
         while (true) {
             OrderBookInfo orderBookInfo = getOrdersFromMarket(tradeTokenId, quoteTokenId, pageCnt * idx,
@@ -437,7 +437,9 @@ public class ViteCli {
             idx++;
         }
 
-        Long maxHeight = heights.stream().max(Long::compareTo).get();
+        if (heights.size() > 0) {
+            maxHeight = heights.stream().max(Long::compareTo).get();
+        }
         return OrderBookInfo.fromOrderModelsAndHeight(orderModels, maxHeight);
     }
 
@@ -502,7 +504,7 @@ public class ViteCli {
     }
 
     public Map<String, AccountBlock> getAccountBlockMap(long startHeight, long endHeight) throws IOException {
-        List<AccountBlock> blocks = getAccoutBlocksByHeightRangePaging(startHeight, endHeight, 5000);
+        List<AccountBlock> blocks = getAccoutBlocksByHeightRangePaging(startHeight, endHeight, 2000);
         if (CollectionUtils.isEmpty(blocks)) {
             return null;
         }

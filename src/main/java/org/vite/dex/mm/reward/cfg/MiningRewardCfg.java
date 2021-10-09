@@ -14,23 +14,27 @@ public class MiningRewardCfg {
     // the marketId which the trade-pair located in
     int marketId;
 
-    //the effective distance for a trade-pair
-    double effectiveDist = 0.2;
+    // sell side effective distance for a trade-pair
+    double sellEffectiveDist = 0.15;
 
-    //the multiplier factor for a trade-pair
+    // buy side effective distance for a trade-pair
+    double buyEffectiveDist = 0.05;
+
+    // the multiplier factor for a trade-pair
     double miningRewardMultiple = 5.0;
 
-    //the max factor for a trade-pair
+    // the max factor for a trade-pair
     double maxBuyFactorThanSell = 100;
 
-    //the multiplier factor for a trade-pair
+    // the multiplier factor for a trade-pair
     double maxSellFactorThanBuy = 0.01;
 
-    public static MiningRewardCfg fromTradePair(TradePair tp){
+    public static MiningRewardCfg fromTradePair(TradePair tp) {
         MiningRewardCfg miningRewardCfg = new MiningRewardCfg();
         miningRewardCfg.setMarketId(tp.getMarket());
         miningRewardCfg.setTradePairSymbol(tp.getTradePair());
-        miningRewardCfg.setEffectiveDist(tp.getMmEffectiveInterval());
+        miningRewardCfg.setSellEffectiveDist(tp.getSellEffectiveInterval());
+        miningRewardCfg.setBuyEffectiveDist(tp.getBuyEffectiveInterval());
         miningRewardCfg.setMiningRewardMultiple(tp.getMmRewardMultiple());
         miningRewardCfg.setMaxBuyFactorThanSell(tp.getBuyAmountThanSellRatio());
         miningRewardCfg.setMaxSellFactorThanBuy(tp.getSellAmountThanBuyRatio());

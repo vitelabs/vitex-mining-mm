@@ -4,6 +4,7 @@ import com.google.protobuf.ByteString;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import org.vite.dex.mm.constant.constants.MarketMiningConst;
 import org.vite.dex.mm.constant.enums.QuoteMarketType;
@@ -67,6 +68,7 @@ public class SettleService {
      * @param finalRes
      * @throws IOException
      */
+    @Transactional
     public void saveAndSettleRewards(FinalResult finalRes, BigDecimal totalReleasedViteAmount, int cycleKey)
             throws Exception {
         Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = finalRes.getOrderMiningFinalRes();
@@ -97,7 +99,7 @@ public class SettleService {
                     addrMarketDetail.setAddress(addr2RewardMap.getKey());
                     int market = market2Reward.getKey();
                     addrMarketDetail.setQuoteTokenType(market);
-                    addrMarketDetail.setAmount(market2Reward.getValue());
+                    addrMarketDetail.setAmount(vxAmount);
                     addrMarketDetail.setCycleKey(cycleKey);
                     addrMarketDetail.setDataPage(i / 30 + 1);
                     BigDecimal marketShared = totalReleasedViteAmount
@@ -106,7 +108,6 @@ public class SettleService {
                     addrMarketDetail.setSettleStatus(3);
                     addrMarketDetail.setCtime(new Date());
                     addrMarketDetail.setUtime(new Date());
-
                     if (addrMarketDetail.getAmount().compareTo(BigDecimal.ZERO) > 0) {
                         addrRewards.add(addrMarketDetail);
                     }
@@ -119,14 +120,13 @@ public class SettleService {
             MiningAddressReward miningAddrReward = new MiningAddressReward();
             miningAddrReward.setAddress(addr);
             miningAddrReward.setTotalAmount(rewardMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
-            miningAddrReward.setAmountPercent(
-                    miningAddrReward.getTotalAmount().divide(totalReleasedViteAmount, 18, RoundingMode.DOWN));
+            miningAddrReward.setAmountPercent(miningAddrReward.getTotalAmount().divide(
+                    totalReleasedViteAmount.multiply(MarketMiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
             miningAddrReward.setCycleKey(cycleKey);
             miningAddrReward.setDataPage(orderMiningFinalRes.size() / 30 + 1);
             miningAddrReward.setSettleStatus(3);
             miningAddrReward.setCtime(new Date());
             miningAddrReward.setUtime(new Date());
-
             if (miningAddrReward.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
                 miningAddrRewards.add(miningAddrReward);
             }
@@ -171,7 +171,7 @@ public class SettleService {
             String addr = orderMiningReward.getAddress();
             settleReward.setAddress(addr);
             settleReward.setTotalAmount(orderMiningReward.getTotalAmount());
-            if(inviteRewardMap.containsKey(addr)){
+            if (inviteRewardMap.containsKey(addr)) {
                 settleReward.setTotalAmount(settleReward.getTotalAmount().add(inviteRewardMap.get(addr).getAmount()));
             }
             settleReward.setCycleKey(cycleKey);
@@ -192,7 +192,7 @@ public class SettleService {
             settleReward.setAddress(inviteReward.getAddress());
             settleReward.setTotalAmount(inviteReward.getAmount());
             settleReward.setCycleKey(cycleKey);
-            settleReward.setDataPage(inviteOrderMiningStats.size() / 30 + 1);
+            settleReward.setDataPage((miningAddrRewards.size() + inviteOrderMiningStats.size()) / 30 + 1);
             settleReward.setSettleStatus(3);
             settleReward.setCtime(new Date());
             settleReward.setUtime(new Date());
@@ -201,13 +201,12 @@ public class SettleService {
             }
         });
 
-        // save db
         settleRewardRepo.saveAll(settleRewards);
         return settleRewards;
     }
 
     /**
-     * save reward of each address to fund contract chain must merge order mining
+     * save reward of each address to fund contract chain. Must merge order mining
      * and invite mining result
      * 
      * @param addrRewards

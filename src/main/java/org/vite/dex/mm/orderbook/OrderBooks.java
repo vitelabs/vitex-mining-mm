@@ -50,6 +50,9 @@ public class OrderBooks implements IBlockEventHandler {
 	public void init() throws IOException {
 		for (TradePair tp : this.tradePairs) {
 			OrderBookInfo book = viteCli.getOrdersFromMarket(tp.getTradeTokenId(), tp.getQuoteTokenId(), 100);
+			if (book.getOrderModels() == null && book.getCurrBlockheight() == 0l) {
+				continue;
+			}
 			OrderBook orderBook = new OrderBook.Impl();
 			orderBook.init(book.getOrderModels(), book.getCurrBlockheight());
 			books.put(tp.getTradePair(), orderBook);

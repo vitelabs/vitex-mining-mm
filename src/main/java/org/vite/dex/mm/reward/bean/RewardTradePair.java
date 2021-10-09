@@ -87,7 +87,7 @@ public class RewardTradePair {
         double buyMore = cfg.getMaxBuyFactorThanSell();
         double ratio = 0;
         if (buyAmountSum.compareTo(sellAmountSum) == -1) {
-            if (sellMore < 1 || sellAmountSum.divide(buyAmountSum).doubleValue() >= sellMore) {
+            if (sellMore < 1 || sellAmountSum.divide(buyAmountSum, 18, RoundingMode.DOWN).doubleValue() >= sellMore) {
                 ratio = 1 / sellMore + 1;
             } else {
                 ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 18, RoundingMode.DOWN).doubleValue();
@@ -108,6 +108,10 @@ public class RewardTradePair {
      * calculate the amount of VX obtained for each order placed on the trading pair
      */
     private void calcOrderVx() {
+        if ((BigDecimal.ZERO).compareTo(pairSellFactorSum) == 0 || (BigDecimal.ZERO).compareTo(pairBuyFactorSum) == 0) {
+            return;
+        }
+
         BigDecimal sellSharedVxPerFactor = this.sellSharedVx.divide(pairSellFactorSum, 20, RoundingMode.DOWN);
         BigDecimal buyShardVxPerFactor = this.buySharedVx.divide(pairBuyFactorSum, 20, RoundingMode.DOWN);
 

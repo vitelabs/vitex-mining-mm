@@ -173,7 +173,7 @@ class DexApplicationTests {
 
         // calc rewards
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        int cycleKey = viteCli.getCurrentCycleKey();
+        int cycleKey = viteCli.getCurrentCycleKey() - 1;
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
                 totalReleasedViteAmount, prevTime, endTime);
@@ -184,35 +184,46 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMining() throws Exception {
-        Traveller traveller = new Traveller();
-        TradeRecover tradeRecover = new TradeRecover();
-
         // long snapshotTime = CommonUtils.getFixedTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-03 12:30:00", new ParsePosition(0)).getTime() / 1000;
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-02 12:00:00", new ParsePosition(0))
+                .parse("2021-10-10 12:10:00", new ParsePosition(0)).getTime() / 1000;
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-09 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-10 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+        Traveller traveller = new Traveller();
         Tokens tokens = viteCli.getAllTokenInfos();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+
         // 1.travel to snapshot time
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
+        log.info("travel to checkpoint successfully, the snapshotOrderBooks`s currentHeight is {}",
+                snapshotOrderBooks.getCurrentHeight());
 
         // 2.recover orderbooks
-        RecoverResult res = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime, tokens, viteCli);
-        OrderBooks recovedOrderBooks = res.getOrderBooks();
-        BlockEventStream eventStream = res.getStream();
-        tradeRecover.fillAddressForOrdersGroupByTimeUnit(recovedOrderBooks.getBooks(), viteCli);
+        TradeRecover tradeRecover = new TradeRecover();
+        TradeRecover.RecoverResult recoverResult = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime, tokens,
+                viteCli);
+        OrderBooks recoveredOrderBooks = recoverResult.getOrderBooks();
+        BlockEventStream stream = recoverResult.getStream();
+        stream.patchTimestampToOrderEvent(viteCli);
+        tradeRecover.fillAddressForOrdersGroupByTimeUnit(recoveredOrderBooks.getBooks(), viteCli);
+        log.info(
+                "recover to cycle`s startTime successfully, the recoveredOrderBooks`s currentHeight is {},the eventStream startHeight {} and endHeight {}",
+                recoveredOrderBooks.getCurrentHeight(), stream.getStartHeight(), stream.getEndHeight());
 
         // 3.market-mining
-        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        int cycleKey = viteCli.getCurrentCycleKey();
+        int cycleKey = viteCli.getCurrentCycleKey() - 1;
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream,
+
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
                 totalReleasedViteAmount, prevTime, endTime);
-        System.out.println(finalRes);
+        log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
+
+        // 4.write reward results to DB and FundContract chain
+        settleService.saveAndSettleRewards(finalRes, totalReleasedViteAmount, cycleKey);
     }
 
     @Test
@@ -239,7 +250,7 @@ class DexApplicationTests {
 
         // 3.market-mining
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        int cycleKey = viteCli.getCurrentCycleKey();
+        int cycleKey = viteCli.getCurrentCycleKey() - 1;
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream,
                 totalReleasedViteAmount, startTime, snapshotTime);
@@ -267,7 +278,7 @@ class DexApplicationTests {
 
         // calc rewards
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-        int cycleKey = viteCli.getCurrentCycleKey();
+        int cycleKey = viteCli.getCurrentCycleKey() - 1;
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
                 totalReleasedViteAmount, prevTime, endTime);
@@ -359,7 +370,7 @@ class DexApplicationTests {
     @Test
     public void testGetCurrCycleKey() throws IOException {
         int cycleKey = viteCli.getCurrentCycleKey();
-        System.out.println(cycleKey);//
+        System.out.println(cycleKey);
     }
 
     @Test

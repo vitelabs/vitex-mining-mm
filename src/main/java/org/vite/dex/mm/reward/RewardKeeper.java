@@ -68,7 +68,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
     public FinalResult calcAddressMarketReward(OrderBooks books, BlockEventStream stream, BigDecimal dailyReleasedVX,
             long startTime, long endTime) throws IOException {
 
-        Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = Maps.newHashMap(); // <Address,
+        Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = Maps.newHashMap();
         Map<String, InviteOrderMiningStat> inviteMiningFinalRes = new HashMap<>();
         Map<Integer, RewardMarket> marketRewards = new HashMap<>(); // <MarketId, RewardMarket>
         Map<String, MiningRewardCfg> tradePairCfgMap = CommonUtils.miningRewardCfgMap();
@@ -115,12 +115,13 @@ public class RewardKeeper implements IOrderEventHandleAware {
                 .collect(Collectors.groupingBy(InviteOrderMiningReward::getAddress));
 
         address2InviteRewardsMap.forEach((address, inviteList) -> {
-            BigDecimal sum = inviteList.stream().map(InviteOrderMiningReward::getInviteRewardVX).reduce(BigDecimal.ZERO,
-                    BigDecimal::add);
+            BigDecimal inviteAmount = inviteList.stream().map(InviteOrderMiningReward::getInviteRewardVX)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
             InviteOrderMiningStat inviteOrderMiningStat = new InviteOrderMiningStat();
             inviteOrderMiningStat.setAddress(address);
-            inviteOrderMiningStat.setAmount(sum);
-            inviteOrderMiningStat.setRatio(sum.divide(dailyReleasedVX, 18, RoundingMode.DOWN));
+            inviteOrderMiningStat.setAmount(inviteAmount);
+            inviteOrderMiningStat.setRatio(inviteAmount
+                    .divide(dailyReleasedVX.multiply(MarketMiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
             inviteMiningFinalRes.put(address, inviteOrderMiningStat);
         });
 

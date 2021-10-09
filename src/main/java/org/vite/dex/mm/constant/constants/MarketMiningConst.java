@@ -41,6 +41,8 @@ public class MarketMiningConst {
 
     public static final double usdtSharedRatio = 0.02;
 
+    public final static BigDecimal MARKET_MINING_RATIO = new BigDecimal("0.1");
+
     public final static BigDecimal PERCENT_25 = new BigDecimal("0.025");
     public final static BigDecimal PERCENT_00125 = new BigDecimal("0.0125");
 

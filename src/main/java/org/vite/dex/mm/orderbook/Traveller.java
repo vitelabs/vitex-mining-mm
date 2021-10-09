@@ -57,6 +57,7 @@ public class Traveller {
 			candidateMap.put(hash, t);
 			cntMap.put(hash, cntMap.getOrDefault(hash, 0) + 1);
 		});
+		
 		String max = null;
 		int maxCnt = 0;
 
