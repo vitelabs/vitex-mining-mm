@@ -2,6 +2,7 @@ package org.vite.dex.mm.reward;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.orderbook.BlockEventStream;
@@ -36,9 +37,15 @@ public class RewardEngine {
          * @param endTime  today 12:00 p.m.
          * @throws Exception
          */
-        public void runDaily(long prevTime, long endTime) throws Exception {
+        // @Scheduled(cron = "0 0 13 * * ?")
+        @Scheduled(cron = "0 0 13 * * ?")
+        public void runDaily() throws Exception {
+                log.info("the runDaily scheduler has been started!");
+                long snapshotTime = CommonUtils.getFixedSnapshotTime();
+                long endTime = CommonUtils.getFixedEndTime();
+                long prevTime = endTime - 86400;
+
                 Traveller traveller = new Traveller();
-                long snapshotTime = CommonUtils.getFixedTime();
                 Tokens tokens = viteCli.getAllTokenInfos();
                 List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
 
@@ -61,7 +68,7 @@ public class RewardEngine {
                 // 3.market-mining
                 int cycleKey = viteCli.getCurrentCycleKey() - 1;
                 BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-                
+
                 RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
                 FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
                                 totalReleasedViteAmount, prevTime, endTime);
@@ -78,10 +85,17 @@ public class RewardEngine {
          * @param estimateNodeTime
          * @throws Exception
          */
-        public void runHalfHour(long startTime, long estimateTime) throws Exception {
-                Traveller traveller = new Traveller();
-                TradeRecover tradeRecover = new TradeRecover();
+        @Scheduled(cron = "0 30 * * * ?")
+        public void runHalfHour() throws Exception {
+                log.info("the runHalfHour scheduler has been started!");
+                long startTime = CommonUtils.getFixedEndTime();
+                long estimateTime = System.currentTimeMillis() / 1000;
+                if (estimateTime < startTime) {
+                        startTime = startTime - 86400;
+                }
                 long snapshotTime = estimateTime - 10 * 60;
+
+                Traveller traveller = new Traveller();
                 Tokens tokens = viteCli.getAllTokenInfos();
                 List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
 
@@ -91,6 +105,7 @@ public class RewardEngine {
                                 snapshotOrderBooks.getCurrentHeight());
 
                 // 2.recover orderbooks
+                TradeRecover tradeRecover = new TradeRecover();
                 TradeRecover.RecoverResult recoverResult = tradeRecover.recoverInTime(snapshotOrderBooks, startTime,
                                 tokens, viteCli);
                 OrderBooks recoveredOrderBooks = recoverResult.getOrderBooks();
@@ -109,8 +124,7 @@ public class RewardEngine {
                 log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
                 // 4.save estimated result to DB
-                settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount,
-                                cycleKey);
+                settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
         }
 
 }

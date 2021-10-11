@@ -184,12 +184,12 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMining() throws Exception {
-        // long snapshotTime = CommonUtils.getFixedTime();
+        // long snapshotTime = CommonUtils.getFixedSnapshotTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-10 12:10:00", new ParsePosition(0)).getTime() / 1000;
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-09 12:00:00", new ParsePosition(0))
+                .parse("2021-10-11 12:30:00", new ParsePosition(0)).getTime() / 1000;
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-10 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-10 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-11 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         Traveller traveller = new Traveller();
@@ -228,24 +228,24 @@ class DexApplicationTests {
 
     @Test
     public void testEstimateMarketMining() throws Exception {
-        Traveller traveller = new Traveller();
-        TradeRecover tradeRecover = new TradeRecover();
-
-        // long snapshotTime = CommonUtils.getFixedTime();
+        // long snapshotTime = CommonUtils.getFixedSnapshotTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2020-09-13 16:20:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-11 14:20:00", new ParsePosition(0)).getTime() / 1000;
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2020-09-13 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-11 12:00:00", new ParsePosition(0)).getTime() / 1000;
 
+        Traveller traveller = new Traveller();
         List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
         Tokens tokens = viteCli.getAllTokenInfos();
         // 1.travel to snapshot time
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
         // 2.recover orderbooks
+        TradeRecover tradeRecover = new TradeRecover();
         RecoverResult res = tradeRecover.recoverInTime(snapshotOrderBooks, startTime, tokens, viteCli);
         OrderBooks recovedOrderBooks = res.getOrderBooks();
         BlockEventStream eventStream = res.getStream();
+        eventStream.patchTimestampToOrderEvent(viteCli);
         tradeRecover.fillAddressForOrdersGroupByTimeUnit(recovedOrderBooks.getBooks(), viteCli);
 
         // 3.market-mining
@@ -254,7 +254,8 @@ class DexApplicationTests {
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream,
                 totalReleasedViteAmount, startTime, snapshotTime);
-        System.out.println(finalRes);
+        settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
+        System.out.println("the task is end");
     }
 
     @Test
@@ -286,7 +287,7 @@ class DexApplicationTests {
                 finalRes.getOrderMiningFinalRes());
 
         SettleService settleService = new SettleService(viteCli);
-        settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), totalReleasedViteAmount, cycleKey);
+        settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
     }
 
     @Test

@@ -61,8 +61,7 @@ public class SettleService {
     }
 
     /**
-     * store data in db and contract chain note: should in the same Transaction and
-     * must test!
+     * store data in db and settle rewards on contract chain
      * 
      * @param totalReleasedViteAmount
      * @param finalRes
@@ -248,8 +247,8 @@ public class SettleService {
         assert success;
     }
 
-    public void saveOrderMiningEstimateRes(Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes,
-            BigDecimal totalReleasedViteAmount, int cycleKey) throws IOException {
+    public void saveOrderMiningEstimateRes(Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes, int cycleKey)
+            throws IOException {
         List<AddressEstimateReward> estimateRewards = new ArrayList<>();
 
         orderMiningFinalRes.forEach((addr, rewardMap) -> {
