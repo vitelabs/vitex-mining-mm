@@ -100,7 +100,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
         Map<String, Map<Integer, List<RewardOrder>>> address2MarketRewardsMap = totalRewardOrders.values().stream()
                 .collect(Collectors.groupingBy(RewardOrder::getOrderAddress,
                         Collectors.groupingBy(RewardOrder::getMarket)));
-
+                        
         address2MarketRewardsMap.forEach((address, market2RewardOrders) -> {
             Map<Integer, BigDecimal> marketVXMap = Maps.newHashMap();
             market2RewardOrders.forEach((market, rewardOrders) -> {
@@ -147,7 +147,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
         totalRewardOrders.forEach((orderId, rewardOrder) -> {
             String addr = rewardOrder.getOrderAddress();
             // be invited by others
-            if (invitee2InviterMap.containsKey(addr)) {
+            if (addr != null && invitee2InviterMap.containsKey(addr)) {
                 InviteOrderMiningReward inviteeReward = new InviteOrderMiningReward();
                 inviteeReward.setOrderId(orderId);
                 inviteeReward.setFactor(rewardOrder.getTotalFactor().multiply(MarketMiningConst.PERCENT_00125));

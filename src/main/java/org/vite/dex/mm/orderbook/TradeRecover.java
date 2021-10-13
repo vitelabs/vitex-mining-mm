@@ -27,7 +27,7 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 /**
  * 1. prepare order book, get the current order book 
- * 2. prepare events, get all events from last cycle to current
+ * 2. prepare events, get all events from last cycle to current 
  * 3. recover order book, recover order order to last cycle by events 
  * 4. mm mining, calculate the market making mining rewards
  */
@@ -98,7 +98,7 @@ public class TradeRecover {
      * @param orders
      * @throws IOException
      */
-    private void fillAddressForOrders(Collection<OrderModel> orders, ViteCli viteCli) throws Exception {
+    public void fillAddressForOrders(Collection<OrderModel> orders, ViteCli viteCli) throws Exception {
         Map<String, OrderModel> orderMap = orders.stream()
                 .collect(Collectors.toMap(OrderModel::getOrderId, o -> o, (k0, k1) -> k0));
 
@@ -131,7 +131,7 @@ public class TradeRecover {
             start = start0;
             end = end1;
 
-            if (++cnt >= 3) {
+            if (++cnt >= 100) {
                 log.error("address of Order is not found");
                 throw new RuntimeException("the address of Order is not found!");
             }
@@ -139,7 +139,7 @@ public class TradeRecover {
     }
 
     /**
-     * 1.get height range of contract-chain between startTime to endTime 
+     * 1.get height range of contract-chain between startTime to endTime
      * 2.get eventLogs in the range of height 
      * 3.find NewOrder eventLog, filled the address in Order
      *

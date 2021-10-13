@@ -112,8 +112,8 @@ public class RewardTradePair {
             return;
         }
 
-        BigDecimal sellSharedVxPerFactor = this.sellSharedVx.divide(pairSellFactorSum, 20, RoundingMode.DOWN);
-        BigDecimal buyShardVxPerFactor = this.buySharedVx.divide(pairBuyFactorSum, 20, RoundingMode.DOWN);
+        BigDecimal sellSharedVxPerFactor = this.sellSharedVx.divide(pairSellFactorSum, 50, RoundingMode.DOWN);
+        BigDecimal buyShardVxPerFactor = this.buySharedVx.divide(pairBuyFactorSum, 50, RoundingMode.DOWN);
 
         this.rewardOrders.forEach(rewardOrder -> {
             rewardOrder.applyReward(sellSharedVxPerFactor, buyShardVxPerFactor);

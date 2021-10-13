@@ -44,6 +44,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -87,7 +88,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
 
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-03 12:30:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-12 12:30:00", new ParsePosition(0)).getTime() / 1000;
 
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
@@ -110,7 +111,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
         TradeRecover tradeRecover = new TradeRecover();
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2019-10-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-11 12:00:00", new ParsePosition(0)).getTime() / 1000;
         // unserialize from snapshot
         OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_snapshot.raw")),
                 OrderBooksData.class);
@@ -154,9 +155,9 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMiningFromFile() throws Exception {
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-02 12:00:00", new ParsePosition(0))
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-11 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2019-10-03 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-12 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         // unserialize
@@ -186,10 +187,10 @@ class DexApplicationTests {
     public void testMarketMining() throws Exception {
         // long snapshotTime = CommonUtils.getFixedSnapshotTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-11 12:30:00", new ParsePosition(0)).getTime() / 1000;
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-10 12:00:00", new ParsePosition(0))
+                .parse("2021-10-12 12:30:00", new ParsePosition(0)).getTime() / 1000;
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-11 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-11 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-12 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         Traveller traveller = new Traveller();
@@ -207,11 +208,11 @@ class DexApplicationTests {
                 viteCli);
         OrderBooks recoveredOrderBooks = recoverResult.getOrderBooks();
         BlockEventStream stream = recoverResult.getStream();
+        log.info(
+                "recovered to cycle`s startTime successfully, the recoveredOrderBooks`s currentHeight is {},the eventStream startHeight {} and endHeight {}",
+                recoveredOrderBooks.getCurrentHeight(), stream.getStartHeight(), stream.getEndHeight());
         stream.patchTimestampToOrderEvent(viteCli);
         tradeRecover.fillAddressForOrdersGroupByTimeUnit(recoveredOrderBooks.getBooks(), viteCli);
-        log.info(
-                "recover to cycle`s startTime successfully, the recoveredOrderBooks`s currentHeight is {},the eventStream startHeight {} and endHeight {}",
-                recoveredOrderBooks.getCurrentHeight(), stream.getStartHeight(), stream.getEndHeight());
 
         // 3.market-mining
         int cycleKey = viteCli.getCurrentCycleKey() - 1;
@@ -294,6 +295,20 @@ class DexApplicationTests {
     public void testGetSnapshotBlockByHeight() throws Exception {
         List<AccountBlock> a = viteCli.getAccountBlocksByHeightRange(1000, 1000);
         System.out.println(a);
+    }
+
+    @Test
+    public void testFindAddressForOrder() throws Exception {
+        List<OrderModel> l = new ArrayList<>();
+        OrderModel order = new OrderModel();
+        String orderId = "00002601000000000000005217a000615abc36000e61";
+        order.setOrderId(orderId);
+        byte[] orderBytes = Hex.decodeHex(orderId);
+        order.setTimestamp(ViteDataDecodeUtils.getOrderCTimeByParseOrderId(orderBytes));
+        l.add(order);
+
+        TradeRecover tradeRecover = new TradeRecover();
+        tradeRecover.fillAddressForOrders(l, viteCli);
     }
 
     @Test

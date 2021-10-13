@@ -45,7 +45,7 @@ public class RewardOrder {
             return;
         }
 
-        if (endTime - this.orderModel.getTimestamp() < 300) {
+        if (endTime - this.orderModel.getTimestamp() < 300 || orderModel.getAmount().compareTo(BigDecimal.ZERO) < 0) {
             return;
         }
 

@@ -62,7 +62,7 @@ public class RewardEngine {
                 BlockEventStream stream = recoverResult.getStream();
                 stream.patchTimestampToOrderEvent(viteCli);
                 tradeRecover.fillAddressForOrdersGroupByTimeUnit(recoveredOrderBooks.getBooks(), viteCli);
-                log.info("recover to cycle`s startTime successfully, the recoveredOrderBooks`s currentHeight is {},the eventStream startHeight {} and endHeight {}",
+                log.info("recovered to cycle`s startTime successfully, the recoveredOrderBooks`s currentHeight is {},the eventStream startHeight {} and endHeight {}",
                                 recoveredOrderBooks.getCurrentHeight(), stream.getStartHeight(), stream.getEndHeight());
 
                 // 3.market-mining
@@ -112,7 +112,7 @@ public class RewardEngine {
                 BlockEventStream stream = recoverResult.getStream();
                 stream.patchTimestampToOrderEvent(viteCli);
                 tradeRecover.fillAddressForOrdersGroupByTimeUnit(recoveredOrderBooks.getBooks(), viteCli);
-                log.info("recover to cycle`s startTime successfully, the recoveredOrderBooks`s currentHeight is {},the eventStream startHeight {} and endHeight {}",
+                log.info("recovered to cycle`s startTime successfully, the recoveredOrderBooks`s currentHeight is {},the eventStream startHeight {} and endHeight {}",
                                 recoveredOrderBooks.getCurrentHeight(), stream.getStartHeight(), stream.getEndHeight());
 
                 // 3.market-mining
