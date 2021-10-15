@@ -3,6 +3,7 @@ package org.vite.dex.mm.entity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.vite.dex.mm.constant.enums.SettleStatus;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -18,8 +19,8 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "settle_address")
-public class AddressSettleReward {
+@Table(name = "settle_page")
+public class SettlePage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -27,17 +28,17 @@ public class AddressSettleReward {
     @Column(name = "cycle_key")
     private Integer cycleKey;
 
-    @Column(name = "address")
-    private String address;
-
-    @Column(name = "amount", precision = 50, scale = 18)
-    private BigDecimal totalAmount;
-
     @Column(name = "data_page")
     private Integer dataPage;
 
+    @Column(name = "amount", precision = 50, scale = 18)
+    private BigDecimal amount;
+
     @Column(name = "settle_status")
-    private Integer settleStatus;
+    private SettleStatus settleStatus;
+
+    @Column(name = "block_hash")
+    private String blockHash;
 
     @Column(name = "ctime")
     private Date ctime;

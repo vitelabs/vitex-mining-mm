@@ -34,7 +34,6 @@ import org.vitej.core.protocol.methods.response.TokenInfoListWithTotalResponse;
 import org.vitej.core.protocol.methods.response.TokenInfoResponse;
 import org.vitej.core.protocol.methods.response.VmLogInfo;
 import org.vitej.core.protocol.methods.response.VmlogInfosResponse;
-import org.vitej.core.utils.ProtocolUtils;
 import org.vitej.core.utils.abi.Abi;
 import org.vitej.core.wallet.KeyPair;
 import org.vitej.core.wallet.Wallet;
@@ -93,7 +92,7 @@ public class ViteCli {
      * @return
      * @throws IOException
      */
-    public boolean callContract(KeyPair keyPair, String fromAddress, String toAddress, String tokenId, String amount,
+    public String callContract(KeyPair keyPair, String fromAddress, String toAddress, String tokenId, String amount,
             String abiStr, String methodName, List<Object> methodParams) throws IOException {
 
         Abi abi = Abi.fromJson(abiStr);
@@ -107,10 +106,15 @@ public class ViteCli {
                         // transfer token id
                         .setTokenId(TokenId.stringToTokenId(tokenId)).setData(callContractData),
                 true);
-        Hash sendBlockHash = ((TransactionParams) request.getParams().get(0)).getHashRaw();
-        boolean callSuccess = ProtocolUtils.checkCallContractResult(vitej, sendBlockHash);
 
-        return callSuccess;
+        Hash sendBlockHash = ((TransactionParams) request.getParams().get(0)).getHashRaw();
+        EmptyResponse response = request.send();
+        if (response.getError() != null) {
+            log.error("settle reward failed, toAddress:{},error:{} ", toAddress, response.getError().getMessage());
+            throw new RuntimeException(response.getError().getMessage());
+        }
+
+        return sendBlockHash.toString();
     }
 
     public int getCurrentCycleKey() throws IOException {

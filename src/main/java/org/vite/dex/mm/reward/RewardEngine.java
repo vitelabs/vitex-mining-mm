@@ -74,13 +74,13 @@ public class RewardEngine {
                                 totalReleasedViteAmount, prevTime, endTime);
                 log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
-                // 4.write reward results to DB and FundContract chain
-                settleService.saveAndSettleRewards(finalRes, totalReleasedViteAmount, cycleKey);
+                // 4. save reward results to DB 
+                settleService.saveMiningRewards(finalRes, totalReleasedViteAmount, cycleKey);
         }
 
         /**
          * run every half hour and estimate mining reward of each address during this
-         * cycle
+         * cycle (not the last cycle but this current ones) 
          * 
          * @param estimateNodeTime
          * @throws Exception
@@ -117,7 +117,7 @@ public class RewardEngine {
 
                 // 3.market-mining
                 RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
-                int cycleKey = viteCli.getCurrentCycleKey() - 1;
+                int cycleKey = viteCli.getCurrentCycleKey();
                 BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
                 FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
                                 totalReleasedViteAmount, startTime, estimateTime);

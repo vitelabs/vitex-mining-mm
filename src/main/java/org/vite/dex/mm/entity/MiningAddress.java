@@ -3,6 +3,7 @@ package org.vite.dex.mm.entity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.vite.dex.mm.constant.enums.SettleStatus;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
@@ -18,8 +19,8 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "mining_address_quote_token")
-public class AddressMarketRewardDetail {
+@Table(name = "mining_address")
+public class MiningAddress {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -27,30 +28,33 @@ public class AddressMarketRewardDetail {
     @Column(name = "cycle_key")
     private Integer cycleKey;
 
-    @Column(name = "data_page")
-    private Integer dataPage;
-
-    @Column(name = "quote_token_type")
-    private Integer quoteTokenType;
-
     @Column(name = "address")
     private String address;
 
-    @Column(name = "factor_ratio", precision = 50, scale = 18)
-    private BigDecimal factorRatio;
+    @Column(name = "order_mining_amount", precision = 50, scale = 18)
+    private BigDecimal orderMiningAmount;
 
-    @Column(name = "amount", precision = 50, scale = 18)
-    private BigDecimal amount;
+    @Column(name = "order_mining_percent", precision = 50, scale = 18)
+    private BigDecimal orderMiningPercent;
+
+    @Column(name = "invite_mining_amount", precision = 50, scale = 18)
+    private BigDecimal inviteMiningAmount;
+
+    @Column(name = "invite_mining_percent", precision = 50, scale = 18)
+    private BigDecimal inviteMiningPercent;
+
+    @Column(name = "total_reward", precision = 50, scale = 18)
+    private BigDecimal totalReward;
+
+    @Column(name = "data_page")
+    private Integer dataPage;
 
     @Column(name = "settle_status")
-    private Integer settleStatus;
+    private SettleStatus settleStatus;
 
     @Column(name = "ctime")
     private Date ctime;
 
     @Column(name = "utime")
     private Date utime;
-
-    @Column(name = "remark")
-    private String remark;
 }

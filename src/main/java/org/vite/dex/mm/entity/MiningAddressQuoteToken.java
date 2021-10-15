@@ -18,8 +18,8 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "mining_address")
-public class MiningAddressReward {
+@Table(name = "mining_address_quote_token")
+public class MiningAddressQuoteToken {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -27,27 +27,21 @@ public class MiningAddressReward {
     @Column(name = "cycle_key")
     private Integer cycleKey;
 
+    @Column(name = "quote_token_type")
+    private Integer quoteTokenType;
+
     @Column(name = "address")
     private String address;
 
+    @Column(name = "factor_ratio", precision = 50, scale = 18)
+    private BigDecimal factorRatio;
+
     @Column(name = "amount", precision = 50, scale = 18)
-    private BigDecimal totalAmount;
-
-    @Column(name = "amount_percent", precision = 50, scale = 18)
-    private BigDecimal amountPercent;
-
-    @Column(name = "data_page")
-    private Integer dataPage;
-
-    @Column(name = "settle_status")
-    private Integer settleStatus;
+    private BigDecimal amount;
 
     @Column(name = "ctime")
     private Date ctime;
 
     @Column(name = "utime")
     private Date utime;
-
-    @Column(name = "remark")
-    private String remark;
 }

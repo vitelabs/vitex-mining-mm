@@ -5,19 +5,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.CollectionUtils;
 import org.vite.dex.mm.constant.constants.MarketMiningConst;
 import org.vite.dex.mm.constant.enums.QuoteMarketType;
+import org.vite.dex.mm.constant.enums.SettleStatus;
 import org.vite.dex.mm.entity.AddressEstimateReward;
-import org.vite.dex.mm.entity.AddressMarketRewardDetail;
-import org.vite.dex.mm.entity.AddressSettleReward;
 import org.vite.dex.mm.entity.InviteOrderMiningStat;
-import org.vite.dex.mm.entity.MiningAddressReward;
+import org.vite.dex.mm.entity.MiningAddress;
+import org.vite.dex.mm.entity.MiningAddressQuoteToken;
+import org.vite.dex.mm.entity.SettlePage;
 import org.vite.dex.mm.mapper.AddressEstimateRewardRepository;
-import org.vite.dex.mm.mapper.AddressMarketRewardRepository;
-import org.vite.dex.mm.mapper.AddressTotalRewardRepository;
-import org.vite.dex.mm.mapper.InviteMiningRewardRepository;
-import org.vite.dex.mm.mapper.SettleRewardRepository;
+import org.vite.dex.mm.mapper.MiningAddressQuoteTokenRepository;
+import org.vite.dex.mm.mapper.MiningAddressRepository;
+import org.vite.dex.mm.mapper.SettlePageRepository;
 import org.vite.dex.mm.model.proto.DexOrderMiningRequest;
 import org.vite.dex.mm.reward.RewardKeeper.FinalResult;
 import org.vite.dex.mm.utils.client.ViteCli;
@@ -32,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -42,184 +40,180 @@ public class SettleService {
     private ViteCli viteCli;
 
     @Autowired
-    AddressMarketRewardRepository addrMarketRewardRepo;
+    MiningAddressQuoteTokenRepository miningAddressQuoteTokenRepo;
 
     @Autowired
-    AddressTotalRewardRepository addrTotalRewardRepo;
+    MiningAddressRepository miningAddressRepo;
 
     @Autowired
     AddressEstimateRewardRepository addrEstimateRewardRepo;
 
     @Autowired
-    InviteMiningRewardRepository inviteMiningRewardRepo;
-
-    @Autowired
-    SettleRewardRepository settleRewardRepo;
+    SettlePageRepository settlePageRepo;
 
     public SettleService(ViteCli viteCli) {
         this.viteCli = viteCli;
     }
 
     /**
-     * store data in db and settle rewards on contract chain
+     * store order mining reward in db 
      * 
      * @param totalReleasedViteAmount
      * @param finalRes
      * @throws IOException
      */
     @Transactional
-    public void saveAndSettleRewards(FinalResult finalRes, BigDecimal totalReleasedViteAmount, int cycleKey)
+    public void saveMiningRewards(FinalResult finalRes, BigDecimal totalReleasedViteAmount, int cycleKey)
             throws Exception {
-        Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = finalRes.getOrderMiningFinalRes();
-        Map<String, InviteOrderMiningStat> inviteMiningFinalRes = finalRes.getInviteMiningFinalRes();
-        List<MiningAddressReward> miningAddrRewards = new ArrayList<>();
-        List<InviteOrderMiningStat> inviteOrderMiningStats = new ArrayList<>();
-
+        List<MiningAddress> miningAddressList = new ArrayList<>();
         try {
-            saveMiningRewardToDB(orderMiningFinalRes, miningAddrRewards, totalReleasedViteAmount, cycleKey);
-            saveInviteRewardToDB(inviteMiningFinalRes, inviteOrderMiningStats, cycleKey);
-            settleReward(miningAddrRewards, inviteOrderMiningStats, totalReleasedViteAmount, cycleKey);
+            saveMiningRewardToDB(finalRes, totalReleasedViteAmount, cycleKey, miningAddressList);
         } catch (Exception e) {
-            log.error("save vx reward failed ", e);
+            log.error("save and settle vx reward failed ", e);
             throw e;
         }
     }
 
-    public void saveMiningRewardToDB(Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes,
-            List<MiningAddressReward> miningAddrRewards, BigDecimal totalReleasedViteAmount, int cycleKey) {
-        List<AddressMarketRewardDetail> addrRewards = new ArrayList<>();
+    public void saveMiningRewardToDB(FinalResult finalRes, BigDecimal totalReleasedViteAmount, int cycleKey,
+            List<MiningAddress> miningAddressList) {
+        Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = finalRes.getOrderMiningFinalRes();
+        Map<String, InviteOrderMiningStat> inviteMiningFinalRes = finalRes.getInviteMiningFinalRes();
+
+        List<MiningAddressQuoteToken> addrMarketRewards = assembleAddrMarketReward(orderMiningFinalRes,
+                totalReleasedViteAmount, cycleKey);
+
+        int pageMax = mergeOrderMiningAndInviteReward(orderMiningFinalRes, inviteMiningFinalRes,
+                totalReleasedViteAmount, cycleKey, miningAddressList);
+
+        List<SettlePage> settlePageList = assembleSettlePage(pageMax, cycleKey, miningAddressList);
+
+        // save db
+        miningAddressQuoteTokenRepo.saveAll(addrMarketRewards);
+        miningAddressRepo.saveAll(miningAddressList);
+        settlePageRepo.saveAll(settlePageList);
+    }
+
+    private List<SettlePage> assembleSettlePage(int pageMax, int cycleKey,
+            List<MiningAddress> miningAddressList) {
+        List<SettlePage> settlePageList = new ArrayList<>();
+        for (int m = 1; m <= pageMax; m++) {
+            // miningAddressList
+            SettlePage settlePage = new SettlePage();
+            settlePage.setCycleKey(cycleKey);
+            settlePage.setDataPage(m);
+            final int datePage = m;
+            List<MiningAddress> miningAddressSubList = miningAddressList.stream()
+                    .filter(t -> t.getDataPage() == datePage).collect(Collectors.toList());
+            BigDecimal pageTotalAmount = miningAddressSubList.stream().map(MiningAddress::getTotalReward)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            settlePage.setAmount(pageTotalAmount);
+            settlePage.setSettleStatus(SettleStatus.UnSettle);
+            settlePage.setCtime(new Date());
+            settlePage.setUtime(new Date());
+            settlePageList.add(settlePage);
+        }
+
+        return settlePageList;
+    }
+
+    private int mergeOrderMiningAndInviteReward(Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes,
+            Map<String, InviteOrderMiningStat> inviteMiningFinalRes, BigDecimal totalReleasedViteAmount, int cycleKey,
+            List<MiningAddress> miningAddressList) {
+        // mining_address
         int i = 0;
-        // sub-market details
-        for (Map.Entry<String, Map<Integer, BigDecimal>> addr2RewardMap : orderMiningFinalRes.entrySet()) {
-            for (Map.Entry<Integer, BigDecimal> market2Reward : addr2RewardMap.getValue().entrySet()) {
-                BigDecimal vxAmount = market2Reward.getValue();
-                if (vxAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    AddressMarketRewardDetail addrMarketDetail = new AddressMarketRewardDetail();
-                    addrMarketDetail.setAddress(addr2RewardMap.getKey());
-                    int market = market2Reward.getKey();
-                    addrMarketDetail.setQuoteTokenType(market);
-                    addrMarketDetail.setAmount(vxAmount);
-                    addrMarketDetail.setCycleKey(cycleKey);
-                    addrMarketDetail.setDataPage(i / 30 + 1);
-                    BigDecimal marketShared = totalReleasedViteAmount
-                            .multiply(BigDecimal.valueOf(MarketMiningConst.getMarketSharedRatio().get(market)));
-                    addrMarketDetail.setFactorRatio(vxAmount.divide(marketShared, 18, RoundingMode.DOWN));
-                    addrMarketDetail.setSettleStatus(3);
-                    addrMarketDetail.setCtime(new Date());
-                    addrMarketDetail.setUtime(new Date());
-                    if (addrMarketDetail.getAmount().compareTo(BigDecimal.ZERO) > 0) {
-                        addrRewards.add(addrMarketDetail);
-                    }
-                }
+        for (Map.Entry<String, Map<Integer, BigDecimal>> entry : orderMiningFinalRes.entrySet()) {
+            String addr = entry.getKey();
+            Map<Integer, BigDecimal> rewardMap = entry.getValue();
+
+            MiningAddress miningAddrReward = new MiningAddress();
+            miningAddrReward.setCycleKey(cycleKey);
+            miningAddrReward.setAddress(addr);
+            miningAddrReward.setOrderMiningAmount(rewardMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
+            miningAddrReward.setOrderMiningPercent(miningAddrReward.getOrderMiningAmount().divide(
+                    totalReleasedViteAmount.multiply(MarketMiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
+            miningAddrReward.setInviteMiningAmount(BigDecimal.ZERO);
+            miningAddrReward.setInviteMiningPercent(BigDecimal.ZERO);
+
+            BigDecimal totalReward = miningAddrReward.getOrderMiningAmount();
+            if (inviteMiningFinalRes.containsKey(addr)) {
+                InviteOrderMiningStat inviteStat = inviteMiningFinalRes.get(addr);
+                miningAddrReward.setInviteMiningAmount(inviteStat.getAmount());
+                miningAddrReward.setInviteMiningPercent(inviteStat.getRatio());
+                totalReward = totalReward.add(inviteStat.getAmount());
+            }
+            miningAddrReward.setTotalReward(totalReward);
+            miningAddrReward.setDataPage(i / 30 + 1);
+            miningAddrReward.setSettleStatus(SettleStatus.UnSettle);
+            miningAddrReward.setCtime(new Date());
+            miningAddrReward.setUtime(new Date());
+
+            if (miningAddrReward.getTotalReward().compareTo(BigDecimal.ZERO) > 0) {
+                miningAddressList.add(miningAddrReward);
+                i++;
             }
         }
 
-        // mining stat
-        orderMiningFinalRes.forEach((addr, rewardMap) -> {
-            MiningAddressReward miningAddrReward = new MiningAddressReward();
-            miningAddrReward.setAddress(addr);
-            miningAddrReward.setTotalAmount(rewardMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
-            miningAddrReward.setAmountPercent(miningAddrReward.getTotalAmount().divide(
-                    totalReleasedViteAmount.multiply(MarketMiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
-            miningAddrReward.setCycleKey(cycleKey);
-            miningAddrReward.setDataPage(orderMiningFinalRes.size() / 30 + 1);
-            miningAddrReward.setSettleStatus(3);
-            miningAddrReward.setCtime(new Date());
-            miningAddrReward.setUtime(new Date());
-            if (miningAddrReward.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-                miningAddrRewards.add(miningAddrReward);
-            }
-        });
+        for (Map.Entry<String, InviteOrderMiningStat> entry : inviteMiningFinalRes.entrySet()) {
+            String addr = entry.getKey();
+            InviteOrderMiningStat inviteStat = entry.getValue();
 
-        // save db
-        addrTotalRewardRepo.saveAll(miningAddrRewards);
-        addrMarketRewardRepo.saveAll(addrRewards);
+            if (!orderMiningFinalRes.containsKey(addr)) {
+                MiningAddress miningAddrReward = new MiningAddress();
+                miningAddrReward.setCycleKey(cycleKey);
+                miningAddrReward.setAddress(addr);
+                miningAddrReward.setOrderMiningAmount(BigDecimal.ZERO);
+                miningAddrReward.setOrderMiningPercent(BigDecimal.ZERO);
+                miningAddrReward.setInviteMiningAmount(inviteStat.getAmount());
+                miningAddrReward.setInviteMiningPercent(inviteStat.getRatio());
+                miningAddrReward.setTotalReward(inviteStat.getAmount());
+                miningAddrReward.setDataPage(i / 30 + 1);
+                miningAddrReward.setSettleStatus(SettleStatus.UnSettle);
+                miningAddrReward.setCtime(new Date());
+                miningAddrReward.setUtime(new Date());
+
+                if (miningAddrReward.getTotalReward().compareTo(BigDecimal.ZERO) > 0) {
+                    miningAddressList.add(miningAddrReward);
+                    i++;
+                }
+            }
+        }
+        return i / 30 + 1;
     }
 
-    private void saveInviteRewardToDB(Map<String, InviteOrderMiningStat> inviteMiningFinalRes,
-            List<InviteOrderMiningStat> inviteOrderMiningStats, int cycleKey) {
+    private List<MiningAddressQuoteToken> assembleAddrMarketReward(
+            Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes, BigDecimal totalReleasedViteAmount,
+            int cycleKey) {
+        List<MiningAddressQuoteToken> addrMarketRewards = new ArrayList<>();
+        // sub-market details
+        orderMiningFinalRes.forEach((addr, marketMap) -> {
+            marketMap.forEach((market, vxAmount) -> {
+                if (vxAmount.compareTo(BigDecimal.ZERO) > 0) {
+                    MiningAddressQuoteToken addrMarketReward = new MiningAddressQuoteToken();
+                    addrMarketReward.setAddress(addr);
+                    addrMarketReward.setQuoteTokenType(market);
+                    addrMarketReward.setAmount(vxAmount);
+                    addrMarketReward.setCycleKey(cycleKey);
+                    BigDecimal marketShared = totalReleasedViteAmount
+                            .multiply(BigDecimal.valueOf(MarketMiningConst.getMarketSharedRatio().get(market)));
+                    addrMarketReward.setFactorRatio(vxAmount.divide(marketShared, 18, RoundingMode.DOWN));
+                    addrMarketReward.setCtime(new Date());
+                    addrMarketReward.setUtime(new Date());
 
-        inviteMiningFinalRes.forEach((addr, inviteOrder) -> {
-            InviteOrderMiningStat inviteOrderMiningStat = new InviteOrderMiningStat();
-            inviteOrderMiningStat.setAddress(addr);
-            inviteOrderMiningStat.setAmount(inviteOrder.getAmount());
-            inviteOrderMiningStat.setRatio(inviteOrder.getRatio());
-            inviteOrderMiningStat.setCycleKey(cycleKey);
-            inviteOrderMiningStat.setCtime(new Date());
-            inviteOrderMiningStat.setUtime(new Date());
-            if (inviteOrderMiningStat.getAmount().compareTo(BigDecimal.ZERO) > 0) {
-                inviteOrderMiningStats.add(inviteOrderMiningStat);
-            }
+                    addrMarketRewards.add(addrMarketReward);
+                }
+            });
         });
-
-        inviteMiningRewardRepo.saveAll(inviteOrderMiningStats);
-    }
-
-    private List<AddressSettleReward> mergeAndSaveSettleRewards(List<MiningAddressReward> miningAddrRewards,
-            List<InviteOrderMiningStat> inviteOrderMiningStats, BigDecimal totalReleasedViteAmount, int cycleKey)
-            throws IOException {
-
-        List<AddressSettleReward> settleRewards = new ArrayList<>();
-        Map<String, MiningAddressReward> miningRewardMap = miningAddrRewards.stream()
-                .collect(Collectors.toMap(MiningAddressReward::getAddress, Function.identity()));
-        Map<String, InviteOrderMiningStat> inviteRewardMap = inviteOrderMiningStats.stream()
-                .collect(Collectors.toMap(InviteOrderMiningStat::getAddress, Function.identity()));
-
-        miningAddrRewards.forEach(orderMiningReward -> {
-            AddressSettleReward settleReward = new AddressSettleReward();
-            String addr = orderMiningReward.getAddress();
-            settleReward.setAddress(addr);
-            settleReward.setTotalAmount(orderMiningReward.getTotalAmount());
-            if (inviteRewardMap.containsKey(addr)) {
-                settleReward.setTotalAmount(settleReward.getTotalAmount().add(inviteRewardMap.get(addr).getAmount()));
-            }
-            settleReward.setCycleKey(cycleKey);
-            settleReward.setDataPage(miningAddrRewards.size() / 30 + 1);
-            settleReward.setSettleStatus(3);
-            settleReward.setCtime(new Date());
-            settleReward.setUtime(new Date());
-            if (settleReward.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-                settleRewards.add(settleReward);
-            }
-        });
-
-        List<InviteOrderMiningStat> pureRewardList = inviteOrderMiningStats.stream()
-                .filter(t -> !miningRewardMap.containsKey(t.getAddress())).collect(Collectors.toList());
-
-        pureRewardList.forEach(inviteReward -> {
-            AddressSettleReward settleReward = new AddressSettleReward();
-            settleReward.setAddress(inviteReward.getAddress());
-            settleReward.setTotalAmount(inviteReward.getAmount());
-            settleReward.setCycleKey(cycleKey);
-            settleReward.setDataPage((miningAddrRewards.size() + inviteOrderMiningStats.size()) / 30 + 1);
-            settleReward.setSettleStatus(3);
-            settleReward.setCtime(new Date());
-            settleReward.setUtime(new Date());
-            if (settleReward.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-                settleRewards.add(settleReward);
-            }
-        });
-
-        settleRewardRepo.saveAll(settleRewards);
-        return settleRewards;
+        return addrMarketRewards;
     }
 
     /**
-     * save reward of each address to fund contract chain. Must merge order mining
-     * and invite mining result
+     * settle by page: save reward of each address to fund contract chain.
      * 
      * @param addrRewards
      * @throws Exception
      */
-    public void settleReward(List<MiningAddressReward> miningAddrRewards,
-            List<InviteOrderMiningStat> inviteOrderMiningStats, BigDecimal totalReleasedViteAmount, int cycleKey)
+    public void settleReward(List<MiningAddress> miningAddrRewards, BigDecimal totalReleasedViteAmount, int cycleKey)
             throws Exception {
-        List<AddressSettleReward> addrRewards = mergeAndSaveSettleRewards(miningAddrRewards, inviteOrderMiningStats,
-                totalReleasedViteAmount, cycleKey);
-        if (CollectionUtils.isEmpty(addrRewards)) {
-            return;
-        }
-
         KeyPair keyPair = viteCli.getKeyPair(MarketMiningConst.WALLET_MNEMONICS, 0);
         if (keyPair == null) {
             throw new Exception("the mnemonic is wrong");
@@ -227,11 +221,11 @@ public class SettleService {
 
         DexOrderMiningRequest.VxSettleActions.Builder vxSettleActions = DexOrderMiningRequest.VxSettleActions
                 .newBuilder();
-        vxSettleActions.setPage(addrRewards.get(0).getDataPage()); // todo whether right or not
-        vxSettleActions.setPeriod(Long.valueOf(addrRewards.get(0).getCycleKey().longValue()));
+        vxSettleActions.setPage(miningAddrRewards.get(0).getDataPage()); // todo whether right or not
+        vxSettleActions.setPeriod(Long.valueOf(miningAddrRewards.get(0).getCycleKey().longValue()));
 
-        addrRewards.forEach(t -> {
-            BigInteger amount = new BigInteger(t.getTotalAmount().toPlainString().replace(".", ""));
+        miningAddrRewards.forEach(t -> {
+            BigInteger amount = new BigInteger(t.getTotalReward().toPlainString().replace(".", ""));
             vxSettleActions.addActions(DexOrderMiningRequest.VxSettleAction.newBuilder()
                     .setAddress(ByteString.copyFrom(ViteWalletHelper.generateRealByteAddress(t.getAddress())))
                     .setAmount(ByteString.copyFrom(amount.toByteArray())).build());
@@ -240,11 +234,12 @@ public class SettleService {
         List<Object> methodParams = new ArrayList<>();
         methodParams.add(vxSettleActions.build().toByteArray());
 
-        boolean success = viteCli.callContract(keyPair, keyPair.getAddress().toString(),
+        String blockHash = viteCli.callContract(keyPair, keyPair.getAddress().toString(),
                 MarketMiningConst.FUND_CONTRACT_ADDRESS, MarketMiningConst.ORDER_MINING_TOKENID, "0",
                 MarketMiningConst.ABI_SETTLE, "DexFundSettleMakerMinedVx", methodParams);
 
-        assert success;
+        log.info("succeed to settle reward, cycleKey: {}, dataPage: {}, blockHash: {}",
+                miningAddrRewards.get(0).getCycleKey(), miningAddrRewards.get(0).getDataPage(), blockHash);
     }
 
     public void saveOrderMiningEstimateRes(Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes, int cycleKey)
