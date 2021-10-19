@@ -19,8 +19,8 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "mining_address")
-public class MiningAddress {
+@Table(name = "mining_address_reward")
+public class MiningAddressReward {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

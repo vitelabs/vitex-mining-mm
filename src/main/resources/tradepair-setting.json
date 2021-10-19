@@ -13,7 +13,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "VITE-000",
+            "tradeTokenSymbol": "VITE",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_5649544520544f4b454e6e40",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
@@ -37,7 +37,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "XRP-000",
+            "tradeTokenSymbol": "XRP-001",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_4a04203e28bb8f3dc3d8f9b1",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
@@ -145,7 +145,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "NANO-000",
+            "tradeTokenSymbol": "NANO-001",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_29a2af20212b985e9d49e899",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
@@ -169,7 +169,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "OKB-000",
+            "tradeTokenSymbol": "OKB-001",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_93df321906bf2fc3699e8996",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
@@ -193,7 +193,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "EOS-000",
+            "tradeTokenSymbol": "EOS-003",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_9b8b779b0ca5b55464e1cfda",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
@@ -253,7 +253,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "LINK-000",
+            "tradeTokenSymbol": "LINK-001",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_ffcd2355f4843e8db240b013",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
@@ -289,7 +289,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "FRM-000",
+            "tradeTokenSymbol": "FRM-001",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_ba08360030939f1af8e4db88",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
@@ -337,7 +337,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "VITE-000",
+            "tradeTokenSymbol": "VITE",
             "quoteTokenSymbol": "ETH-000",
             "tradeTokenId": "tti_5649544520544f4b454e6e40",
             "quoteTokenId": "tti_687d8a93915393b219212c73",
@@ -398,7 +398,7 @@
         },
         {
             "tradeTokenSymbol": "VX",
-            "quoteTokenSymbol": "VITE-000",
+            "quoteTokenSymbol": "VITE",
             "tradeTokenId": "tti_564954455820434f494e69b5",
             "quoteTokenId": "tti_5649544520544f4b454e6e40",
             "sellEffectiveInterval": 0.1,
@@ -421,7 +421,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "VITE-000",
+            "tradeTokenSymbol": "VITE",
             "quoteTokenSymbol": "USDT-000",
             "tradeTokenId": "tti_5649544520544f4b454e6e40",
             "quoteTokenId": "tti_80f3751485e4e83456059473",
@@ -517,7 +517,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "NANO-000", 
+            "tradeTokenSymbol": "NANO-001", 
             "quoteTokenSymbol": "USDT-000",
             "tradeTokenId": "tti_29a2af20212b985e9d49e899",
             "quoteTokenId": "tti_80f3751485e4e83456059473",
@@ -613,7 +613,7 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "BNB-000", 
+            "tradeTokenSymbol": "BNB-001", 
             "quoteTokenSymbol": "USDT-000",
             "tradeTokenId": "tti_fb901364ef662c25cf43125c",
             "quoteTokenId": "tti_80f3751485e4e83456059473",

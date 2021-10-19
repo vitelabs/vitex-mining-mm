@@ -3,6 +3,7 @@ package org.vite.dex.mm.reward;
 import com.google.common.collect.Maps;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.vite.dex.mm.config.MiningConfiguration;
 import org.vite.dex.mm.constant.constants.MarketMiningConst;
 import org.vite.dex.mm.entity.InviteOrderMiningReward;
 import org.vite.dex.mm.entity.InviteOrderMiningStat;
@@ -26,10 +27,14 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class RewardKeeper implements IOrderEventHandleAware {
+
     private ViteCli viteCli;
 
-    public RewardKeeper(ViteCli viteCli) {
+    private MiningConfiguration miningConfig;
+
+    public RewardKeeper(ViteCli viteCli, MiningConfiguration miningConfig) {
         this.viteCli = viteCli;
+        this.miningConfig = miningConfig;
     }
 
     /**
@@ -71,7 +76,8 @@ public class RewardKeeper implements IOrderEventHandleAware {
         Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = Maps.newHashMap();
         Map<String, InviteOrderMiningStat> inviteMiningFinalRes = new HashMap<>();
         Map<Integer, RewardMarket> marketRewards = new HashMap<>(); // <MarketId, RewardMarket>
-        Map<String, MiningRewardCfg> tradePairCfgMap = CommonUtils.miningRewardCfgMap();
+        Map<String, MiningRewardCfg> tradePairCfgMap = CommonUtils
+                .miningRewardCfgMap(miningConfig.getTradePairSettingUrl());
         List<InviteOrderMiningReward> inviteRewardList = new ArrayList<>();
 
         // 1.go onward OrderBooks and calc factor of each Order
@@ -100,7 +106,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
         Map<String, Map<Integer, List<RewardOrder>>> address2MarketRewardsMap = totalRewardOrders.values().stream()
                 .collect(Collectors.groupingBy(RewardOrder::getOrderAddress,
                         Collectors.groupingBy(RewardOrder::getMarket)));
-                        
+
         address2MarketRewardsMap.forEach((address, market2RewardOrders) -> {
             Map<Integer, BigDecimal> marketVXMap = Maps.newHashMap();
             market2RewardOrders.forEach((market, rewardOrders) -> {

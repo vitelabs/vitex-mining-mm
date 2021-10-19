@@ -18,8 +18,8 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "mining_address_quote_token")
-public class MiningAddressQuoteToken {
+@Table(name = "order_mining_market_reward")
+public class OrderMiningMarketReward {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

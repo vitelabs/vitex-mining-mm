@@ -1,11 +1,1 @@
-logging:
-  level:
-    root: INFO
-  config: classpath:logback-spring.xml
-
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/dex_order_mining_v2?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useSSL=false&serverTimezone=Asia/Shanghai&zeroDateTimeBehavior=convertToNull
-    username: root
-    password: lb@21551067
-    driverClassName: com.mysql.jdbc.Driver
+spring.profiles.active: local

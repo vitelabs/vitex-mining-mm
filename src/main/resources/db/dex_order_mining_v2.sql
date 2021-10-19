@@ -17,7 +17,7 @@ CREATE TABLE `address_estimate_reward` (
   KEY `idx_mining_address` (`address`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4504 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
-CREATE TABLE `mining_address` (
+CREATE TABLE `mining_address_reward` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `cycle_key` bigint unsigned NOT NULL COMMENT '确认周期',
   `address` varchar(55) NOT NULL COMMENT 'address',
@@ -36,7 +36,7 @@ CREATE TABLE `mining_address` (
   KEY `mining_address_index_data_page` (`data_page`)
 ) ENGINE=InnoDB AUTO_INCREMENT=269006 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE `mining_address_quote_token` (
+CREATE TABLE `order_mining_market_reward` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
   `cycle_key` bigint unsigned NOT NULL COMMENT '确认周期',
   `quote_token_type` tinyint DEFAULT '0' COMMENT '计价币种类型',

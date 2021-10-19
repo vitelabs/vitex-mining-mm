@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.vite.dex.mm.config.MiningConfiguration;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.orderbook.BlockEventStream;
 import org.vite.dex.mm.orderbook.OrderBooks;
@@ -27,6 +28,9 @@ public class RewardEngine {
         private ViteCli viteCli;
 
         @Autowired
+        private MiningConfiguration miningConfig;
+
+        @Autowired
         SettleService settleService;
 
         /**
@@ -47,7 +51,8 @@ public class RewardEngine {
 
                 Traveller traveller = new Traveller();
                 Tokens tokens = viteCli.getAllTokenInfos();
-                List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+                List<TradePair> tradePairs = CommonUtils
+                                .getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
 
                 // 1.travel to snapshot time
                 OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
@@ -69,18 +74,18 @@ public class RewardEngine {
                 int cycleKey = viteCli.getCurrentCycleKey() - 1;
                 BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
 
-                RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+                RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
                 FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
                                 totalReleasedViteAmount, prevTime, endTime);
                 log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
-                // 4. save reward results to DB 
+                // 4. save reward results to DB
                 settleService.saveMiningRewards(finalRes, totalReleasedViteAmount, cycleKey);
         }
 
         /**
          * run every half hour and estimate mining reward of each address during this
-         * cycle (not the last cycle but this current ones) 
+         * cycle (not the last cycle but this current ones)
          * 
          * @param estimateNodeTime
          * @throws Exception
@@ -97,7 +102,8 @@ public class RewardEngine {
 
                 Traveller traveller = new Traveller();
                 Tokens tokens = viteCli.getAllTokenInfos();
-                List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+                List<TradePair> tradePairs = CommonUtils
+                                .getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
 
                 // 1.travel to 10 minutes age
                 OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
@@ -116,7 +122,7 @@ public class RewardEngine {
                                 recoveredOrderBooks.getCurrentHeight(), stream.getStartHeight(), stream.getEndHeight());
 
                 // 3.market-mining
-                RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+                RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
                 int cycleKey = viteCli.getCurrentCycleKey();
                 BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
                 FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,

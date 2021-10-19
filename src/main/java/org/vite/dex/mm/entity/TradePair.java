@@ -39,7 +39,7 @@ public class TradePair {
     public int getMarket() {
         int market = 0;
         switch (quoteTokenSymbol) {
-        case "VITE-000":
+        case "VITE":
             market = 1;
             break;
         case "ETH-000":

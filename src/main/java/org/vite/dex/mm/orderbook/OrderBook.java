@@ -149,7 +149,7 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
                         orderModel.revert(orderLog);
                     } else {
                         log.error("[update...] not find order, orderId {}", orderLog.getOrderId());
-                        throw new RuntimeException("[new order] not find order: " + orderLog.getOrderId());
+                        throw new RuntimeException("[update order] not find order: " + orderLog.getOrderId());
                     }
                 }
             case TX:

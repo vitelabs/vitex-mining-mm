@@ -11,12 +11,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
+import org.vite.dex.mm.config.MiningConfiguration;
 import org.vite.dex.mm.entity.BlockEvent;
-import org.vite.dex.mm.entity.MiningAddressQuoteToken;
 import org.vite.dex.mm.entity.OrderBookInfo;
+import org.vite.dex.mm.entity.OrderMiningMarketReward;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.entity.TradePair;
-import org.vite.dex.mm.mapper.MiningAddressQuoteTokenRepository;
+import org.vite.dex.mm.mapper.OrderMiningMarketRewardRepository;
 import org.vite.dex.mm.orderbook.BlockEventStream;
 import org.vite.dex.mm.orderbook.OrderBooks;
 import org.vite.dex.mm.orderbook.Tokens;
@@ -59,8 +60,11 @@ class DexApplicationTests {
     @Resource
     private ViteCli viteCli;
 
+    @Resource
+    MiningConfiguration miningConfig;
+
     @Autowired
-    MiningAddressQuoteTokenRepository addressMarketRewardRepository;
+    OrderMiningMarketRewardRepository addressMarketRewardRepository;
 
     @Autowired
     RewardEngine engine;
@@ -84,11 +88,11 @@ class DexApplicationTests {
     @Test
     public void testTravel() throws Exception {
         Traveller traveller = new Traveller();
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
         Tokens tokens = viteCli.getAllTokenInfos();
 
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-12 12:30:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-21 12:30:00", new ParsePosition(0)).getTime() / 1000;
 
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
@@ -111,7 +115,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
         TradeRecover tradeRecover = new TradeRecover();
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-11 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-20 12:00:00", new ParsePosition(0)).getTime() / 1000;
         // unserialize from snapshot
         OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_snapshot.raw")),
                 OrderBooksData.class);
@@ -155,9 +159,9 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMiningFromFile() throws Exception {
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-11 12:00:00", new ParsePosition(0))
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-20 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-12 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-21 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         // unserialize
@@ -173,7 +177,7 @@ class DexApplicationTests {
                 blockEvents.get(blockEvents.size() - 1).getHeight(), blockEvents);
 
         // calc rewards
-        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey() - 1;
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
@@ -187,15 +191,15 @@ class DexApplicationTests {
     public void testMarketMining() throws Exception {
         // long snapshotTime = CommonUtils.getFixedSnapshotTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-12 12:30:00", new ParsePosition(0)).getTime() / 1000;
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-11 12:00:00", new ParsePosition(0))
+                .parse("2021-10-21 12:30:00", new ParsePosition(0)).getTime() / 1000;
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-20 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-12 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-21 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         Traveller traveller = new Traveller();
         Tokens tokens = viteCli.getAllTokenInfos();
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
 
         // 1.travel to snapshot time
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
@@ -218,7 +222,7 @@ class DexApplicationTests {
         int cycleKey = viteCli.getCurrentCycleKey() - 1;
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
 
-        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
                 totalReleasedViteAmount, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
@@ -236,7 +240,7 @@ class DexApplicationTests {
                 .parse("2021-10-11 12:00:00", new ParsePosition(0)).getTime() / 1000;
 
         Traveller traveller = new Traveller();
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
         Tokens tokens = viteCli.getAllTokenInfos();
         // 1.travel to snapshot time
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
@@ -250,7 +254,7 @@ class DexApplicationTests {
         tradeRecover.fillAddressForOrdersGroupByTimeUnit(recovedOrderBooks.getBooks(), viteCli);
 
         // 3.market-mining
-        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream,
@@ -279,7 +283,7 @@ class DexApplicationTests {
                 blockEvents.get(blockEvents.size() - 1).getHeight(), blockEvents);
 
         // calc rewards
-        RewardKeeper rewardKeeper = new RewardKeeper(viteCli);
+        RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal totalReleasedViteAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
@@ -379,7 +383,7 @@ class DexApplicationTests {
 
     @Test
     public void testHttpReqUtils() throws IOException {
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
         System.out.println(tradePairs);
     }
 
@@ -391,7 +395,7 @@ class DexApplicationTests {
 
     @Test
     public void testSaveDB() throws IOException {
-        MiningAddressQuoteToken s = new MiningAddressQuoteToken();
+        OrderMiningMarketReward s = new OrderMiningMarketReward();
         s.setAddress("12345");
         s.setAmount(new BigDecimal("1234.4556643"));
         s.setCycleKey(336);
