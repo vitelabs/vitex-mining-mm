@@ -43,7 +43,9 @@ import javax.annotation.PostConstruct;
 import javax.annotation.Resource;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -130,10 +132,24 @@ public class ViteCli {
         return cycleKey;
     }
 
+    public BigDecimal getVxMineTotalByCyclekey(int cycleKey) throws IOException {
+        BigDecimal totalMineVx = BigDecimal.ZERO;
+        try {
+            CommonResponse response = vitej.commonMethod("dex_getMiningInfo", cycleKey).send();
+            BigDecimal total = JSONObject.parseObject(JSON.toJSONString(response.getResult())).getBigDecimal("total");
+            totalMineVx = total.divide(new BigDecimal(10).pow(18), 18, RoundingMode.DOWN);
+        } catch (Exception e) {
+            log.error("getCurrentCycleKey failed,the err:" + e);
+            throw e;
+        }
+        return totalMineVx;
+    }
+
     public AccountBlock getLatestAccountBlock() throws IOException {
         AccountBlock block = null;
         try {
-            AccountBlockResponse response = vitej.getLatestAccountBlock(new Address(miningConfig.getTradeContractAddress())).send();
+            AccountBlockResponse response = vitej
+                    .getLatestAccountBlock(new Address(miningConfig.getTradeContractAddress())).send();
             block = response.getResult();
         } catch (Exception e) {
             log.error("getLatestAccountBlock failed,the err:" + e);
@@ -145,7 +161,8 @@ public class ViteCli {
     public Long getLatestAccountHeight() throws IOException {
         AccountBlock block = null;
         try {
-            AccountBlockResponse response = vitej.getLatestAccountBlock(new Address(miningConfig.getTradeContractAddress())).send();
+            AccountBlockResponse response = vitej
+                    .getLatestAccountBlock(new Address(miningConfig.getTradeContractAddress())).send();
             block = response.getResult();
         } catch (Exception e) {
             log.error("getHashOfLatestAccountBlock failed,the err:" + e);
@@ -265,7 +282,8 @@ public class ViteCli {
         AccountBlocksResponse resp = null;
         List<AccountBlock> result = null;
         try {
-            resp = vitej.getAccountBlocks(new Address(miningConfig.getTradeContractAddress()), currentHash, null, cnt).send();
+            resp = vitej.getAccountBlocks(new Address(miningConfig.getTradeContractAddress()), currentHash, null, cnt)
+                    .send();
             result = resp.getResult();
         } catch (Exception e) {
             log.error("getAccountBlocksBelowCurrentHash failed,the err:" + e);
@@ -277,8 +295,8 @@ public class ViteCli {
     public List<AccountBlock> getAccountBlocksByHeightRange(long startHeight, long endHeight) throws IOException {
         List<AccountBlock> result = null;
         try {
-            CommonResponse response = vitej.commonMethod("ledger_getAccountBlocksByHeightRange", miningConfig.getTradeContractAddress(),
-                    startHeight, endHeight).send();
+            CommonResponse response = vitej.commonMethod("ledger_getAccountBlocksByHeightRange",
+                    miningConfig.getTradeContractAddress(), startHeight, endHeight).send();
             result = JSON.parseArray(JSON.toJSONString(response.getResult()), AccountBlock.class);
         } catch (Exception e) {
             log.error("getAccountBlocksByHeightRange failed,the err:" + e);

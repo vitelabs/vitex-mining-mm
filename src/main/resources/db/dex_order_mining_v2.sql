@@ -13,8 +13,7 @@ CREATE TABLE `address_estimate_reward` (
   `ctime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_cyclekey_addr` (`cycle_key`,`address`),
-  KEY `idx_mining_address` (`address`)
+  UNIQUE KEY `unique_address_cyclekey` (`address`,`cycle_key`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4504 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `mining_address_reward` (
@@ -31,9 +30,8 @@ CREATE TABLE `mining_address_reward` (
   `ctime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `mining_address_uindex` (`cycle_key`,`address`),
-  KEY `mining_address_index_address` (`address`),
-  KEY `mining_address_index_data_page` (`data_page`)
+  UNIQUE KEY `uindex_address_cyclekey` (`address`,`cycle_key`),
+  KEY `index_cyclekey_datapage_status` (`cycle_key`,`data_page`,`settle_status`)
 ) ENGINE=InnoDB AUTO_INCREMENT=269006 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `order_mining_market_reward` (
@@ -46,8 +44,7 @@ CREATE TABLE `order_mining_market_reward` (
   `ctime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `mining_address_uindex` (`cycle_key`,`quote_token_type`,`address`),
-  KEY `mining_address_index_address` (`address`)
+  UNIQUE KEY `uindex_address_cyclekey_quote` (`address`,`cycle_key`,`quote_token_type`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5113 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `settle_page` (

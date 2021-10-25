@@ -53,32 +53,32 @@ public class SettleService {
     /**
      * store order mining reward in db 
      * 
-     * @param totalReleasedViteAmount
+     * @param totalReleasedVxAmount
      * @param finalRes
      * @throws IOException
      */
     @Transactional
-    public void saveMiningRewards(FinalResult finalRes, BigDecimal totalReleasedViteAmount, int cycleKey)
+    public void saveMiningRewards(FinalResult finalRes, BigDecimal totalReleasedVxAmount, int cycleKey)
             throws Exception {
         List<MiningAddressReward> miningAddressRewards = new ArrayList<>();
         try {
-            saveMiningRewardToDB(finalRes, totalReleasedViteAmount, cycleKey, miningAddressRewards);
+            saveMiningRewardToDB(finalRes, totalReleasedVxAmount, cycleKey, miningAddressRewards);
         } catch (Exception e) {
             log.error("save and settle vx reward failed ", e);
             throw e;
         }
     }
 
-    public void saveMiningRewardToDB(FinalResult finalRes, BigDecimal totalReleasedViteAmount, int cycleKey,
+    public void saveMiningRewardToDB(FinalResult finalRes, BigDecimal totalReleasedVxAmount, int cycleKey,
             List<MiningAddressReward> miningAddressRewards) {
         Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = finalRes.getOrderMiningFinalRes();
         Map<String, InviteOrderMiningStat> inviteMiningFinalRes = finalRes.getInviteMiningFinalRes();
 
         List<OrderMiningMarketReward> addrMarketRewards = assembleAddrMarketReward(orderMiningFinalRes,
-                totalReleasedViteAmount, cycleKey);
+                totalReleasedVxAmount, cycleKey);
 
         int pageMax = mergeOrderMiningAndInviteReward(orderMiningFinalRes, inviteMiningFinalRes,
-                totalReleasedViteAmount, cycleKey, miningAddressRewards);
+                totalReleasedVxAmount, cycleKey, miningAddressRewards);
 
         List<SettlePage> settlePageList = assembleSettlePage(pageMax, cycleKey, miningAddressRewards);
 
@@ -111,7 +111,7 @@ public class SettleService {
     }
 
     private int mergeOrderMiningAndInviteReward(Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes,
-            Map<String, InviteOrderMiningStat> inviteMiningFinalRes, BigDecimal totalReleasedViteAmount, int cycleKey,
+            Map<String, InviteOrderMiningStat> inviteMiningFinalRes, BigDecimal totalReleasedVxAmount, int cycleKey,
             List<MiningAddressReward> miningAddressRewards) {
         // mining_address
         int i = 0;
@@ -124,7 +124,7 @@ public class SettleService {
             miningAddrReward.setAddress(addr);
             miningAddrReward.setOrderMiningAmount(rewardMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
             miningAddrReward.setOrderMiningPercent(miningAddrReward.getOrderMiningAmount().divide(
-                    totalReleasedViteAmount.multiply(MarketMiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
+                    totalReleasedVxAmount.multiply(MarketMiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
             miningAddrReward.setInviteMiningAmount(BigDecimal.ZERO);
             miningAddrReward.setInviteMiningPercent(BigDecimal.ZERO);
 
@@ -175,7 +175,7 @@ public class SettleService {
     }
 
     private List<OrderMiningMarketReward> assembleAddrMarketReward(
-            Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes, BigDecimal totalReleasedViteAmount,
+            Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes, BigDecimal totalReleasedVxAmount,
             int cycleKey) {
         List<OrderMiningMarketReward> addrMarketRewards = new ArrayList<>();
         // sub-market details
@@ -187,7 +187,7 @@ public class SettleService {
                     addrMarketReward.setQuoteTokenType(market);
                     addrMarketReward.setAmount(vxAmount);
                     addrMarketReward.setCycleKey(cycleKey);
-                    BigDecimal marketShared = totalReleasedViteAmount
+                    BigDecimal marketShared = totalReleasedVxAmount
                             .multiply(BigDecimal.valueOf(MarketMiningConst.getMarketSharedRatio().get(market)));
                     addrMarketReward.setFactorRatio(vxAmount.divide(marketShared, 18, RoundingMode.DOWN));
                     addrMarketReward.setCtime(new Date());

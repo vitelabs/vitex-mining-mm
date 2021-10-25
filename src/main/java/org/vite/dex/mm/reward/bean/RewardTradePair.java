@@ -73,10 +73,12 @@ public class RewardTradePair {
         this.pairSharedVX = this.pairFactorSum.divide(marketFactorSum, 18, RoundingMode.DOWN).multiply(marketSharedVX)
                 .setScale(18, RoundingMode.DOWN);
 
-        this.sellAmountSum = rewardOrders.stream().filter(reward -> reward.getOrderSide()).map(RewardOrder::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        this.buyAmountSum = rewardOrders.stream().filter(reward -> !reward.getOrderSide()).map(RewardOrder::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        this.sellAmountSum = rewardOrders.stream()
+                .filter(reward -> reward.getOrderSide() && reward.getTotalFactor().compareTo(BigDecimal.ZERO) > 0)
+                .map(RewardOrder::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        this.buyAmountSum = rewardOrders.stream()
+                .filter(reward -> !reward.getOrderSide() && reward.getTotalFactor().compareTo(BigDecimal.ZERO) > 0)
+                .map(RewardOrder::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         calcSharedVxOfEachSide();
         calcOrderVx();
@@ -91,19 +93,29 @@ public class RewardTradePair {
         double sellMore = cfg.getMaxSellFactorThanBuy();
         double buyMore = cfg.getMaxBuyFactorThanSell();
         double ratio = 0;
-        if (buyAmountSum.compareTo(sellAmountSum) == -1) {
-            if (sellMore < 1 || sellAmountSum.divide(buyAmountSum, 18, RoundingMode.DOWN).doubleValue() >= sellMore) {
-                ratio = 1 / (sellMore + 1);
-            } else {
-                ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 18, RoundingMode.DOWN).doubleValue();
-            }
+        if (this.sellAmountSum.compareTo(BigDecimal.ZERO) == 0 && this.buyAmountSum.compareTo(BigDecimal.ZERO) == 0) {
+            ratio = 0.5;
+        } else if (this.sellAmountSum.compareTo(BigDecimal.ZERO) == 0) {
+            ratio = 1.0;
+        } else if (this.buyAmountSum.compareTo(BigDecimal.ZERO) == 0) {
+            ratio = 0.0;
         } else {
-            if (buyAmountSum.divide(sellAmountSum, 18, RoundingMode.DOWN).doubleValue() >= buyMore) {
-                ratio = buyMore / (buyMore + 1);
+            if (buyAmountSum.compareTo(sellAmountSum) == -1) {
+                if (sellMore < 1
+                        || sellAmountSum.divide(buyAmountSum, 18, RoundingMode.DOWN).doubleValue() >= sellMore) {
+                    ratio = 1 / (sellMore + 1);
+                } else {
+                    ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 18, RoundingMode.DOWN).doubleValue();
+                }
             } else {
-                ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 18, RoundingMode.DOWN).doubleValue();
+                if (buyAmountSum.divide(sellAmountSum, 18, RoundingMode.DOWN).doubleValue() >= buyMore) {
+                    ratio = buyMore / (buyMore + 1);
+                } else {
+                    ratio = buyAmountSum.divide(sellAmountSum.add(buyAmountSum), 18, RoundingMode.DOWN).doubleValue();
+                }
             }
         }
+
         this.buySharedVx = pairSharedVX.multiply(BigDecimal.valueOf(ratio)).setScale(18, RoundingMode.DOWN);
         this.sellSharedVx = pairSharedVX.multiply(new BigDecimal(1).subtract(BigDecimal.valueOf(ratio))).setScale(18,
                 RoundingMode.DOWN);
@@ -113,20 +125,20 @@ public class RewardTradePair {
      * calculate the amount of VX obtained for each order placed on the trading pair
      */
     private void calcOrderVx() {
-        if (pairSellFactorSum.compareTo(BigDecimal.ZERO) <= 0 || pairBuyFactorSum.compareTo(BigDecimal.ZERO) <= 0) {
-            return;
-        }
-
-        BigDecimal sellSharedVxPerFactor = this.sellSharedVx.divide(pairSellFactorSum, 50, RoundingMode.DOWN);
-        BigDecimal buyShardVxPerFactor = this.buySharedVx.divide(pairBuyFactorSum, 50, RoundingMode.DOWN);
+        BigDecimal sellSharedVxPerFactor = pairSellFactorSum.compareTo(BigDecimal.ZERO) > 0
+                ? this.sellSharedVx.divide(pairSellFactorSum, 50, RoundingMode.DOWN)
+                : BigDecimal.ZERO;
+        BigDecimal buySharedVxPerFactor = pairBuyFactorSum.compareTo(BigDecimal.ZERO) > 0
+                ? this.buySharedVx.divide(pairBuyFactorSum, 50, RoundingMode.DOWN)
+                : BigDecimal.ZERO;
 
         this.rewardOrders.forEach(rewardOrder -> {
-            rewardOrder.applyReward(sellSharedVxPerFactor, buyShardVxPerFactor);
+            rewardOrder.applyReward(sellSharedVxPerFactor, buySharedVxPerFactor);
         });
 
         if (this.inviteRewards != null) {
             this.inviteRewards.forEach(invite -> {
-                invite.applyInviteReward(sellSharedVxPerFactor, buyShardVxPerFactor);
+                invite.applyInviteReward(sellSharedVxPerFactor, buySharedVxPerFactor);
             });
         }
     }
