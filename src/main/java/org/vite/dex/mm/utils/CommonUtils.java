@@ -2,6 +2,7 @@ package org.vite.dex.mm.utils;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
+import org.vite.dex.mm.constant.constants.MarketMiningConst;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
@@ -12,7 +13,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,28 +63,14 @@ public class CommonUtils {
         return tradePairCfgMap;
     }
 
-    // Get the timestamp at 12:30 pm every day
-    public static Long getFixedSnapshotTime() {
-        Calendar c = Calendar.getInstance();
-        c.set(Calendar.HOUR_OF_DAY, 12);
-        c.set(Calendar.MINUTE, 30);
-        c.set(Calendar.SECOND, 0);
-
-        return c.getTime().getTime() / 1000; // seconds
-    }
-
-    // Get the timestamp at 12:00 every day
-    public static Long getFixedEndTime() {
-        Calendar c = Calendar.getInstance();
-        c.set(Calendar.HOUR_OF_DAY, 12);
-        c.set(Calendar.MINUTE, 0);
-        c.set(Calendar.SECOND, 0);
-        
-        return c.getTime().getTime() / 1000; // seconds
+    // Get the timestamp at 12:00 by cycleKey
+    public static Long getTimestampByCyclekey(int cycleKey) {
+        return MarketMiningConst.genesisTimestamp + cycleKey * 24 * 60 * 60;
     }
 
     /**
      * get daily total released VX by cycleKey
+     * 
      * @param cycleKey
      * @return
      */

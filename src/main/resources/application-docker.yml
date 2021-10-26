@@ -12,5 +12,5 @@ spring:
 
 mining:
   nodeServerUrl: "http://127.0.0.1:48132"
-  tradePairSettingUrl: "https://raw.githubusercontent.com/LeonardoBill/vitex-mining-mm/master/src/main/resources/tradepair-setting.json"
+  tradePairSettingUrl: "https://raw.githubusercontent.com/vitelabs/vitex-mining-mm/master/src/main/resources/tradepair-setting.json"
   tradeContractAddress: "vite_00000000000000000000000000000000000000079710f19dc7"

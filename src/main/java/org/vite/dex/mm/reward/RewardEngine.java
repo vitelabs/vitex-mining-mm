@@ -41,12 +41,12 @@ public class RewardEngine {
          * @param endTime  today 12:00 p.m.
          * @throws Exception
          */
-        // @Scheduled(cron = "0 0 13 * * ?")
-        @Scheduled(cron = "0 0 13 * * ?")
+        @Scheduled(cron = "0 0 13 * * ?", zone = "Asia/Singapore")
         public void runDaily() throws Exception {
-                log.info("the runDaily scheduler has been started!");
-                long snapshotTime = CommonUtils.getFixedSnapshotTime();
-                long endTime = CommonUtils.getFixedEndTime();
+                int cycleKey = viteCli.getCurrentCycleKey();
+                log.info("the runDaily scheduler has been started! The cycleKey is: {}", cycleKey);
+                long endTime = CommonUtils.getTimestampByCyclekey(cycleKey);
+                long snapshotTime = endTime + 1800;
                 long prevTime = endTime - 86400;
 
                 Traveller traveller = new Traveller();
@@ -71,15 +71,14 @@ public class RewardEngine {
                                 recoveredOrderBooks.getCurrentHeight(), stream.getStartHeight(), stream.getEndHeight());
 
                 // 3.market-mining
-                int cycleKey = viteCli.getCurrentCycleKey() - 1;
-                BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+                BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey - 1);
                 RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
                 FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
                                 totalReleasedVxAmount, prevTime, endTime);
                 log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
                 // 4. save reward results to DB
-                settleService.saveMiningRewards(finalRes, totalReleasedVxAmount, cycleKey);
+                settleService.saveMiningRewards(finalRes, totalReleasedVxAmount, cycleKey - 1);
         }
 
         /**
@@ -89,10 +88,11 @@ public class RewardEngine {
          * @param estimateNodeTime
          * @throws Exception
          */
-        @Scheduled(cron = "0 30 * * * ?")
+        @Scheduled(cron = "0 30 * * * ?", zone = "Asia/Singapore")
         public void runHalfHour() throws Exception {
-                log.info("the runHalfHour scheduler has been started!");
-                long startTime = CommonUtils.getFixedEndTime();
+                int cycleKey = viteCli.getCurrentCycleKey();
+                log.info("the runHalfHour scheduler has been started! The cycleKey is: {}", cycleKey);
+                long startTime = CommonUtils.getTimestampByCyclekey(cycleKey);
                 long estimateTime = System.currentTimeMillis() / 1000;
                 if (estimateTime < startTime) {
                         startTime = startTime - 86400;
@@ -122,7 +122,7 @@ public class RewardEngine {
 
                 // 3.market-mining
                 RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
-                int cycleKey = viteCli.getCurrentCycleKey();
+                
                 BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
                 FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
                                 totalReleasedVxAmount, startTime, estimateTime);
