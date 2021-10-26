@@ -81,7 +81,7 @@ class DexApplicationTests {
         OrderBookInfo orderBook = viteCli.getOrdersFromMarket("tti_687d8a93915393b219212c73",
                 "tti_80f3751485e4e83456059473", 1000);
         orderBook.getCurrOrders().forEach(t -> {
-            System.out.println(t.getOrderId());
+            log.info("the orderId is: {}", t.getOrderId());
         });
     }
 
@@ -179,7 +179,7 @@ class DexApplicationTests {
         // calc rewards
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey() - 1;
-        BigDecimal totalReleasedVxAmount = viteCli.getVxMineTotalByCyclekey(cycleKey);
+        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
                 totalReleasedVxAmount, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards and invite mining rewards, the result {}",
@@ -220,10 +220,10 @@ class DexApplicationTests {
 
         // 3.market-mining
         int cycleKey = viteCli.getCurrentCycleKey() - 1;
-        BigDecimal totalReleasedVxAmount = viteCli.getVxMineTotalByCyclekey(cycleKey);
+        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
-        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
-                totalReleasedVxAmount, prevTime, endTime);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream, totalReleasedVxAmount,
+                prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
         // 4.write reward results to DB and FundContract chain
@@ -234,9 +234,9 @@ class DexApplicationTests {
     public void testEstimateMarketMining() throws Exception {
         // long snapshotTime = CommonUtils.getFixedSnapshotTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-11 14:20:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-26 15:20:00", new ParsePosition(0)).getTime() / 1000;
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-11 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-26 12:00:00", new ParsePosition(0)).getTime() / 1000;
 
         Traveller traveller = new Traveller();
         List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
@@ -255,11 +255,11 @@ class DexApplicationTests {
         // 3.market-mining
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey();
-        BigDecimal totalReleasedVxAmount = viteCli.getVxMineTotalByCyclekey(cycleKey);
+        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream,
                 totalReleasedVxAmount, startTime, snapshotTime);
         settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
-        System.out.println("the task is end");
+        log.info("the task is end");
     }
 
     @Test
@@ -284,7 +284,7 @@ class DexApplicationTests {
         // calc rewards
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey();
-        BigDecimal totalReleasedVxAmount = viteCli.getVxMineTotalByCyclekey(cycleKey);
+        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
                 totalReleasedVxAmount, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}",
@@ -296,8 +296,8 @@ class DexApplicationTests {
 
     @Test
     public void testGetSnapshotBlockByHeight() throws Exception {
-        List<AccountBlock> a = viteCli.getAccountBlocksByHeightRange(1000, 1000);
-        System.out.println(a);
+        List<AccountBlock> accountBlocks = viteCli.getAccountBlocksByHeightRange(1000, 1000);
+        log.info("getAccountBlocksByHeightRange result: {}", accountBlocks);
     }
 
     @Test
@@ -318,21 +318,21 @@ class DexApplicationTests {
     public void testOrderSideByDecomposeOrderId() throws IOException {
         String sellOrder = "000003010000000c4ddf84758000006112302c000032";
         byte[] orderBytes = sellOrder.getBytes(StandardCharsets.UTF_8);
-        System.out.println(ViteDataDecodeUtils.getOrderSideByParseOrderId(orderBytes));
+        log.info("getOrderSideByParseOrderId result: {}", ViteDataDecodeUtils.getOrderSideByParseOrderId(orderBytes));
     }
 
     @Test
     public void testCTimeByDecomposeOrderId() throws IOException, DecoderException {
         String sellOrder = "000003010000000c4ddf84758000006112302c000032";
         byte[] orderBytes = Hex.decodeHex(sellOrder);
-        System.out.println(ViteDataDecodeUtils.getOrderCTimeByParseOrderId(orderBytes));
+        log.info("cTimeByDecomposeOrderId result: {}", ViteDataDecodeUtils.getOrderCTimeByParseOrderId(orderBytes));
     }
 
     @Test
     public void testPriceByDecomposeOrderId() throws IOException, DecoderException {
         String orderId = "00000300ffffffff4fed5fa0dfff005d94f2bd000014";
         byte[] orderBytes = Hex.decodeHex(orderId);
-        System.out.println(ViteDataDecodeUtils.getPriceByParseOrderId(orderBytes));
+        log.info("priceByDecomposeOrderId result: {}", ViteDataDecodeUtils.getPriceByParseOrderId(orderBytes));
     }
 
     @Test
@@ -341,35 +341,35 @@ class DexApplicationTests {
         String priceStr = "00000000b012a05f2000";
         byte[] orderBytes = Hex.decodeHex(orderId);
         byte[] priceBytes = Hex.decodeHex(priceStr);
-        System.out.println("parseLog: " + BytesUtils.priceToBigDecimal(priceBytes));
-        System.out.println("parseOrderId : " + ViteDataDecodeUtils.getPriceByParseOrderId(orderBytes));
+        log.info("parseLog: {}", BytesUtils.priceToBigDecimal(priceBytes));
+        log.info("parseOrderId : {}", ViteDataDecodeUtils.getPriceByParseOrderId(orderBytes));
     }
 
     @Test
     public void testTradeInfo() throws IOException {
         List<TokenInfo> tokenInfoList = viteCli.getTokenInfoList(0, 1000);
-        System.out.println(tokenInfoList);
+        log.info("tradeInfo: {}", tokenInfoList);
     }
 
     @Test
     public void testTradeInfoById() throws IOException {
         String tokenId = "tti_687d8a93915393b219212c73";
         TokenInfo tokenInfoList = viteCli.getTokenInfo(tokenId);
-        System.out.println(tokenInfoList);
+        log.info("tradeInfoById: {}", tokenInfoList.getTokenId());
     }
 
     @Test
     public void testGetSnapshotBlockBeforeTime() throws IOException {
         long beforeTime = System.currentTimeMillis() / 1000 - 10 * 60;
         SnapshotBlock snapshotBlockBeforeTime = viteCli.getSnapshotBlockBeforeTime(beforeTime);
-        System.out.println(snapshotBlockBeforeTime);
+        log.info("snapshotBlockBeforeTime: {}", snapshotBlockBeforeTime);
     }
 
     @Test
     public void testGetReward() throws IOException {
         long beforeTime = System.currentTimeMillis() / 1000 - 10 * 60;
         SnapshotBlock snapshotBlockBeforeTime = viteCli.getSnapshotBlockBeforeTime(beforeTime);
-        System.out.println(snapshotBlockBeforeTime);
+        log.info("snapshotBlockBeforeTime: {}", snapshotBlockBeforeTime);
     }
 
     @Test
@@ -377,19 +377,19 @@ class DexApplicationTests {
         String tradeTokenId = "tti_687d8a93915393b219212c73";
         String quoteTokenId = "tti_80f3751485e4e83456059473";
         OrderBookInfo orderBookInfo = viteCli.getOrdersFromMarket(tradeTokenId, quoteTokenId, 0, 100, 0, 100);
-        System.out.println(orderBookInfo.getCurrOrders());
+        log.info("orderBookInfo: {}", orderBookInfo);
     }
 
     @Test
     public void testHttpReqUtils() throws IOException {
         List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
-        System.out.println(tradePairs);
+        log.info("tradePairs: {}", tradePairs);
     }
 
     @Test
     public void testGetCurrCycleKey() throws IOException {
         int cycleKey = viteCli.getCurrentCycleKey();
-        System.out.println(cycleKey);
+        log.info("cycleKey: {}", cycleKey);
     }
 
     @Test
@@ -413,7 +413,7 @@ class DexApplicationTests {
         Date date1 = format.parse(dbtime1);
         Date date2 = format.parse(dbtime2);
         int a = (int) ((date2.getTime() - date1.getTime()) / (1000 * 3600 * 24));
-        System.out.println("multi: " + a);
+        log.info("multi: {}", a);
     }
 
     @Test
@@ -421,6 +421,6 @@ class DexApplicationTests {
         List<String> l = Arrays.asList("vite_1934ae0ed27d135ae08a252bb3484824097497c82532b358ff",
                 "vite_2dcdd77a40162c2d5d954691be68bb2cf335124a0752d10ee2");
         Map<String, String> res = viteCli.getInvitee2InviterMap(l);
-        System.out.println(res);
+        log.info("res: {}", res);
     }
 }

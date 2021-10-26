@@ -87,7 +87,6 @@ public class CommonUtils {
      * get daily total released VX by cycleKey
      * @param cycleKey
      * @return
-     * @deprecated
      */
     public static BigDecimal getVxAmountByCycleKey(int cycleKey) {
         int firstPeriodId = 199;

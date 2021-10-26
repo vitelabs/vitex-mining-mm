@@ -78,10 +78,9 @@ public class RewardOrder {
                     .multiply(BigDecimal.valueOf(cfg.getMiningRewardMultiple())).setScale(18, RoundingMode.DOWN);
 
             if (factor.compareTo(BigDecimal.ZERO) == -1) {
-                System.out.println(
-                        String.format("amount is %s,time slap is %s,the factor is %s,orderID - %s,orderside - %s",
-                                orderModel.getAmount(), endTime - startTime, factor, orderModel.getOrderId(),
-                                orderModel.isSide()));
+                log.warn("factor is negative, the amount {}, time slap {}, factor {}, orderID {}, orderside {}",
+                        orderModel.getAmount(), endTime - startTime, factor, orderModel.getOrderId(),
+                        orderModel.isSide());
             }
             totalFactor = totalFactor.add(factor);
         }

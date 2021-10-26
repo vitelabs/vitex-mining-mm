@@ -16,5 +16,4 @@
 
 
 ### 1.3 **Somethings to note**
-- As long as the program has been started, it is necessary to recalculate the order mining results of the previous cycle.
-- A certain cycle starts at 12:00 p.m. yesterday and ends at 12 p.m. today. Therefore, the mining results of the previous cycle will not be calculated until 12:00 today.
+- The previous cycle starts at 12:00 p.m. yesterday and ends at 12 p.m. today. Therefore, the mining results of the previous cycle will be calculated on 13:00 p.m today.
