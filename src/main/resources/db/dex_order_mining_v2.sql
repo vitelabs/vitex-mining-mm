@@ -1,4 +1,6 @@
 -- 建dex_order_mining_v2库
+CREATE DATABASE `dex_order_mining_v2` /*!40100 DEFAULT CHARACTER SET utf8mb4 */;
+
 use dex_order_mining_v2;
 
 CREATE TABLE `address_estimate_reward` (
@@ -14,7 +16,7 @@ CREATE TABLE `address_estimate_reward` (
   `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unique_address_cyclekey` (`address`,`cycle_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=4504 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `mining_address_reward` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -32,7 +34,7 @@ CREATE TABLE `mining_address_reward` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uindex_address_cyclekey` (`address`,`cycle_key`),
   KEY `index_cyclekey_datapage_status` (`cycle_key`,`data_page`,`settle_status`)
-) ENGINE=InnoDB AUTO_INCREMENT=269006 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `order_mining_market_reward` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -45,7 +47,7 @@ CREATE TABLE `order_mining_market_reward` (
   `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uindex_address_cyclekey_quote` (`address`,`cycle_key`,`quote_token_type`)
-) ENGINE=InnoDB AUTO_INCREMENT=5113 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `settle_page` (
   `id` bigint unsigned NOT NULL AUTO_INCREMENT,
@@ -57,4 +59,4 @@ CREATE TABLE `settle_page` (
   `ctime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3412 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
