@@ -1,0 +1,14 @@
+syntax = "proto3";
+option java_package = "org.vite.data.dex.bean.proto";
+option java_outer_classname = "DexOrderMiningRequest";
+
+message VxSettleAction {
+    bytes Address = 1;
+    bytes Amount = 2;
+}
+
+message VxSettleActions {
+    uint64 Period = 1;
+    int32 Page = 2;
+    repeated VxSettleAction actions = 3;
+}
