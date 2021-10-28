@@ -8,11 +8,13 @@ import org.vite.dex.mm.constant.constants.MarketMiningConst;
 import org.vite.dex.mm.constant.enums.QuoteMarketType;
 import org.vite.dex.mm.constant.enums.SettleStatus;
 import org.vite.dex.mm.entity.AddressEstimateReward;
+import org.vite.dex.mm.entity.CycleKeyRecord;
 import org.vite.dex.mm.entity.InviteOrderMiningStat;
 import org.vite.dex.mm.entity.MiningAddressReward;
 import org.vite.dex.mm.entity.OrderMiningMarketReward;
 import org.vite.dex.mm.entity.SettlePage;
 import org.vite.dex.mm.mapper.AddressEstimateRewardRepository;
+import org.vite.dex.mm.mapper.CycleKeyRecordRepository;
 import org.vite.dex.mm.mapper.MiningAddressRewardRepository;
 import org.vite.dex.mm.mapper.OrderMiningMarketRewardRepository;
 import org.vite.dex.mm.mapper.SettlePageRepository;
@@ -45,6 +47,9 @@ public class SettleService {
 
     @Autowired
     SettlePageRepository settlePageRepo;
+
+    @Autowired
+    CycleKeyRecordRepository cycleKeyRecordRepo;
 
     public SettleService(ViteCli viteCli) {
         this.viteCli = viteCli;
@@ -226,5 +231,17 @@ public class SettleService {
         // save db
         addrEstimateRewardRepo.deleteAll();
         addrEstimateRewardRepo.saveAll(estimateRewards);
+    }
+
+    public void addCycleKeyRecord(int cycleKey) throws IOException {
+        CycleKeyRecord record = new CycleKeyRecord();
+        record.setCycleKey(cycleKey);
+        record.setCtime(new Date());
+        record.setUtime(new Date());
+        cycleKeyRecordRepo.save(record);
+    }
+
+    public List<CycleKeyRecord> getCycleKeyRecords(int cycleKey) throws IOException {
+        return cycleKeyRecordRepo.findByCycleKey(cycleKey);
     }
 }
