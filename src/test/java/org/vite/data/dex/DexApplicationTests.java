@@ -73,8 +73,7 @@ class DexApplicationTests {
     SettleService settleService;
 
     @Test
-    void contextLoads() {
-    }
+    void contextLoads() {}
 
     @Test
     public void testGetOrderBooks() throws Exception {
@@ -92,7 +91,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
 
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-25 12:30:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-28 12:30:00", new ParsePosition(0)).getTime() / 1000;
 
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
@@ -115,7 +114,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
         TradeRecover tradeRecover = new TradeRecover();
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-24 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-27 12:00:00", new ParsePosition(0)).getTime() / 1000;
         // unserialize from snapshot
         OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_snapshot.raw")),
                 OrderBooksData.class);
@@ -159,9 +158,9 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMiningFromFile() throws Exception {
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-24 12:00:00", new ParsePosition(0))
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-27 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-25 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-28 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         // unserialize
@@ -422,5 +421,12 @@ class DexApplicationTests {
                 "vite_2dcdd77a40162c2d5d954691be68bb2cf335124a0752d10ee2");
         Map<String, String> res = viteCli.getInvitee2InviterMap(l);
         log.info("res: {}", res);
+    }
+
+    @Test
+    public void testTotalReleasedVxAmount() throws Exception {
+        int cycleKey = 200;
+        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+        System.out.println(String.format("the totalReleasedVxAmount: %s", totalReleasedVxAmount));
     }
 }
