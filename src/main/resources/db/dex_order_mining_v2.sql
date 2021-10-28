@@ -60,3 +60,12 @@ CREATE TABLE `settle_page` (
   `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE `cyclekey_record` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `cycle_key` bigint unsigned NOT NULL COMMENT '确认周期',
+  `ctime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_cyclekey` (`cycle_key`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

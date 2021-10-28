@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.vite.dex.mm.config.MiningConfiguration;
+import org.vite.dex.mm.entity.CycleKeyRecord;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.orderbook.BlockEventStream;
 import org.vite.dex.mm.orderbook.OrderBooks;
@@ -44,11 +45,17 @@ public class RewardEngine {
 	@Scheduled(cron = "0 0 13 * * ?", zone = "Asia/Singapore")
 	public void runDaily() throws Exception {
 		int cycleKey = viteCli.getCurrentCycleKey();
-		log.info("the runDaily scheduler has been started! The cycleKey is: {}", cycleKey);
+		List<CycleKeyRecord> records = settleService.getCycleKeyRecords(cycleKey);
+		if (!records.isEmpty()) {
+			log.warn("the reward calc of cycleKey {} has been triggered", cycleKey);
+			return;
+		}
+		settleService.addCycleKeyRecord(cycleKey);
+		log.info("the runDaily reward calc is start! The cycleKey is: {}", cycleKey);
+		
 		long endTime = CommonUtils.getTimestampByCyclekey(cycleKey);
 		long snapshotTime = endTime + 1800;
 		long prevTime = endTime - 86400;
-
 		Traveller traveller = new Traveller();
 		Tokens tokens = viteCli.getAllTokenInfos();
 		List<TradePair> tradePairs = CommonUtils

@@ -8,11 +8,13 @@ import org.vite.dex.mm.constant.constants.MarketMiningConst;
 import org.vite.dex.mm.constant.enums.QuoteMarketType;
 import org.vite.dex.mm.constant.enums.SettleStatus;
 import org.vite.dex.mm.entity.AddressEstimateReward;
+import org.vite.dex.mm.entity.CycleKeyRecord;
 import org.vite.dex.mm.entity.InviteOrderMiningStat;
 import org.vite.dex.mm.entity.MiningAddressReward;
 import org.vite.dex.mm.entity.OrderMiningMarketReward;
 import org.vite.dex.mm.entity.SettlePage;
 import org.vite.dex.mm.mapper.AddressEstimateRewardRepository;
+import org.vite.dex.mm.mapper.CycleKeyRecordRepository;
 import org.vite.dex.mm.mapper.MiningAddressRewardRepository;
 import org.vite.dex.mm.mapper.OrderMiningMarketRewardRepository;
 import org.vite.dex.mm.mapper.SettlePageRepository;
@@ -23,9 +25,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -45,6 +49,9 @@ public class SettleService {
 
     @Autowired
     SettlePageRepository settlePageRepo;
+
+    @Autowired
+    CycleKeyRecordRepository cycleKeyRecordRepo;
 
     public SettleService(ViteCli viteCli) {
         this.viteCli = viteCli;
@@ -98,6 +105,10 @@ public class SettleService {
             final int datePage = m;
             List<MiningAddressReward> miningAddressSubList = miningAddressRewards.stream()
                     .filter(t -> t.getDataPage() == datePage).collect(Collectors.toList());
+            if (miningAddressSubList.isEmpty()) {
+                continue;
+            }
+
             BigDecimal pageTotalAmount = miningAddressSubList.stream().map(MiningAddressReward::getTotalReward)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             settlePage.setAmount(pageTotalAmount);
@@ -113,7 +124,7 @@ public class SettleService {
     private int mergeOrderMiningAndInviteReward(Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes,
             Map<String, InviteOrderMiningStat> inviteMiningFinalRes, BigDecimal totalReleasedVxAmount, int cycleKey,
             List<MiningAddressReward> miningAddressRewards) {
-        // mining_address
+        // mining_address_reward
         int i = 0;
         for (Map.Entry<String, Map<Integer, BigDecimal>> entry : orderMiningFinalRes.entrySet()) {
             String addr = entry.getKey();
@@ -171,7 +182,31 @@ public class SettleService {
                 }
             }
         }
+
+        fulfillSettlePool(miningAddressRewards, totalReleasedVxAmount);
         return i / 30 + 1;
+    }
+
+    // fill in the missing part of the amount to the one with the largest reward
+    private void fulfillSettlePool(List<MiningAddressReward> miningAddressRewards,
+            BigDecimal totalReleasedVxAmount) {
+        BigDecimal totalAllocationAmount = miningAddressRewards.stream().map(MiningAddressReward::getTotalReward)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalOrderMiningAmount =
+                totalReleasedVxAmount.multiply(MarketMiningConst.MARKET_MINING_RATIO).setScale(18, RoundingMode.DOWN);
+        BigDecimal diff = totalOrderMiningAmount.subtract(totalAllocationAmount).abs().setScale(18, RoundingMode.DOWN);
+
+        BigDecimal maxMiningReward = miningAddressRewards.stream().map(MiningAddressReward::getTotalReward)
+                .max((x1, x2) -> x1.compareTo(x2)).get();
+
+        BigDecimal newMaxReward = maxMiningReward.add(diff).add(new BigDecimal("0.0000000001"));
+
+        Optional<MiningAddressReward> maxOne =
+                miningAddressRewards.stream().max(Comparator.comparing(a -> a.getTotalReward()));
+        MiningAddressReward miningAddressReward = maxOne.get();
+
+        miningAddressReward.setTotalReward(newMaxReward);
     }
 
     private List<OrderMiningMarketReward> assembleAddrMarketReward(
@@ -226,5 +261,17 @@ public class SettleService {
         // save db
         addrEstimateRewardRepo.deleteAll();
         addrEstimateRewardRepo.saveAll(estimateRewards);
+    }
+
+    public void addCycleKeyRecord(int cycleKey) throws IOException {
+        CycleKeyRecord record = new CycleKeyRecord();
+        record.setCycleKey(cycleKey);
+        record.setCtime(new Date());
+        record.setUtime(new Date());
+        cycleKeyRecordRepo.save(record);
+    }
+
+    public List<CycleKeyRecord> getCycleKeyRecords(int cycleKey) throws IOException {
+        return cycleKeyRecordRepo.findByCycleKey(cycleKey);
     }
 }
