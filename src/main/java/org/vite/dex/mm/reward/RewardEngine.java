@@ -96,7 +96,7 @@ public class RewardEngine {
 	 * @param estimateNodeTime
 	 * @throws Exception
 	 */
-	@Scheduled(cron = "0 30 * * * ?", zone = "Asia/Singapore")
+	@Scheduled(cron = "0 20,50 * * * ?", zone = "Asia/Singapore")
 	public void runHalfHour() throws Exception {
 		int cycleKey = viteCli.getCurrentCycleKey();
 		log.info("the runHalfHour scheduler has been started! The cycleKey is: {}", cycleKey);
