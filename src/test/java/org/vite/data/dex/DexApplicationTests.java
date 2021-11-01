@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
 import org.vite.dex.mm.config.MiningConfiguration;
+import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.entity.OrderBookInfo;
 import org.vite.dex.mm.entity.OrderMiningMarketReward;
@@ -91,7 +92,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
 
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-28 12:30:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-31 12:10:00", new ParsePosition(0)).getTime() / 1000;
 
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
@@ -114,7 +115,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
         TradeRecover tradeRecover = new TradeRecover();
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-27 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-10-30 12:00:00", new ParsePosition(0)).getTime() / 1000;
         // unserialize from snapshot
         OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_snapshot.raw")),
                 OrderBooksData.class);
@@ -158,9 +159,9 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMiningFromFile() throws Exception {
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-27 12:00:00", new ParsePosition(0))
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-30 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-28 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-31 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         // unserialize
@@ -294,8 +295,9 @@ class DexApplicationTests {
     }
 
     @Test
-    public void testGetSnapshotBlockByHeight() throws Exception {
-        List<AccountBlock> accountBlocks = viteCli.getAccountBlocksByHeightRange(1000, 1000);
+    public void testGetAccountBlocksByHeightRange() throws Exception {
+        List<AccountBlock> accountBlocks =
+                viteCli.getAccountBlocksByHeightRange(MiningConst.TRADE_CONTRACT_ADDR, 1000, 1000);
         log.info("getAccountBlocksByHeightRange result: {}", accountBlocks);
     }
 

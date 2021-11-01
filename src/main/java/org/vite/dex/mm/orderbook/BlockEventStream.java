@@ -1,6 +1,7 @@
 package org.vite.dex.mm.orderbook;
 
 import com.google.common.collect.Lists;
+import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.entity.AccBlockVmLogs;
 import org.vite.dex.mm.entity.BlockEvent;
 import org.vite.dex.mm.utils.client.ViteCli;
@@ -46,7 +47,8 @@ public class BlockEventStream {
 
 	// get vmLogs between startHeight and endHeight and parse them into BlockEvent
 	public void init(ViteCli viteCli, Tokens tokens) throws IOException {
-		List<AccBlockVmLogs> accBlockVmlogList = viteCli.getAccBlockVmLogsByHeightRange(startHeight, endHeight, 1000);
+		List<AccBlockVmLogs> accBlockVmlogList =
+				viteCli.getAccBlockVmLogsByHeightRange(MiningConst.TRADE_CONTRACT_ADDR, startHeight, endHeight, 500);
 
 		for (AccBlockVmLogs accBlockVmLogs : accBlockVmlogList) {
 			BlockEvent blockEvent = BlockEvent.fromAccBlockVmlogs(accBlockVmLogs, tokens);
@@ -56,7 +58,7 @@ public class BlockEventStream {
 
 	// inject block`timestamp to OrderEvent
 	public void patchTimestampToOrderEvent(ViteCli viteCli) throws IOException {
-		Map<String, AccountBlock> accountBlockMap = viteCli.getAccountBlockMap(startHeight, endHeight);
+		Map<String, AccountBlock> accountBlockMap = viteCli.getTradeContractAccBlockMap(startHeight, endHeight);
 		patchTimestampToOrderEvent(accountBlockMap);
 	}
 

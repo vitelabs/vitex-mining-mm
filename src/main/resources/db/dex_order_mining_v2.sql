@@ -55,7 +55,7 @@ CREATE TABLE `settle_page` (
   `data_page` int NOT NULL COMMENT '页码',
   `amount` decimal(58,18) NOT NULL DEFAULT '0.000000000000000000' COMMENT 'VX占比',
   `settle_status` tinyint unsigned NOT NULL COMMENT '0:未发放,1:发放中，2：已发放，3：确认完成',
-  `block_hash` varchar(45) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `block_hash` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `ctime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `utime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)

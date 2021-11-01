@@ -4,7 +4,7 @@ import com.google.common.collect.Maps;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.vite.dex.mm.config.MiningConfiguration;
-import org.vite.dex.mm.constant.constants.MarketMiningConst;
+import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.entity.InviteOrderMiningReward;
 import org.vite.dex.mm.entity.InviteOrderMiningStat;
 import org.vite.dex.mm.orderbook.BlockEventStream;
@@ -49,8 +49,8 @@ public class RewardKeeper implements IOrderEventHandleAware {
             Map<String, MiningRewardCfg> tradePairCfgMap) throws IOException {
 
         log.info("start onwarding for orderbooks and calc the market mining factor of orders");
-        Long startHeight = viteCli.getContractChainHeight(startTime) + 1;
-        Long endHeight = viteCli.getContractChainHeight(endTime);
+        Long startHeight = viteCli.getChainHeightByAddrAndTime(MiningConst.TRADE_CONTRACT_ADDR, startTime) + 1;
+        Long endHeight = viteCli.getChainHeightByAddrAndTime(MiningConst.TRADE_CONTRACT_ADDR, endTime);
         stream = stream.subStream(startHeight, endHeight);
 
         MminingAware aware = new MminingAware(startTime, endTime, tradePairCfgMap);
@@ -97,7 +97,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
                 new RewardMarket(market, rewardOrderList, marketInviteRewards.get(market), tradePairCfgMap)));
 
         marketRewards.values().forEach(rewardMarket -> {
-            double marketSharedRatio = MarketMiningConst.getMarketSharedRatio().get(rewardMarket.getMarket());
+            double marketSharedRatio = MiningConst.getMarketSharedRatio().get(rewardMarket.getMarket());
             rewardMarket.apply(dailyReleasedVX, marketSharedRatio);
         });
 
@@ -127,7 +127,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
             inviteOrderMiningStat.setAddress(address);
             inviteOrderMiningStat.setAmount(inviteAmount);
             inviteOrderMiningStat.setRatio(inviteAmount
-                    .divide(dailyReleasedVX.multiply(MarketMiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
+                    .divide(dailyReleasedVX.multiply(MiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
             inviteMiningFinalRes.put(address, inviteOrderMiningStat);
         });
 
@@ -156,7 +156,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
             if (addr != null && invitee2InviterMap.containsKey(addr)) {
                 InviteOrderMiningReward inviteeReward = new InviteOrderMiningReward();
                 inviteeReward.setOrderId(orderId);
-                inviteeReward.setFactor(rewardOrder.getTotalFactor().multiply(MarketMiningConst.PERCENT_00125));
+                inviteeReward.setFactor(rewardOrder.getTotalFactor().multiply(MiningConst.PERCENT_00125));
                 inviteeReward.setAddress(addr);
                 inviteeReward.setMarket(rewardOrder.getMarket());
                 inviteeReward.setTradePair(rewardOrder.getTradePair());
@@ -167,7 +167,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
                 String inviterAddr = invitee2InviterMap.get(addr);
                 InviteOrderMiningReward inviterReward = new InviteOrderMiningReward();
                 inviterReward.setOrderId(orderId);
-                inviterReward.setFactor(rewardOrder.getTotalFactor().multiply(MarketMiningConst.PERCENT_25));
+                inviterReward.setFactor(rewardOrder.getTotalFactor().multiply(MiningConst.PERCENT_25));
                 inviterReward.setAddress(inviterAddr);
                 inviterReward.setMarket(rewardOrder.getMarket());
                 inviterReward.setTradePair(rewardOrder.getTradePair());

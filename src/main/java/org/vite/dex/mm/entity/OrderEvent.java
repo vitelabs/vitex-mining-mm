@@ -53,16 +53,16 @@ public class OrderEvent {
 
     public void parse(Vmlog vmlog, AccBlockVmLogs vmlogs, Tokens tokens) {
         try {
-            byte[] event = vmlog.getData();
+            byte[] eventData = vmlog.getData();
             EventType eventType = getEventType(vmlog.getTopicsRaw());
             switch (eventType) {
             case NewOrder:
-                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(event);
+                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(eventData);
                 this.setType(NewOrder);
                 this.orderLog = OrderLog.fromNewOrder(dexOrder, vmlog);
                 break;
             case UpdateOrder:
-                DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(event);
+                DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(eventData);
                 OrderTx tx = vmlogs.getTx(Hex.toHexString(orderUpdateInfo.getId().toByteArray()));
                 this.orderLog = OrderLog.fromUpdateOrder(orderUpdateInfo, vmlog, tx, tokens);
                 this.setType(UpdateOrder);

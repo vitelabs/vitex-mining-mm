@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.stereotype.Component;
 import org.vite.dex.mm.config.MiningConfiguration;
+import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.entity.AccBlockVmLogs;
 import org.vite.dex.mm.entity.CurrentOrder;
 import org.vite.dex.mm.entity.OrderBookInfo;
@@ -129,6 +130,7 @@ public class ViteCli {
             log.error("getCurrentCycleKey failed,the err:" + e);
             throw e;
         }
+
         return cycleKey;
     }
 
@@ -139,51 +141,56 @@ public class ViteCli {
             BigDecimal total = JSONObject.parseObject(JSON.toJSONString(response.getResult())).getBigDecimal("total");
             totalMineVx = total.divide(new BigDecimal(10).pow(18), 18, RoundingMode.DOWN);
         } catch (Exception e) {
-            log.error("getCurrentCycleKey failed,the err:" + e);
+            log.error("getVxMineTotalByCyclekey failed,the err:" + e);
             throw e;
         }
+
         return totalMineVx;
     }
 
-    public AccountBlock getLatestAccountBlock() throws IOException {
+    public AccountBlock getLatestAccountBlock(String addr) throws IOException {
         AccountBlock block = null;
         try {
-            AccountBlockResponse response = vitej
-                    .getLatestAccountBlock(new Address(miningConfig.getTradeContractAddress())).send();
+            AccountBlockResponse response = vitej.getLatestAccountBlock(new Address(addr)).send();
             block = response.getResult();
         } catch (Exception e) {
             log.error("getLatestAccountBlock failed,the err:" + e);
             throw e;
         }
+
         return block;
     }
 
-    public Long getLatestAccountHeight() throws IOException {
+    public Long getLatestAccountBlockHeight(String contractAddr) throws IOException {
         AccountBlock block = null;
         try {
             AccountBlockResponse response = vitej
-                    .getLatestAccountBlock(new Address(miningConfig.getTradeContractAddress())).send();
+                    .getLatestAccountBlock(new Address(contractAddr)).send();
             block = response.getResult();
         } catch (Exception e) {
             log.error("getHashOfLatestAccountBlock failed,the err:" + e);
             throw e;
         }
+
         if (block == null) {
             throw new IOException("get contract height fail");
         }
+
         return block.getHeight();
     }
 
     /**
-     * get events by height range [start,end]
+     * get chain events by height range [start,end]
      *
+     * @param addr 
      * @param startHeight
      * @param endHeight
      * @param pageSize
      * @return
      * @throws IOException
      */
-    public List<VmLogInfo> getEventsByHeightRange(long startHeight, long endHeight, int pageSize) throws IOException {
+    public List<VmLogInfo> getChainEventsByHeightRange(String addr, long startHeight, long endHeight, int pageSize)
+            throws IOException {
         if (startHeight > endHeight) {
             return Collections.emptyList();
         }
@@ -202,7 +209,7 @@ public class ViteCli {
             }
 
             // [from,to)
-            VmLogFilter filter = new VmLogFilter(new Address(miningConfig.getTradeContractAddress()), from, to - 1);
+            VmLogFilter filter = new VmLogFilter(new Address(addr), from, to - 1);
             VmlogInfosResponse resp = vitej.getVmlogsByFilter(filter).send();
             List<VmLogInfo> eventsByPage = resp.getResult();
             if (eventsByPage == null || eventsByPage.isEmpty()) {
@@ -215,8 +222,8 @@ public class ViteCli {
         return events;
     }
 
-    public List<AccountBlock> getAccoutBlocksByHeightRangePaging(long startHeight, long endHeight, int pageSize)
-            throws IOException {
+    public List<AccountBlock> getAccoutBlocksByHeightRangePaging(String addr, long startHeight, long endHeight,
+            int pageSize) throws IOException {
         if (startHeight > endHeight) {
             return Collections.emptyList();
         }
@@ -235,7 +242,7 @@ public class ViteCli {
             }
 
             // [from,to]
-            List<AccountBlock> blocks = getAccountBlocksByHeightRange(from, to);
+            List<AccountBlock> blocks = getAccountBlocksByHeightRange(addr, from, to);
             if (blocks == null || blocks.isEmpty()) {
                 break;
             }
@@ -255,9 +262,11 @@ public class ViteCli {
      * @return
      * @throws IOException
      */
-    public List<AccBlockVmLogs> getAccBlockVmLogsByHeightRange(long startHeight, long endHeight, int pageSize)
+    public List<AccBlockVmLogs> getAccBlockVmLogsByHeightRange(String addr, long startHeight, long endHeight,
+            int pageSize)
             throws IOException {
-        List<VmLogInfo> vmlogs = getEventsByHeightRange(startHeight, endHeight, pageSize);
+        List<VmLogInfo> vmlogs =
+                getChainEventsByHeightRange(addr, startHeight, endHeight, pageSize);
         if (CollectionUtils.isEmpty(vmlogs)) {
             return Collections.emptyList();
         }
@@ -278,30 +287,36 @@ public class ViteCli {
         return result;
     }
 
-    public List<AccountBlock> getAccountBlocksBelowCurrentHash(Hash currentHash, int cnt) throws IOException {
+    public List<AccountBlock> getAccountBlocksBelowCurrentHash(String addr, Hash currentHash, int cnt)
+            throws IOException {
         AccountBlocksResponse resp = null;
         List<AccountBlock> result = null;
         try {
-            resp = vitej.getAccountBlocks(new Address(miningConfig.getTradeContractAddress()), currentHash, null, cnt)
-                    .send();
+            resp = vitej.getAccountBlocks(new Address(addr), currentHash, null, cnt).send();
             result = resp.getResult();
         } catch (Exception e) {
             log.error("getAccountBlocksBelowCurrentHash failed,the err:" + e);
             throw e;
         }
+
         return result;
     }
 
-    public List<AccountBlock> getAccountBlocksByHeightRange(long startHeight, long endHeight) throws IOException {
+    public List<AccountBlock> getAccountBlocksByHeightRange(String addr, long startHeight, long endHeight)
+            throws IOException {
         List<AccountBlock> result = null;
-        try {
-            CommonResponse response = vitej.commonMethod("ledger_getAccountBlocksByHeightRange",
-                    miningConfig.getTradeContractAddress(), startHeight, endHeight).send();
-            result = JSON.parseArray(JSON.toJSONString(response.getResult()), AccountBlock.class);
-        } catch (Exception e) {
-            log.error("getAccountBlocksByHeightRange failed,the err:" + e);
-            throw e;
+
+        for (int retryNum = 0; retryNum < MiningConst.MAX_RETRY_NUM; retryNum++) {
+            try {
+                CommonResponse response = vitej.commonMethod("ledger_getAccountBlocksByHeightRange",
+                        addr, startHeight, endHeight).send();
+                result = JSON.parseArray(JSON.toJSONString(response.getResult()), AccountBlock.class);
+            } catch (Exception e) {
+                log.error("getAccountBlocksByHeightRange failed,the err:" + e);
+                throw e;
+            }
         }
+
         return result;
     }
 
@@ -315,6 +330,7 @@ public class ViteCli {
             log.error("getTokenInfoList failed,the err:" + e);
             throw e;
         }
+
         return result;
     }
 
@@ -334,38 +350,41 @@ public class ViteCli {
 
         Map<String, TokenInfo> tokenId2TokenInfoMap = allTokenInfos.stream()
                 .collect(Collectors.toMap(TokenInfo::getTokenIdRaw, tokenInfo -> tokenInfo, (k1, k2) -> k1));
+
         return new Tokens(tokenId2TokenInfoMap);
     }
 
-    public Long getContractChainHeight(long time) throws IOException {
+    public Long getChainHeightByAddrAndTime(String addr, long time) throws IOException {
         SnapshotBlock snapshotBlock = this.getSnapshotBlockBeforeTime(time);
         Long endHeight = snapshotBlock.getHeight();
 
         while (true) {
             Map<String, SnapshotBlock.HashHeight> snapshotContent = snapshotBlock.getSnapshotDataRaw();
-            if (snapshotContent != null && snapshotContent.containsKey(miningConfig.getTradeContractAddress())) {
-                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(miningConfig.getTradeContractAddress());
+            if (snapshotContent != null && snapshotContent.containsKey(addr)) {
+                SnapshotBlock.HashHeight hashHeight = snapshotContent.get(addr);
                 endHeight = hashHeight.getHeight();
                 break;
             }
             endHeight--;
             snapshotBlock = this.getSnapshotBlockByHeight(endHeight);
         }
+
         return endHeight;
     }
 
-    // TODOthe vitej api has a bug!use the alternative ones
+    // the vitej api has a bug!use the alternative ones
     public SnapshotBlock getSnapshotBlockByHeight(long height) throws IOException {
         SnapshotBlocksResponse resp = null;
         SnapshotBlock result = null;
         try {
-            resp = vitej.getSnapshotBlocks(height, 1).send();
             // resp = vitej.getSnapshotBlockByHeight(height).send();
+            resp = vitej.getSnapshotBlocks(height, 1).send();
             result = resp.getResult().get(0);
         } catch (Exception e) {
-            log.error("getSnapshotBlockByHeight failed,the err:" + e);
+            log.error("getSnapshotBlockByHeight failed, the err:" + e);
             throw e;
         }
+
         return result;
     }
 
@@ -379,6 +398,7 @@ public class ViteCli {
             log.error("getTokenInfo failed,the err:" + e);
             throw e;
         }
+
         return result;
     }
 
@@ -391,6 +411,7 @@ public class ViteCli {
             log.error("getSnapshotBlockBeforeTime failed,the err:" + e);
             throw e;
         }
+
         return snapshotBlock;
     }
 
@@ -411,6 +432,7 @@ public class ViteCli {
             if (response.getResult() == null) {
                 return orderBookInfo;
             }
+
             JSONArray jsonArr = JSONObject.parseObject(JSON.toJSONString(response.getResult())).getJSONArray("orders");
             Long queryEndHeight = JSONObject.parseObject(JSON.toJSONString(response.getResult()))
                     .getJSONObject("queryEnd").getLong("height");
@@ -423,6 +445,7 @@ public class ViteCli {
             log.error("getOrderBook failed,the err:" + e);
             throw e;
         }
+
         return orderBookInfo;
     }
 
@@ -440,6 +463,7 @@ public class ViteCli {
         List<Long> heights = Lists.newLinkedList();
         Long maxHeight = 0l;
         int idx = 0;
+
         while (true) {
             OrderBookInfo orderBookInfo = getOrdersFromMarket(tradeTokenId, quoteTokenId, pageCnt * idx,
                     pageCnt * (idx + 1), pageCnt * idx, pageCnt * (idx + 1));
@@ -452,17 +476,16 @@ public class ViteCli {
             });
 
             heights.add(orderBookInfo.getCurrBlockheight());
-
             if (orderBookInfo.getCurrOrders().size() < pageCnt) {
                 break;
             }
-
             idx++;
         }
 
         if (heights.size() > 0) {
             maxHeight = heights.stream().max(Long::compareTo).get();
         }
+
         return OrderBookInfo.fromOrderModelsAndHeight(orderModels, maxHeight);
     }
 
@@ -475,11 +498,11 @@ public class ViteCli {
      * @return
      * @throws IOException
      */
-    private List<AccountBlock> getAccountBlocks(long startTime, Hash endHash) throws IOException {
+    private List<AccountBlock> getAccountBlocksBelowHash(String addr, long startTime, Hash endHash) throws IOException {
         List<AccountBlock> blocks = Lists.newArrayList();
         while (true) {
             // the result contains the endHash block [startHash, endHash]
-            List<AccountBlock> result = getAccountBlocksBelowCurrentHash(endHash, 1000);
+            List<AccountBlock> result = getAccountBlocksBelowCurrentHash(addr, endHash, 1000);
             if (CollectionUtils.isEmpty(result)) {
                 break;
             }
@@ -513,7 +536,7 @@ public class ViteCli {
         }
 
         Map<String, AccountBlock> accountBlockMap = Maps.newHashMap();
-        List<AccountBlock> blocks = getAccountBlocks(startTime, currentHash);
+        List<AccountBlock> blocks = getAccountBlocksBelowHash(MiningConst.TRADE_CONTRACT_ADDR, startTime, currentHash);
         if (CollectionUtils.isEmpty(blocks)) {
             return null;
         }
@@ -526,8 +549,9 @@ public class ViteCli {
         return accountBlockMap;
     }
 
-    public Map<String, AccountBlock> getAccountBlockMap(long startHeight, long endHeight) throws IOException {
-        List<AccountBlock> blocks = getAccoutBlocksByHeightRangePaging(startHeight, endHeight, 2000);
+    public Map<String, AccountBlock> getTradeContractAccBlockMap(long startHeight, long endHeight) throws IOException {
+        List<AccountBlock> blocks =
+                getAccoutBlocksByHeightRangePaging(MiningConst.TRADE_CONTRACT_ADDR, startHeight, endHeight, 500);
         if (CollectionUtils.isEmpty(blocks)) {
             return null;
         }
@@ -548,6 +572,7 @@ public class ViteCli {
             log.error("getInvitee2InviterMap failed,the err:" + e);
             throw e;
         }
+
         return invitee2InviterMap;
     }
 

@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
+import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.OrderModel;
 import org.vite.dex.mm.model.proto.DexTradeEvent;
@@ -46,7 +47,7 @@ public class TradeRecover {
      */
     public RecoverResult recoverInTime(OrderBooks orderBooks, Long time, Tokens tokens, ViteCli viteCli)
             throws IOException {
-        Long startHeight = viteCli.getContractChainHeight(time) + 1;
+        Long startHeight = viteCli.getChainHeightByAddrAndTime(MiningConst.TRADE_CONTRACT_ADDR, time) + 1;
         Long endHeight = orderBooks.getCurrentHeight() - 1;
         BlockEventStream stream = new BlockEventStream(startHeight, endHeight);
         stream.init(viteCli, tokens);
@@ -151,10 +152,11 @@ public class TradeRecover {
      */
     private Map<String, OrderModel> fillAddressForOrders(Map<String, OrderModel> orderMap, long startTime, long endTime,
             ViteCli viteCli) throws IOException {
-        Long startHeight = viteCli.getContractChainHeight(startTime);
-        Long endHeight = viteCli.getContractChainHeight(endTime);
+        Long startHeight = viteCli.getChainHeightByAddrAndTime(MiningConst.TRADE_CONTRACT_ADDR, startTime);
+        Long endHeight = viteCli.getChainHeightByAddrAndTime(MiningConst.TRADE_CONTRACT_ADDR, endTime);
 
-        List<VmLogInfo> vmLogInfoList = viteCli.getEventsByHeightRange(startHeight, endHeight, 1000);
+        List<VmLogInfo> vmLogInfoList =
+                viteCli.getChainEventsByHeightRange(MiningConst.TRADE_CONTRACT_ADDR, startHeight, endHeight, 500);
 
         for (VmLogInfo vmLogInfo : vmLogInfoList) {
             Vmlog vmlog = vmLogInfo.getVmlog();

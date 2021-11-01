@@ -10,10 +10,10 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import static org.vite.dex.mm.constant.constants.MarketMiningConst.ORDER_NEW_EVENT_TOPIC;
-import static org.vite.dex.mm.constant.constants.MarketMiningConst.ORDER_UPDATE_EVENT_TOPIC;
-import static org.vite.dex.mm.constant.constants.MarketMiningConst.OrderIdBytesLength;
-import static org.vite.dex.mm.constant.constants.MarketMiningConst.TX_EVENT_TOPIC;
+import static org.vite.dex.mm.constant.constants.MiningConst.ORDER_NEW_EVENT_TOPIC;
+import static org.vite.dex.mm.constant.constants.MiningConst.ORDER_UPDATE_EVENT_TOPIC;
+import static org.vite.dex.mm.constant.constants.MiningConst.OrderIdBytesLength;
+import static org.vite.dex.mm.constant.constants.MiningConst.TX_EVENT_TOPIC;
 import static org.vite.dex.mm.constant.enums.EventType.NewOrder;
 import static org.vite.dex.mm.constant.enums.EventType.TX;
 import static org.vite.dex.mm.constant.enums.EventType.Unknown;
