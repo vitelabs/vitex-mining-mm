@@ -2,7 +2,7 @@ package org.vite.dex.mm.entity;
 
 import lombok.Data;
 
-import static org.vite.dex.mm.constant.constants.MarketMiningConst.UnderscoreStr;
+import static org.vite.dex.mm.constant.constants.MiningConst.UnderscoreStr;
 
 @Data
 public class TradePair {

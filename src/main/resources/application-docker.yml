@@ -1,3 +1,7 @@
+server:
+  port: 8081
+server.servlet.context-path: /
+
 logging:
   level:
     root: INFO
@@ -10,7 +14,6 @@ spring:
     password: 12345678
     driverClassName: com.mysql.jdbc.Driver
 
-mining:
+marketmining:
   nodeServerUrl: "http://127.0.0.1:48132"
   tradePairSettingUrl: "https://raw.githubusercontent.com/vitelabs/vitex-mining-mm/master/src/main/resources/tradepair-setting.json"
-  tradeContractAddress: "vite_00000000000000000000000000000000000000079710f19dc7"

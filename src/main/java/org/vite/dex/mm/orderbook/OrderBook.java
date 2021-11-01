@@ -73,8 +73,7 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
 
         private IOrderEventHandleAware aware;
 
-        public Impl() {
-        }
+        public Impl() {}
 
         // backtrace according to BlockEvent
         @Override
@@ -126,38 +125,40 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
             EventType type = event.getType();
             OrderLog orderLog = event.getOrderLog();
             switch (type) {
-            case NewOrder:
-                if (orderLog.finished()) {
-                    break;
-                }
-                orderModel = orders.get(orderLog.getOrderId());
-                if (orderModel != null) {
-                    this.removeOrder(orderModel);
-                } else {
-                    log.error("[new order] not find, orderId {} , orderStatus {}, blockHash {}", orderLog.getOrderId(),
-                            orderLog.getStatus(), event.getBlockHash());
-                    throw new RuntimeException("[new order] not find order: " + orderLog.getOrderId());
-                }
-                break;
-            case UpdateOrder:
-                if (orderLog.finished()) {
-                    orderModel = OrderModel.fromOrderLog(orderLog);
-                    this.addOrder(orderModel);
-                } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
+                case NewOrder:
+                    if (orderLog.finished()) {
+                        break;
+                    }
                     orderModel = orders.get(orderLog.getOrderId());
                     if (orderModel != null) {
-                        orderModel.revert(orderLog);
+                        this.removeOrder(orderModel);
                     } else {
-                        log.error("[update...] not find order, orderId {}", orderLog.getOrderId());
-                        throw new RuntimeException("[update order] not find order: " + orderLog.getOrderId());
+                        log.error("[new order] not find while revert, orderId {} , orderStatus {}, blockHash {}",
+                                orderLog.getOrderId(),
+                                orderLog.getStatus(), event.getBlockHash());
+                        throw new RuntimeException("[new order] not find order: " + orderLog.getOrderId());
                     }
-                }
-            case TX:
-                break;
-            case Unknown:
-                break;
-            default:
-                throw new AssertionError(type.name());
+                    break;
+                case UpdateOrder:
+                    if (orderLog.finished()) {
+                        orderModel = OrderModel.fromOrderLog(orderLog);
+                        this.addOrder(orderModel);
+                    } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
+                        orderModel = orders.get(orderLog.getOrderId());
+                        if (orderModel != null) {
+                            orderModel.revert(orderLog);
+                        } else {
+                            log.error("[update...] not find order while revert, orderId {}", orderLog.getOrderId());
+                            throw new RuntimeException("[update order] not find order: " + orderLog.getOrderId());
+                        }
+                    }
+                    break;
+                case TX:
+                    break;
+                case Unknown:
+                    break;
+                default:
+                    throw new AssertionError(type.name());
             }
 
         }
@@ -167,31 +168,31 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
             EventType type = event.getType();
             OrderLog orderLog = event.getOrderLog();
             switch (type) {
-            case NewOrder:
-                if (!orderLog.finished()) {
-                    orderModel = OrderModel.fromOrderLog(orderLog);
-                    this.addOrder(orderModel);
-                }
-                break;
-            case UpdateOrder:
-                if (orderLog.finished()) {
-                    orderModel = orders.get(orderLog.getOrderId());
-                    if (orderModel != null) {
-                        this.removeOrder(orderModel);
+                case NewOrder:
+                    if (!orderLog.finished()) {
+                        orderModel = OrderModel.fromOrderLog(orderLog);
+                        this.addOrder(orderModel);
                     }
-                } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
-                    orderModel = orders.get(orderLog.getOrderId());
-                    if (orderModel != null) {
-                        orderModel.onward(orderLog);
+                    break;
+                case UpdateOrder:
+                    if (orderLog.finished()) {
+                        orderModel = orders.get(orderLog.getOrderId());
+                        if (orderModel != null) {
+                            this.removeOrder(orderModel);
+                        }
+                    } else if (orderLog.getStatus() == OrderStatus.PartialExecuted) {
+                        orderModel = orders.get(orderLog.getOrderId());
+                        if (orderModel != null) {
+                            orderModel.onward(orderLog);
+                        }
                     }
-                }
-                break;
-            case TX:
-                break;
-            case Unknown:
-                break;
-            default:
-                throw new AssertionError(type.name());
+                    break;
+                case TX:
+                    break;
+                case Unknown:
+                    break;
+                default:
+                    throw new AssertionError(type.name());
             }
         }
 

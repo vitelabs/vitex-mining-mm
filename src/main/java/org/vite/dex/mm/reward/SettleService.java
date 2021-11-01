@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.vite.dex.mm.constant.constants.MarketMiningConst;
+import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.constant.enums.QuoteMarketType;
 import org.vite.dex.mm.constant.enums.SettleStatus;
 import org.vite.dex.mm.entity.AddressEstimateReward;
@@ -135,7 +135,7 @@ public class SettleService {
             miningAddrReward.setAddress(addr);
             miningAddrReward.setOrderMiningAmount(rewardMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
             miningAddrReward.setOrderMiningPercent(miningAddrReward.getOrderMiningAmount().divide(
-                    totalReleasedVxAmount.multiply(MarketMiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
+                    totalReleasedVxAmount.multiply(MiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
             miningAddrReward.setInviteMiningAmount(BigDecimal.ZERO);
             miningAddrReward.setInviteMiningPercent(BigDecimal.ZERO);
 
@@ -194,7 +194,7 @@ public class SettleService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal totalOrderMiningAmount =
-                totalReleasedVxAmount.multiply(MarketMiningConst.MARKET_MINING_RATIO).setScale(18, RoundingMode.DOWN);
+                totalReleasedVxAmount.multiply(MiningConst.MARKET_MINING_RATIO).setScale(18, RoundingMode.DOWN);
         BigDecimal diff = totalOrderMiningAmount.subtract(totalAllocationAmount).abs().setScale(18, RoundingMode.DOWN);
 
         BigDecimal maxMiningReward = miningAddressRewards.stream().map(MiningAddressReward::getTotalReward)
@@ -223,7 +223,7 @@ public class SettleService {
                     addrMarketReward.setAmount(vxAmount);
                     addrMarketReward.setCycleKey(cycleKey);
                     BigDecimal marketShared = totalReleasedVxAmount
-                            .multiply(BigDecimal.valueOf(MarketMiningConst.getMarketSharedRatio().get(market)));
+                            .multiply(BigDecimal.valueOf(MiningConst.getMarketSharedRatio().get(market)));
                     addrMarketReward.setFactorRatio(vxAmount.divide(marketShared, 18, RoundingMode.DOWN));
                     addrMarketReward.setCtime(new Date());
                     addrMarketReward.setUtime(new Date());
@@ -263,15 +263,19 @@ public class SettleService {
         addrEstimateRewardRepo.saveAll(estimateRewards);
     }
 
-    public void addCycleKeyRecord(int cycleKey) throws IOException {
+    public boolean firstCalcOfCyclekey(int cycleKey) throws IOException {
+        List<CycleKeyRecord> records = cycleKeyRecordRepo.findByCycleKey(cycleKey);;
+		if (!records.isEmpty()) {
+            log.warn("the reward calc of cycleKey {} has been triggered", cycleKey);
+			return false;
+		}
+
         CycleKeyRecord record = new CycleKeyRecord();
         record.setCycleKey(cycleKey);
         record.setCtime(new Date());
         record.setUtime(new Date());
         cycleKeyRecordRepo.save(record);
-    }
 
-    public List<CycleKeyRecord> getCycleKeyRecords(int cycleKey) throws IOException {
-        return cycleKeyRecordRepo.findByCycleKey(cycleKey);
+        return true;
     }
 }

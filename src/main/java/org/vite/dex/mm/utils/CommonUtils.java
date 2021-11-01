@@ -2,7 +2,7 @@ package org.vite.dex.mm.utils;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-import org.vite.dex.mm.constant.constants.MarketMiningConst;
+import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
@@ -65,7 +65,7 @@ public class CommonUtils {
 
     // Get the timestamp at 12:00 by cycleKey
     public static Long getTimestampByCyclekey(int cycleKey) {
-        return MarketMiningConst.genesisTimestamp + cycleKey * 24 * 60 * 60;
+        return MiningConst.genesisTimestamp + cycleKey * 24 * 60 * 60;
     }
 
     /**

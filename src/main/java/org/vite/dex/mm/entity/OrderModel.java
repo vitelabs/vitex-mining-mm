@@ -3,7 +3,7 @@ package org.vite.dex.mm.entity;
 import com.alibaba.fastjson.annotation.JSONField;
 import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
-import org.vite.dex.mm.constant.constants.MarketMiningConst;
+import org.vite.dex.mm.constant.constants.MiningConst;
 
 import java.math.BigDecimal;
 
@@ -35,7 +35,7 @@ public class OrderModel {
         orderModel.setPrice(currOrder.getPrice());
         orderModel.setSide(currOrder.isSide());
         orderModel.setTimestamp(currOrder.getTimestamp());
-        orderModel.setTradePair(tradeTokenId + MarketMiningConst.UnderscoreStr + quoteTokenId);
+        orderModel.setTradePair(tradeTokenId + MiningConst.UnderscoreStr + quoteTokenId);
         orderModel.setQuantity(currOrder.getQuantity().subtract(currOrder.getExecutedQuantity()));
         orderModel.setAmount(currOrder.getAmount().subtract(currOrder.getExecutedAmount()));
 

@@ -1,5 +1,6 @@
 package org.vite.dex.mm.orderbook;
 
+import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.utils.client.ViteCli;
 
@@ -34,8 +35,8 @@ public class Traveller {
 		}
 
 		// prepare events
-		Long startHeight = viteCli.getContractChainHeight(prevTime);
-		Long endHeight = viteCli.getLatestAccountHeight();
+		Long startHeight = viteCli.getChainHeightByAddrAndTime(MiningConst.TRADE_CONTRACT_ADDR, prevTime);
+		Long endHeight = viteCli.getLatestAccountBlockHeight(MiningConst.TRADE_CONTRACT_ADDR);
 		BlockEventStream stream = new BlockEventStream(startHeight, endHeight);
 		stream.init(viteCli, tokens);
 

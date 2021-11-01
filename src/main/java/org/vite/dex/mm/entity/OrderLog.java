@@ -13,7 +13,7 @@ import org.vitej.core.protocol.methods.response.Vmlog;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-import static org.vite.dex.mm.constant.constants.MarketMiningConst.UnderscoreStr;
+import static org.vite.dex.mm.constant.constants.MiningConst.UnderscoreStr;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getOrderCTimeByParseOrderId;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getOrderSideByParseOrderId;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getPriceByParseOrderId;

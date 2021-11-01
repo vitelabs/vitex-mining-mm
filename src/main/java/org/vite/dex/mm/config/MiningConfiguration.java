@@ -7,13 +7,10 @@ import org.springframework.context.annotation.Configuration;
 @Data
 @Configuration
 public class MiningConfiguration {
-    @Value("${mining.nodeServerUrl}")
+    @Value("${marketmining.nodeServerUrl}")
     private String nodeServerUrl;
 
-    @Value("${mining.tradePairSettingUrl}")
+    @Value("${marketmining.tradePairSettingUrl}")
     private String tradePairSettingUrl;
-
-    @Value("${mining.tradeContractAddress}")
-    private String tradeContractAddress;
 
 }
