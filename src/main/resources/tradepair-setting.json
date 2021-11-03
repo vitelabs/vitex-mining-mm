@@ -407,6 +407,18 @@
             "buyAmountThanSellRatio": 100,
             "sellAmountThanBuyRatio": 0.01,
             "mmRewardMultiple": 1.0
+        }, 
+        {
+            "tradeTokenSymbol": "VITC-000", 
+            "quoteTokenSymbol": "VITE",
+            "tradeTokenId": "tti_22d0b205bed4d268a05dfc3c",
+            "quoteTokenId": "tti_5649544520544f4b454e6e40",
+            "sellEffectiveInterval": 0.15,
+            "buyEffectiveInterval": 0.15,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 2.0
         },
         {
             "tradeTokenSymbol": "VX", 
