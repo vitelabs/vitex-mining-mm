@@ -138,7 +138,7 @@ public class ViteCli {
         BigDecimal totalMineVx = BigDecimal.ZERO;
         try {
             CommonResponse response = vitej.commonMethod("dex_getMiningInfo", cycleKey).send();
-            BigDecimal total = JSONObject.parseObject(JSON.toJSONString(response.getResult())).getBigDecimal("total");
+            BigDecimal total = JSONObject.parseObject(JSON.toJSONString(response.getResult())).getBigDecimal("makerMine");
             totalMineVx = total.divide(new BigDecimal(10).pow(18), 18, RoundingMode.DOWN);
         } catch (Exception e) {
             log.error("getVxMineTotalByCyclekey failed,the err:" + e);

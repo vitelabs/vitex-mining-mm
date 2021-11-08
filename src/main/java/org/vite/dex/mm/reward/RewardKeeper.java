@@ -70,7 +70,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
      * @return
      * @throws IOException
      */
-    public FinalResult calcAddressMarketReward(OrderBooks books, BlockEventStream stream, BigDecimal dailyReleasedVX,
+    public FinalResult calcAddressMarketReward(OrderBooks books, BlockEventStream stream, BigDecimal vxMineTotal,
             long startTime, long endTime) throws IOException {
 
         Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = Maps.newHashMap();
@@ -98,7 +98,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
 
         marketRewards.values().forEach(rewardMarket -> {
             double marketSharedRatio = MiningConst.getMarketSharedRatio().get(rewardMarket.getMarket());
-            rewardMarket.apply(dailyReleasedVX, marketSharedRatio);
+            rewardMarket.apply(vxMineTotal, marketSharedRatio);
         });
 
         // 3. calculate total VX mined by each Address in each market
@@ -126,8 +126,7 @@ public class RewardKeeper implements IOrderEventHandleAware {
             InviteOrderMiningStat inviteOrderMiningStat = new InviteOrderMiningStat();
             inviteOrderMiningStat.setAddress(address);
             inviteOrderMiningStat.setAmount(inviteAmount);
-            inviteOrderMiningStat.setRatio(inviteAmount
-                    .divide(dailyReleasedVX.multiply(MiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
+            inviteOrderMiningStat.setRatio(inviteAmount.divide(vxMineTotal, 18, RoundingMode.DOWN));
             inviteMiningFinalRes.put(address, inviteOrderMiningStat);
         });
 
