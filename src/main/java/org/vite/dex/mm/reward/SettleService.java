@@ -65,27 +65,27 @@ public class SettleService {
      * @throws IOException
      */
     @Transactional
-    public void saveMiningRewards(FinalResult finalRes, BigDecimal totalReleasedVxAmount, int cycleKey)
+    public void saveMiningRewards(FinalResult finalRes, BigDecimal vxMineTotal, int cycleKey)
             throws Exception {
         List<MiningAddressReward> miningAddressRewards = new ArrayList<>();
         try {
-            saveMiningRewardToDB(finalRes, totalReleasedVxAmount, cycleKey, miningAddressRewards);
+            saveMiningRewardToDB(finalRes, vxMineTotal, cycleKey, miningAddressRewards);
         } catch (Exception e) {
             log.error("save and settle vx reward failed ", e);
             throw e;
         }
     }
 
-    public void saveMiningRewardToDB(FinalResult finalRes, BigDecimal totalReleasedVxAmount, int cycleKey,
+    public void saveMiningRewardToDB(FinalResult finalRes, BigDecimal vxMineTotal, int cycleKey,
             List<MiningAddressReward> miningAddressRewards) {
         Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = finalRes.getOrderMiningFinalRes();
         Map<String, InviteOrderMiningStat> inviteMiningFinalRes = finalRes.getInviteMiningFinalRes();
 
-        List<OrderMiningMarketReward> addrMarketRewards = assembleAddrMarketReward(orderMiningFinalRes,
-                totalReleasedVxAmount, cycleKey);
+        List<OrderMiningMarketReward> addrMarketRewards =
+                assembleAddrMarketReward(orderMiningFinalRes, vxMineTotal, cycleKey);
 
         int pageMax = mergeOrderMiningAndInviteReward(orderMiningFinalRes, inviteMiningFinalRes,
-                totalReleasedVxAmount, cycleKey, miningAddressRewards);
+                vxMineTotal, cycleKey, miningAddressRewards);
 
         List<SettlePage> settlePageList = assembleSettlePage(pageMax, cycleKey, miningAddressRewards);
 
@@ -122,7 +122,7 @@ public class SettleService {
     }
 
     private int mergeOrderMiningAndInviteReward(Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes,
-            Map<String, InviteOrderMiningStat> inviteMiningFinalRes, BigDecimal totalReleasedVxAmount, int cycleKey,
+            Map<String, InviteOrderMiningStat> inviteMiningFinalRes, BigDecimal vxMineTotal, int cycleKey,
             List<MiningAddressReward> miningAddressRewards) {
         // mining_address_reward
         int i = 0;
@@ -134,8 +134,8 @@ public class SettleService {
             miningAddrReward.setCycleKey(cycleKey);
             miningAddrReward.setAddress(addr);
             miningAddrReward.setOrderMiningAmount(rewardMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add));
-            miningAddrReward.setOrderMiningPercent(miningAddrReward.getOrderMiningAmount().divide(
-                    totalReleasedVxAmount.multiply(MiningConst.MARKET_MINING_RATIO), 18, RoundingMode.DOWN));
+            miningAddrReward.setOrderMiningPercent(
+                    miningAddrReward.getOrderMiningAmount().divide(vxMineTotal, 18, RoundingMode.DOWN));
             miningAddrReward.setInviteMiningAmount(BigDecimal.ZERO);
             miningAddrReward.setInviteMiningPercent(BigDecimal.ZERO);
 
@@ -183,19 +183,16 @@ public class SettleService {
             }
         }
 
-        fulfillSettlePool(miningAddressRewards, totalReleasedVxAmount);
+        fulfillSettlePool(miningAddressRewards, vxMineTotal);
         return i / 30 + 1;
     }
 
     // fill in the missing part of the amount to the one with the largest reward
-    private void fulfillSettlePool(List<MiningAddressReward> miningAddressRewards,
-            BigDecimal totalReleasedVxAmount) {
+    private void fulfillSettlePool(List<MiningAddressReward> miningAddressRewards, BigDecimal vxMineTotal) {
         BigDecimal totalAllocationAmount = miningAddressRewards.stream().map(MiningAddressReward::getTotalReward)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal totalOrderMiningAmount =
-                totalReleasedVxAmount.multiply(MiningConst.MARKET_MINING_RATIO).setScale(18, RoundingMode.DOWN);
-        BigDecimal diff = totalOrderMiningAmount.subtract(totalAllocationAmount).abs().setScale(18, RoundingMode.DOWN);
+        BigDecimal diff = vxMineTotal.subtract(totalAllocationAmount).abs().setScale(18, RoundingMode.DOWN);
 
         BigDecimal maxMiningReward = miningAddressRewards.stream().map(MiningAddressReward::getTotalReward)
                 .max((x1, x2) -> x1.compareTo(x2)).get();
@@ -210,7 +207,7 @@ public class SettleService {
     }
 
     private List<OrderMiningMarketReward> assembleAddrMarketReward(
-            Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes, BigDecimal totalReleasedVxAmount,
+            Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes, BigDecimal vxMineTotal,
             int cycleKey) {
         List<OrderMiningMarketReward> addrMarketRewards = new ArrayList<>();
         // sub-market details
@@ -222,8 +219,8 @@ public class SettleService {
                     addrMarketReward.setQuoteTokenType(market);
                     addrMarketReward.setAmount(vxAmount);
                     addrMarketReward.setCycleKey(cycleKey);
-                    BigDecimal marketShared = totalReleasedVxAmount
-                            .multiply(BigDecimal.valueOf(MiningConst.getMarketSharedRatio().get(market)));
+                    BigDecimal marketShared =
+                            vxMineTotal.multiply(BigDecimal.valueOf(MiningConst.getMarketSharedRatio().get(market)));
                     addrMarketReward.setFactorRatio(vxAmount.divide(marketShared, 18, RoundingMode.DOWN));
                     addrMarketReward.setCtime(new Date());
                     addrMarketReward.setUtime(new Date());
@@ -265,10 +262,10 @@ public class SettleService {
 
     public boolean firstCalcOfCyclekey(int cycleKey) throws IOException {
         List<CycleKeyRecord> records = cycleKeyRecordRepo.findByCycleKey(cycleKey);;
-		if (!records.isEmpty()) {
+        if (!records.isEmpty()) {
             log.warn("the reward calc of cycleKey {} has been triggered", cycleKey);
-			return false;
-		}
+            return false;
+        }
 
         CycleKeyRecord record = new CycleKeyRecord();
         record.setCycleKey(cycleKey);

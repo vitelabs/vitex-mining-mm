@@ -92,7 +92,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
 
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-31 12:10:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-11-08 12:30:00", new ParsePosition(0)).getTime() / 1000;
 
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
@@ -115,7 +115,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
         TradeRecover tradeRecover = new TradeRecover();
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-30 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-11-07 12:00:00", new ParsePosition(0)).getTime() / 1000;
         // unserialize from snapshot
         OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_snapshot.raw")),
                 OrderBooksData.class);
@@ -159,9 +159,9 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMiningFromFile() throws Exception {
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-30 12:00:00", new ParsePosition(0))
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-07 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-10-31 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-08 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         // unserialize
@@ -179,12 +179,12 @@ class DexApplicationTests {
         // calc rewards
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey() - 1;
-        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+        BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
-                totalReleasedVxAmount, prevTime, endTime);
+                vxMineTotal, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards and invite mining rewards, the result {}",
                 finalRes.getOrderMiningFinalRes());
-        settleService.saveMiningRewards(finalRes, totalReleasedVxAmount, cycleKey);
+        settleService.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
     }
 
     @Test
@@ -220,23 +220,22 @@ class DexApplicationTests {
 
         // 3.market-mining
         int cycleKey = viteCli.getCurrentCycleKey() - 1;
-        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+        BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
-        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream, totalReleasedVxAmount,
-                prevTime, endTime);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks,
+                stream, vxMineTotal, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
-
         // 4.write reward results to DB and FundContract chain
-        settleService.saveMiningRewards(finalRes, totalReleasedVxAmount, cycleKey);
+        settleService.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
     }
 
     @Test
     public void testEstimateMarketMining() throws Exception {
         // long snapshotTime = CommonUtils.getFixedSnapshotTime();
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-26 15:20:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-11-02 12:20:00", new ParsePosition(0)).getTime() / 1000;
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-10-26 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-11-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
 
         Traveller traveller = new Traveller();
         List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
@@ -255,9 +254,9 @@ class DexApplicationTests {
         // 3.market-mining
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey();
-        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream,
-                totalReleasedVxAmount, startTime, snapshotTime);
+        BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream, vxMineTotal,
+                startTime, snapshotTime);
         settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
         log.info("the task is end");
     }
@@ -284,9 +283,9 @@ class DexApplicationTests {
         // calc rewards
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         int cycleKey = viteCli.getCurrentCycleKey();
-        BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
-                totalReleasedVxAmount, prevTime, endTime);
+        BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
+        FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
+                eventStream, vxMineTotal, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}",
                 finalRes.getOrderMiningFinalRes());
 
@@ -427,8 +426,10 @@ class DexApplicationTests {
 
     @Test
     public void testTotalReleasedVxAmount() throws Exception {
-        int cycleKey = 200;
+        int cycleKey = 900;
         BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
-        System.out.println(String.format("the totalReleasedVxAmount: %s", totalReleasedVxAmount));
+        BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
+        System.out.println(String.format("the totalReleasedVxAmount: %s, vxMineTotal: %s",
+                totalReleasedVxAmount, vxMineTotal));
     }
 }

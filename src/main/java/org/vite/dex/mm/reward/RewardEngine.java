@@ -90,14 +90,14 @@ public class RewardEngine {
 		}
 
 		// 3.market-mining
-		BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+		BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
 		RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
 		FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
-				totalReleasedVxAmount, prevTime, endTime);
+				vxMineTotal, prevTime, endTime);
 		log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
 		// 4. save reward results to DB
-		settleService.saveMiningRewards(finalRes, totalReleasedVxAmount, cycleKey);
+		settleService.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
 		log.info("save mining rewards to db successfully");
 	}
 
@@ -157,11 +157,11 @@ public class RewardEngine {
 
 		// 3.market-mining
 		RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
-		BigDecimal totalReleasedVxAmount = CommonUtils.getVxAmountByCycleKey(cycleKey);
+		BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
 		FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks, stream,
-				totalReleasedVxAmount, startTime, estimateTime);
+				vxMineTotal, startTime, estimateTime);
 		log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
-
+		
 		// 4.save estimated result to DB
 		settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
 		log.info("update estimate rewards successfully");
