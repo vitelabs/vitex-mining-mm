@@ -265,12 +265,12 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "ONE-000",
+            "tradeTokenSymbol": "ONE-001",
             "quoteTokenSymbol": "BTC-000",
-            "tradeTokenId": "tti_ccafb1cccca4469271d00241",
+            "tradeTokenId": "tti_3d1ed2b1151ed9bb64d51fee",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
-            "sellEffectiveInterval": 0.06,
-            "buyEffectiveInterval": 0.06,
+            "sellEffectiveInterval": 0.08,
+            "buyEffectiveInterval": 0.08,
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
@@ -287,6 +287,18 @@
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
             "mmRewardMultiple": 1.0
+        },
+        {
+            "tradeTokenSymbol": "EPIC-002",
+            "quoteTokenSymbol": "BTC-000",
+            "tradeTokenId": "tti_f370fadb275bc2a1a839c753",
+            "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
+            "sellEffectiveInterval": 0.15,
+            "buyEffectiveInterval": 0.15,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 2.0
         },
         {
             "tradeTokenSymbol": "FRM-001",
@@ -406,7 +418,7 @@
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 2.0
+            "mmRewardMultiple": 1.0
         },
         {
             "tradeTokenSymbol": "VX", 
