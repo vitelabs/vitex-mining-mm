@@ -373,18 +373,6 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "NFY-000",
-            "quoteTokenSymbol": "ETH-000",
-            "tradeTokenId": "tti_a2a290f98c963f6aca7bb9e7",
-            "quoteTokenId": "tti_687d8a93915393b219212c73",
-            "sellEffectiveInterval": 0.15,
-            "buyEffectiveInterval": 0.15,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
             "tradeTokenSymbol": "BAN-000",
             "quoteTokenSymbol": "ETH-000",
             "tradeTokenId": "tti_61f59e574f9f7babfe8908e5",
