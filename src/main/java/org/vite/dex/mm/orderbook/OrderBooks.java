@@ -2,10 +2,12 @@ package org.vite.dex.mm.orderbook;
 
 import lombok.Getter;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.vite.dex.mm.entity.BlockEvent;
-import org.vite.dex.mm.entity.OrderBookInfo;
-import org.vite.dex.mm.entity.OrderModel;
-import org.vite.dex.mm.entity.TradePair;
+import org.vite.dex.mm.model.bean.BlockEvent;
+import org.vite.dex.mm.model.bean.OrderBookInfo;
+import org.vite.dex.mm.model.bean.OrderModel;
+import org.vite.dex.mm.model.pojo.TradePair;
+import org.vite.dex.mm.orderbook.ifaces.IBlockEventHandler;
+import org.vite.dex.mm.orderbook.ifaces.IOrderEventHandleAware;
 import org.vite.dex.mm.utils.client.ViteCli;
 
 import java.io.IOException;
@@ -53,7 +55,7 @@ public class OrderBooks implements IBlockEventHandler {
 			if (book.getOrderModels() == null && book.getCurrBlockheight() == 0l) {
 				continue;
 			}
-			OrderBook orderBook = new OrderBook.Impl();
+			OrderBook orderBook = new OrderBook();
 			orderBook.init(book.getOrderModels(), book.getCurrBlockheight());
 			books.put(tp.getTradePair(), orderBook);
 		}
@@ -99,7 +101,7 @@ public class OrderBooks implements IBlockEventHandler {
 		this.currentHeight = currentHeight;
 
 		orders.forEach((tradePair, book) -> {
-			books.put(tradePair, new OrderBook.Impl().initFromOrders(book, currentHeight));
+			books.put(tradePair, new OrderBook().initFromOrders(book, currentHeight));
 		});
 	}
 }

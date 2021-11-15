@@ -1,9 +1,11 @@
 package org.vite.dex.mm.orderbook;
 
 import com.google.common.collect.Lists;
-import org.vite.dex.mm.constant.constants.MiningConst;
-import org.vite.dex.mm.entity.AccBlockVmLogs;
-import org.vite.dex.mm.entity.BlockEvent;
+import org.vite.dex.mm.constant.consist.MiningConst;
+import org.vite.dex.mm.model.bean.AccBlockVmLogs;
+import org.vite.dex.mm.model.bean.BlockEvent;
+import org.vite.dex.mm.model.pojo.Tokens;
+import org.vite.dex.mm.orderbook.ifaces.IBlockEventHandler;
 import org.vite.dex.mm.utils.client.ViteCli;
 import org.vitej.core.protocol.methods.response.AccountBlock;
 

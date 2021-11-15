@@ -4,15 +4,15 @@ import com.google.common.collect.Maps;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.vite.dex.mm.config.MiningConfiguration;
-import org.vite.dex.mm.constant.constants.MiningConst;
-import org.vite.dex.mm.entity.InviteOrderMiningReward;
-import org.vite.dex.mm.entity.InviteOrderMiningStat;
+import org.vite.dex.mm.constant.consist.MiningConst;
+import org.vite.dex.mm.model.bean.InviteOrderMiningReward;
+import org.vite.dex.mm.model.bean.RewardMarket;
+import org.vite.dex.mm.model.bean.RewardOrder;
+import org.vite.dex.mm.model.pojo.InviteOrderMiningStat;
+import org.vite.dex.mm.model.pojo.MiningRewardCfg;
 import org.vite.dex.mm.orderbook.BlockEventStream;
-import org.vite.dex.mm.orderbook.IOrderEventHandleAware;
 import org.vite.dex.mm.orderbook.OrderBooks;
-import org.vite.dex.mm.reward.bean.RewardMarket;
-import org.vite.dex.mm.reward.bean.RewardOrder;
-import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
+import org.vite.dex.mm.orderbook.ifaces.IOrderEventHandleAware;
 import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 
@@ -71,13 +71,13 @@ public class RewardKeeper implements IOrderEventHandleAware {
      * @throws IOException
      */
     public FinalResult calcAddressMarketReward(OrderBooks books, BlockEventStream stream, BigDecimal vxMineTotal,
-            long startTime, long endTime) throws IOException {
+            int cycleKey, long startTime, long endTime) throws IOException {
 
         Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = Maps.newHashMap();
         Map<String, InviteOrderMiningStat> inviteMiningFinalRes = new HashMap<>();
         Map<Integer, RewardMarket> marketRewards = new HashMap<>(); // <MarketId, RewardMarket>
         Map<String, MiningRewardCfg> tradePairCfgMap = CommonUtils
-                .miningRewardCfgMap(miningConfig.getTradePairSettingUrl());
+                .miningRewardCfgMap(miningConfig.getMetaUrl(), cycleKey);
         List<InviteOrderMiningReward> inviteRewardList = new ArrayList<>();
 
         // 1.go onward OrderBooks and calc factor of each Order

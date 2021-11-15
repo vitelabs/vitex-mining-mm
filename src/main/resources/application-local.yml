@@ -16,4 +16,4 @@ spring:
 
 marketmining:
   nodeServerUrl: "http://127.0.0.1:48132"
-  tradePairSettingUrl: "https://raw.githubusercontent.com/vitelabs/vitex-mining-mm/master/src/main/resources/tradepair-setting.json"
+  metaUrl: "https://raw.githubusercontent.com/vitelabs/vitex-mining-mm/feat_mm_refactor/src/main/resources/meta.json"

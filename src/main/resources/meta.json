@@ -1,0 +1,24 @@
+{
+    "tpSettings": [
+        {
+            "fromCycleKey": 891,
+            "toCycleKey": 896,
+            "tpSettingFile": "tradepair-setting_0.json"
+        },
+        {
+            "fromCycleKey": 897,
+            "toCycleKey": 905,
+            "tpSettingFile": "tradepair-setting_1.json"
+        },
+        {
+            "fromCycleKey": 906,
+            "toCycleKey": 906,
+            "tpSettingFile": "tradepair-setting_2.json"
+        },
+        {
+            "fromCycleKey": 907,
+            "toCycleKey": 24814,
+            "tpSettingFile": "tradepair-setting_3.json"
+        }
+    ]
+}

@@ -5,9 +5,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
-import org.vite.dex.mm.http.ResultBean;
-import org.vite.dex.mm.http.ResultCode;
-import org.vite.dex.mm.reward.RewardEngine;
+import org.vite.dex.mm.model.pojo.http.ResultBean;
+import org.vite.dex.mm.model.pojo.http.ResultCode;
+import org.vite.dex.mm.scheduler.RewardEngine;
 
 import javax.annotation.Resource;
 

@@ -5,12 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.constant.enums.OrderStatus;
-import org.vite.dex.mm.entity.OrderEvent;
-import org.vite.dex.mm.entity.OrderModel;
-import org.vite.dex.mm.orderbook.IOrderEventHandleAware;
+import org.vite.dex.mm.model.bean.OrderEvent;
+import org.vite.dex.mm.model.bean.OrderModel;
+import org.vite.dex.mm.model.bean.RewardOrder;
+import org.vite.dex.mm.model.pojo.MiningRewardCfg;
 import org.vite.dex.mm.orderbook.OrderBook;
-import org.vite.dex.mm.reward.bean.RewardOrder;
-import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
+import org.vite.dex.mm.orderbook.ifaces.IOrderEventHandleAware;
 
 import java.math.BigDecimal;
 import java.util.List;

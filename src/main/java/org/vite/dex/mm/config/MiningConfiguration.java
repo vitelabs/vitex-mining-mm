@@ -10,7 +10,6 @@ public class MiningConfiguration {
     @Value("${marketmining.nodeServerUrl}")
     private String nodeServerUrl;
 
-    @Value("${marketmining.tradePairSettingUrl}")
-    private String tradePairSettingUrl;
-
+    @Value("${marketmining.metaUrl}")
+    private String metaUrl;
 }

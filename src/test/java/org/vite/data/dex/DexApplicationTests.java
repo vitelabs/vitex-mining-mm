@@ -12,23 +12,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.vite.dex.mm.DexApplication;
 import org.vite.dex.mm.config.MiningConfiguration;
-import org.vite.dex.mm.constant.constants.MiningConst;
-import org.vite.dex.mm.entity.BlockEvent;
-import org.vite.dex.mm.entity.OrderBookInfo;
+import org.vite.dex.mm.constant.consist.MiningConst;
 import org.vite.dex.mm.entity.OrderMiningMarketReward;
-import org.vite.dex.mm.entity.OrderModel;
-import org.vite.dex.mm.entity.TradePair;
 import org.vite.dex.mm.mapper.OrderMiningMarketRewardRepository;
+import org.vite.dex.mm.model.bean.BlockEvent;
+import org.vite.dex.mm.model.bean.OrderBookInfo;
+import org.vite.dex.mm.model.bean.OrderModel;
+import org.vite.dex.mm.model.pojo.Tokens;
+import org.vite.dex.mm.model.pojo.TradePair;
 import org.vite.dex.mm.orderbook.BlockEventStream;
 import org.vite.dex.mm.orderbook.OrderBooks;
-import org.vite.dex.mm.orderbook.Tokens;
 import org.vite.dex.mm.orderbook.TradeRecover;
 import org.vite.dex.mm.orderbook.TradeRecover.RecoverResult;
 import org.vite.dex.mm.orderbook.Traveller;
-import org.vite.dex.mm.reward.RewardEngine;
 import org.vite.dex.mm.reward.RewardKeeper;
 import org.vite.dex.mm.reward.RewardKeeper.FinalResult;
-import org.vite.dex.mm.reward.SettleService;
+import org.vite.dex.mm.scheduler.RewardEngine;
+import org.vite.dex.mm.reward.RewardSettler;
 import org.vite.dex.mm.utils.CommonUtils;
 import org.vite.dex.mm.utils.ViteDataDecodeUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
@@ -71,7 +71,7 @@ class DexApplicationTests {
     RewardEngine engine;
 
     @Autowired
-    SettleService settleService;
+    RewardSettler rewardSettler;
 
     @Test
     void contextLoads() {}
@@ -88,11 +88,12 @@ class DexApplicationTests {
     @Test
     public void testTravel() throws Exception {
         Traveller traveller = new Traveller();
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
+        int cycleKey = viteCli.getCurrentCycleKey() - 1;
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getMetaUrl(), cycleKey);
         Tokens tokens = viteCli.getAllTokenInfos();
 
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-11-08 12:30:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-11-12 12:30:00", new ParsePosition(0)).getTime() / 1000;
 
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
@@ -115,7 +116,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
         TradeRecover tradeRecover = new TradeRecover();
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-11-07 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-11-11 12:00:00", new ParsePosition(0)).getTime() / 1000;
         // unserialize from snapshot
         OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_snapshot.raw")),
                 OrderBooksData.class);
@@ -159,9 +160,9 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMiningFromFile() throws Exception {
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-07 12:00:00", new ParsePosition(0))
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-11 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-08 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-12 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         // unserialize
@@ -181,10 +182,10 @@ class DexApplicationTests {
         int cycleKey = viteCli.getCurrentCycleKey() - 1;
         BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks, eventStream,
-                vxMineTotal, prevTime, endTime);
+                vxMineTotal, cycleKey, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards and invite mining rewards, the result {}",
                 finalRes.getOrderMiningFinalRes());
-        settleService.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
+        rewardSettler.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
     }
 
     @Test
@@ -198,8 +199,9 @@ class DexApplicationTests {
                 .getTime() / 1000;
 
         Traveller traveller = new Traveller();
+        int cycleKey = viteCli.getCurrentCycleKey() - 1;
         Tokens tokens = viteCli.getAllTokenInfos();
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getMetaUrl(), cycleKey);
 
         // 1.travel to snapshot time
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
@@ -219,14 +221,13 @@ class DexApplicationTests {
         tradeRecover.fillAddressForOrdersGroupByTimeUnit(recoveredOrderBooks.getBooks(), viteCli);
 
         // 3.market-mining
-        int cycleKey = viteCli.getCurrentCycleKey() - 1;
         BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveredOrderBooks,
-                stream, vxMineTotal, prevTime, endTime);
+                stream, vxMineTotal, cycleKey, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
         // 4.write reward results to DB and FundContract chain
-        settleService.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
+        rewardSettler.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
     }
 
     @Test
@@ -238,7 +239,8 @@ class DexApplicationTests {
                 .parse("2021-11-02 12:00:00", new ParsePosition(0)).getTime() / 1000;
 
         Traveller traveller = new Traveller();
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
+        int cycleKey = viteCli.getCurrentCycleKey();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getMetaUrl(), cycleKey);
         Tokens tokens = viteCli.getAllTokenInfos();
         // 1.travel to snapshot time
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
@@ -253,11 +255,10 @@ class DexApplicationTests {
 
         // 3.market-mining
         RewardKeeper rewardKeeper = new RewardKeeper(viteCli, miningConfig);
-        int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recovedOrderBooks, eventStream, vxMineTotal,
-                startTime, snapshotTime);
-        settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
+                cycleKey, startTime, snapshotTime);
+        rewardSettler.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
         log.info("the task is end");
     }
 
@@ -285,12 +286,12 @@ class DexApplicationTests {
         int cycleKey = viteCli.getCurrentCycleKey();
         BigDecimal vxMineTotal = viteCli.getVxMineTotalByCyclekey(cycleKey);
         FinalResult finalRes = rewardKeeper.calcAddressMarketReward(recoveOrderBooks,
-                eventStream, vxMineTotal, prevTime, endTime);
+                eventStream, vxMineTotal, cycleKey, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards, the result {}",
                 finalRes.getOrderMiningFinalRes());
 
-        SettleService settleService = new SettleService(viteCli);
-        settleService.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
+        RewardSettler rewardSettler = new RewardSettler(viteCli);
+        rewardSettler.saveOrderMiningEstimateRes(finalRes.getOrderMiningFinalRes(), cycleKey);
     }
 
     @Test
@@ -382,7 +383,8 @@ class DexApplicationTests {
 
     @Test
     public void testHttpReqUtils() throws IOException {
-        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
+        int cycleKey = viteCli.getCurrentCycleKey();
+        List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getMetaUrl(), cycleKey);
         log.info("tradePairs: {}", tradePairs);
     }
 

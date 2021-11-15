@@ -1,7 +1,8 @@
 package org.vite.dex.mm.orderbook;
 
-import org.vite.dex.mm.constant.constants.MiningConst;
-import org.vite.dex.mm.entity.TradePair;
+import org.vite.dex.mm.constant.consist.MiningConst;
+import org.vite.dex.mm.model.pojo.Tokens;
+import org.vite.dex.mm.model.pojo.TradePair;
 import org.vite.dex.mm.utils.client.ViteCli;
 
 import java.io.IOException;
