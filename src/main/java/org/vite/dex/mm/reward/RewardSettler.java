@@ -1,5 +1,7 @@
 package org.vite.dex.mm.reward;
 
+import com.opencsv.exceptions.CsvDataTypeMismatchException;
+import com.opencsv.exceptions.CsvRequiredFieldEmptyException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -19,6 +21,7 @@ import org.vite.dex.mm.mapper.OrderMiningMarketRewardRepository;
 import org.vite.dex.mm.mapper.SettlePageRepository;
 import org.vite.dex.mm.model.pojo.InviteOrderMiningStat;
 import org.vite.dex.mm.reward.RewardKeeper.FinalResult;
+import org.vite.dex.mm.utils.CVSUtils;
 import org.vite.dex.mm.utils.client.ViteCli;
 
 import java.io.IOException;
@@ -93,6 +96,21 @@ public class RewardSettler {
         orderMiningMarketRewardRepo.saveAll(addrMarketRewards);
         miningAddressRewardRepo.saveAll(miningAddressRewards);
         settlePageRepo.saveAll(settlePageList);
+    }
+
+    public void saveMiningRewardToCSV(FinalResult finalRes, BigDecimal vxMineTotal, int cycleKey) {
+        Map<String, Map<Integer, BigDecimal>> orderMiningFinalRes = finalRes.getOrderMiningFinalRes();
+        Map<String, InviteOrderMiningStat> inviteMiningFinalRes = finalRes.getInviteMiningFinalRes();
+        List<MiningAddressReward> miningAddressRewards = new ArrayList<>();
+        
+        mergeOrderMiningAndInviteReward(orderMiningFinalRes, inviteMiningFinalRes,
+                vxMineTotal, cycleKey, miningAddressRewards);
+
+        try {
+            CVSUtils.exportToCSV(miningAddressRewards, "./sample.csv");
+        } catch (Exception e) {
+            log.error("failed to export to CSV File,the err: ", e);
+        }
     }
 
     private List<SettlePage> assembleSettlePage(int pageMax, int cycleKey,

@@ -93,7 +93,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
 
         long snapshotTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-11-12 12:30:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-11-15 12:05:00", new ParsePosition(0)).getTime() / 1000;
 
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
@@ -116,7 +116,7 @@ class DexApplicationTests {
         Tokens tokens = viteCli.getAllTokenInfos();
         TradeRecover tradeRecover = new TradeRecover();
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
-                .parse("2021-11-11 12:00:00", new ParsePosition(0)).getTime() / 1000;
+                .parse("2021-11-14 12:00:00", new ParsePosition(0)).getTime() / 1000;
         // unserialize from snapshot
         OrderBooksData data = JSONObject.parseObject(new FileInputStream(new File("dataset_orderbooks_snapshot.raw")),
                 OrderBooksData.class);
@@ -160,9 +160,9 @@ class DexApplicationTests {
 
     @Test
     public void testMarketMiningFromFile() throws Exception {
-        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-11 12:00:00", new ParsePosition(0))
+        long prevTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-14 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
-        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-12 12:00:00", new ParsePosition(0))
+        long endTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")).parse("2021-11-15 12:00:00", new ParsePosition(0))
                 .getTime() / 1000;
 
         // unserialize
@@ -185,7 +185,12 @@ class DexApplicationTests {
                 vxMineTotal, cycleKey, prevTime, endTime);
         log.info("succeed to calc each address`s market mining rewards and invite mining rewards, the result {}",
                 finalRes.getOrderMiningFinalRes());
-        rewardSettler.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
+
+        if (miningConfig.getSaveStrategy().equals("DB")) {
+            rewardSettler.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
+        } else if (miningConfig.getSaveStrategy().equals("CSV")) {
+            rewardSettler.saveMiningRewardToCSV(finalRes, vxMineTotal, cycleKey);
+        }
     }
 
     @Test

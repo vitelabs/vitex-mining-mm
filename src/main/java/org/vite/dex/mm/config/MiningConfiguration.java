@@ -12,4 +12,7 @@ public class MiningConfiguration {
 
     @Value("${marketmining.metaUrl}")
     private String metaUrl;
+
+    @Value("${marketmining.saveStrategy}")
+    private String saveStrategy;
 }

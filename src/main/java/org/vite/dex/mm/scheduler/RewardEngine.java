@@ -103,9 +103,13 @@ public class RewardEngine {
 				vxMineTotal, cycleKey, prevTime, endTime);
 		log.info("succeed to calc each address`s market mining rewards, the result {}", finalRes);
 
-		// 4. save reward results to DB
-		rewardSettler.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
-		log.info("save mining rewards to db successfully");
+		// 4. save reward results
+		if (miningConfig.getSaveStrategy().equals("DB")) {
+            rewardSettler.saveMiningRewards(finalRes, vxMineTotal, cycleKey);
+        } else if (miningConfig.getSaveStrategy().equals("CSV")) {
+            rewardSettler.saveMiningRewardToCSV(finalRes, vxMineTotal, cycleKey);
+        }
+		log.info("save mining rewards successfully");
 	}
 
 	/**

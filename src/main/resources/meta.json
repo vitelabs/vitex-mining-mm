@@ -3,22 +3,22 @@
         {
             "fromCycleKey": 891,
             "toCycleKey": 896,
-            "tpSettingFile": "tradepair-setting_0.json"
+            "tpSettingFile": "tradepair-setting_202110281500.json"
         },
         {
             "fromCycleKey": 897,
             "toCycleKey": 905,
-            "tpSettingFile": "tradepair-setting_1.json"
+            "tpSettingFile": "tradepair-setting_202111031500.json"
         },
         {
             "fromCycleKey": 906,
             "toCycleKey": 906,
-            "tpSettingFile": "tradepair-setting_2.json"
+            "tpSettingFile": "tradepair-setting_202111121154.json"
         },
         {
             "fromCycleKey": 907,
             "toCycleKey": 24814,
-            "tpSettingFile": "tradepair-setting_3.json"
+            "tpSettingFile": "tradepair-setting_202111121500.json"
         }
     ]
 }
