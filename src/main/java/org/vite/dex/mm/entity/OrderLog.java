@@ -31,6 +31,12 @@ public class OrderLog {
     private OrderStatus status;
     private Vmlog rawLog;
 
+    public OrderLog(String tradePair) {
+        this.tradePair = tradePair;
+    }
+
+    public OrderLog() {}
+
     public static OrderLog fromNewOrder(DexTradeEvent.NewOrderInfo dexOrder, Vmlog vmlog) {
         OrderLog result = new OrderLog();
         DexTradeEvent.Order order = dexOrder.getOrder();

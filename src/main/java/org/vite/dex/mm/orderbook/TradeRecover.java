@@ -57,7 +57,7 @@ public class TradeRecover {
 
     public RecoverResult recoverInTime(OrderBooks orderBooks, BlockEventStream stream, Tokens tokens, ViteCli viteCli)
             throws IOException {
-        stream.travel(orderBooks, true, true);
+        stream.travel(orderBooks, true);
         RecoverResult result = RecoverResult.builder().orderBooks(orderBooks).stream(stream).build();
 
         return result;

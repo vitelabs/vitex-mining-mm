@@ -75,25 +75,18 @@ public class BlockEventStream {
 		});
 	}
 
-	public void travel(IBlockEventHandler handler, boolean reversed, boolean reverted) {
+	public void travel(IBlockEventHandler handler, boolean reversed) {
 		if (reversed) {
 			for (int i = events.size() - 1; i >= 0; i--) {
 				BlockEvent t = events.get(i);
-				if (reverted) {
-					handler.revert(t);
-				} else {
-					handler.onward(t);
-				}
+				handler.revert(t);
 			}
-		} else {
-			events.forEach(t -> {
-				if (reverted) {
-					handler.revert(t);
-				} else {
-					handler.onward(t);
-				}
-			});
+			return;
 		}
+
+		events.forEach(t -> {
+			handler.onward(t);
+		});
 	}
 
 	public BlockEventStream subStream(Long start, Long end) {

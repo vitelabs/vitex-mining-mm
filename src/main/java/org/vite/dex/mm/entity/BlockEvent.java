@@ -28,7 +28,7 @@ public class BlockEvent {
 
 	public static BlockEvent fromAccBlockVmlogs(AccBlockVmLogs accBlockVmLogs, Tokens tokens) {
 		// parse Tx in the block
-		accBlockVmLogs.parseTransaction(); 
+		accBlockVmLogs.parseTransaction();
 
 		List<OrderEvent> events = new ArrayList<>();
 		accBlockVmLogs.getVmLogs().forEach(vmLog -> {
@@ -48,24 +48,17 @@ public class BlockEvent {
 	 * @param reverted
 	 * @param reversed
 	 */
-	public void travel(IOrderEventHandler handler, boolean reverted, boolean reversed) {
+	public void travel(IOrderEventHandler handler, boolean reversed) {
 		if (reversed) {
 			for (int i = orderEvents.size() - 1; i >= 0; i--) {
 				OrderEvent t = orderEvents.get(i);
-				if (reverted) {
-					handler.revert(t);
-				} else {
-					handler.onward(t);
-				}
+				handler.revert(t);
 			}
-		} else {
-			orderEvents.forEach(t -> {
-				if (reverted) {
-					handler.revert(t);
-				} else {
-					handler.onward(t);
-				}
-			});
+			return;
 		}
+
+		orderEvents.forEach(t -> {
+			handler.onward(t);
+		});
 	}
 }

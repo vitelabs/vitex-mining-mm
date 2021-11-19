@@ -79,7 +79,7 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
         @Override
         public void revert(BlockEvent event) {
             if (validAction(false, event.getHeight())) {
-                event.travel(this, true, true);
+                event.travel(this, true);
                 this.currBlockHeight = event.getHeight();
                 this.lastAction = false;
             }
@@ -89,7 +89,7 @@ public interface OrderBook extends IOrderEventHandler, IBlockEventHandler {
         @Override
         public void onward(BlockEvent event) {
             if (validAction(true, event.getHeight())) {
-                event.travel(this, false, false);
+                event.travel(this, false);
                 this.currBlockHeight = event.getHeight();
                 this.lastAction = true;
             }

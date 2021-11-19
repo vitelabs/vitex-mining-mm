@@ -5,8 +5,11 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.vite.dex.mm.config.MiningConfiguration;
 import org.vite.dex.mm.constant.constants.MiningConst;
+import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.InviteOrderMiningReward;
 import org.vite.dex.mm.entity.InviteOrderMiningStat;
+import org.vite.dex.mm.entity.OrderEvent;
+import org.vite.dex.mm.entity.OrderLog;
 import org.vite.dex.mm.orderbook.BlockEventStream;
 import org.vite.dex.mm.orderbook.IOrderEventHandleAware;
 import org.vite.dex.mm.orderbook.OrderBooks;
@@ -55,7 +58,13 @@ public class RewardKeeper implements IOrderEventHandleAware {
 
         MminingAware aware = new MminingAware(startTime, endTime, tradePairCfgMap);
         books.setOrderAware(aware);
-        stream.travel(books, false, false);
+        stream.travel(books, false);
+
+        // add an endEvent to calc the factor of the last interval 
+        books.getBooks().forEach((tp, orderBook) -> {
+            OrderEvent endEvent = new OrderEvent(new OrderLog(tp), endTime, EventType.NewOrder);
+            aware.beforeOnward(orderBook, endEvent);
+        });
         books.setOrderAware(null);
 
         return aware.orderRewards;
