@@ -298,7 +298,7 @@
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 2.0
+            "mmRewardMultiple": 1.0
         },
         {
             "tradeTokenSymbol": "FRM-001",

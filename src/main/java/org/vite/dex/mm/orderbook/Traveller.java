@@ -42,7 +42,7 @@ public class Traveller {
 
 		// revert as a whole to previous time
 		candidates.forEach(orderBooks -> {
-			stream.travel(orderBooks, true, true);
+			stream.travel(orderBooks, true);
 		});
 
 		// elect the most suitable candidate

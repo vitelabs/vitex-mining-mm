@@ -24,6 +24,12 @@ public class OrderEvent {
 
     private String blockHash;
 
+    public OrderEvent(OrderLog orderLog, long timestamp, EventType type) {
+        this.orderLog = orderLog;
+        this.timestamp = timestamp;
+        this.type = type;
+    }
+
     public OrderEvent() {
         this.orderLog = new OrderLog();
     }
@@ -56,25 +62,25 @@ public class OrderEvent {
             byte[] eventData = vmlog.getData();
             EventType eventType = getEventType(vmlog.getTopicsRaw());
             switch (eventType) {
-            case NewOrder:
-                DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(eventData);
-                this.setType(NewOrder);
-                this.orderLog = OrderLog.fromNewOrder(dexOrder, vmlog);
-                break;
-            case UpdateOrder:
-                DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(eventData);
-                OrderTx tx = vmlogs.getTx(Hex.toHexString(orderUpdateInfo.getId().toByteArray()));
-                this.orderLog = OrderLog.fromUpdateOrder(orderUpdateInfo, vmlog, tx, tokens);
-                this.setType(UpdateOrder);
-                break;
-            case TX:
-                this.setType(TX);
-                break;
-            case Unknown:
-                this.setType(Unknown);
-                break;
-            default:
-                throw new AssertionError(eventType.name());
+                case NewOrder:
+                    DexTradeEvent.NewOrderInfo dexOrder = DexTradeEvent.NewOrderInfo.parseFrom(eventData);
+                    this.setType(NewOrder);
+                    this.orderLog = OrderLog.fromNewOrder(dexOrder, vmlog);
+                    break;
+                case UpdateOrder:
+                    DexTradeEvent.OrderUpdateInfo orderUpdateInfo = DexTradeEvent.OrderUpdateInfo.parseFrom(eventData);
+                    OrderTx tx = vmlogs.getTx(Hex.toHexString(orderUpdateInfo.getId().toByteArray()));
+                    this.orderLog = OrderLog.fromUpdateOrder(orderUpdateInfo, vmlog, tx, tokens);
+                    this.setType(UpdateOrder);
+                    break;
+                case TX:
+                    this.setType(TX);
+                    break;
+                case Unknown:
+                    this.setType(Unknown);
+                    break;
+                default:
+                    throw new AssertionError(eventType.name());
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
