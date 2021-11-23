@@ -471,7 +471,7 @@
         {
             "tradeTokenSymbol": "BTC-000", 
             "quoteTokenSymbol": "USDT-000",
-            "tradeTokenId": "tti_687d8a93915393b219212c73",
+            "tradeTokenId": "tti_b90c9baffffc9dae58d1f33f",
             "quoteTokenId": "tti_80f3751485e4e83456059473",
             "sellEffectiveInterval": 0.05,
             "buyEffectiveInterval": 0.05,
