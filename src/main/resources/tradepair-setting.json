@@ -337,6 +337,18 @@
             "mmRewardMultiple": 1.0
         },
         {
+            "tradeTokenSymbol": "EPIC-002",
+            "quoteTokenSymbol": "USDT-000",
+            "tradeTokenId": "tti_f370fadb275bc2a1a839c753",
+            "quoteTokenId": "tti_80f3751485e4e83456059473",
+            "sellEffectiveInterval": 0.15,
+            "buyEffectiveInterval": 0.15,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 2.0
+        },
+        {
             "tradeTokenSymbol": "VINU-001", 
             "quoteTokenSymbol": "USDT-000",
             "tradeTokenId": "tti_541b25bd5e5db35166864096",
