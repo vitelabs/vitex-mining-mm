@@ -49,30 +49,6 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "DERO-000",
-            "quoteTokenSymbol": "BTC-000",
-            "tradeTokenId": "tti_26472d9be08f8f2fdeb3030d",
-            "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
-            "sellEffectiveInterval": 0.3,
-            "buyEffectiveInterval": 0.3,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
-            "tradeTokenSymbol": "ERG-000",
-            "quoteTokenSymbol": "BTC-000",
-            "tradeTokenId": "tti_661d467c3f4d9c6d7b9e9dc9",
-            "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
-            "sellEffectiveInterval": 0.3,
-            "buyEffectiveInterval": 0.3,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
             "tradeTokenSymbol": "PEG-000",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_dfa872e9f0fccb1cc08502dd",
@@ -85,60 +61,12 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "IDNA-000",
-            "quoteTokenSymbol": "BTC-000",
-            "tradeTokenId": "tti_cf532d62f0a49cd99ebae4bc",
-            "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
-            "sellEffectiveInterval": 0.15,
-            "buyEffectiveInterval": 0.15,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
             "tradeTokenSymbol": "NANO-001",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_29a2af20212b985e9d49e899",
             "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
             "sellEffectiveInterval": 0.1,
             "buyEffectiveInterval": 0.1,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
-            "tradeTokenSymbol": "ANKR-000",
-            "quoteTokenSymbol": "BTC-000",
-            "tradeTokenId": "tti_2f875c97d3a51b66a59c4411",
-            "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
-            "sellEffectiveInterval": 0.15,
-            "buyEffectiveInterval": 0.15,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
-            "tradeTokenSymbol": "LINK-001",
-            "quoteTokenSymbol": "BTC-000",
-            "tradeTokenId": "tti_ffcd2355f4843e8db240b013",
-            "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
-            "sellEffectiveInterval": 0.08,
-            "buyEffectiveInterval": 0.08,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
-            "tradeTokenSymbol": "ONE-001",
-            "quoteTokenSymbol": "BTC-000",
-            "tradeTokenId": "tti_3d1ed2b1151ed9bb64d51fee",
-            "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
-            "sellEffectiveInterval": 0.08,
-            "buyEffectiveInterval": 0.08,
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
@@ -179,18 +107,6 @@
             "buyAmountThanSellRatio": 100,
             "sellAmountThanBuyRatio": 0.01,
             "mmRewardMultiple": 5.0
-        },
-        {
-            "tradeTokenSymbol": "KAI-000",
-            "quoteTokenSymbol": "ETH-000",
-            "tradeTokenId": "tti_e0f975aa35963870f29ee413",
-            "quoteTokenId": "tti_687d8a93915393b219212c73",
-            "sellEffectiveInterval": 0.08,
-            "buyEffectiveInterval": 0.08,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
         },
         {
             "tradeTokenSymbol": "BAN-000",
@@ -346,6 +262,18 @@
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 1.0
+        },
+        {
+            "tradeTokenSymbol": "PAW-000",
+            "quoteTokenSymbol": "USDT-000",
+            "tradeTokenId": "tti_ae7c9df2d83d9815424c5ecc",
+            "quoteTokenId": "tti_80f3751485e4e83456059473",
+            "sellEffectiveInterval": 0.2,
+            "buyEffectiveInterval": 0.2,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
             "mmRewardMultiple": 2.0
         },
         {
@@ -379,18 +307,6 @@
             "quoteTokenId": "tti_80f3751485e4e83456059473",
             "sellEffectiveInterval": 0.1,
             "buyEffectiveInterval": 0.1,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
-            "tradeTokenSymbol": "HNS-000", 
-            "quoteTokenSymbol": "USDT-000",
-            "tradeTokenId": "tti_b0c07c71206c1db4aa8fb442",
-            "quoteTokenId": "tti_80f3751485e4e83456059473",
-            "sellEffectiveInterval": 0.08,
-            "buyEffectiveInterval": 0.08,
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
