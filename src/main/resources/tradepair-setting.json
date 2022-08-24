@@ -61,18 +61,6 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "NANO-001",
-            "quoteTokenSymbol": "BTC-000",
-            "tradeTokenId": "tti_29a2af20212b985e9d49e899",
-            "quoteTokenId": "tti_b90c9baffffc9dae58d1f33f",
-            "sellEffectiveInterval": 0.1,
-            "buyEffectiveInterval": 0.1,
-            "marketMiningOpen": true,
-            "buyAmountThanSellRatio": 10,
-            "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
-        },
-        {
             "tradeTokenSymbol": "EPIC-002",
             "quoteTokenSymbol": "BTC-000",
             "tradeTokenId": "tti_f370fadb275bc2a1a839c753",
@@ -274,7 +262,7 @@
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 2.0
+            "mmRewardMultiple": 1.0
         },
         {
             "tradeTokenSymbol": "VINU-001", 
