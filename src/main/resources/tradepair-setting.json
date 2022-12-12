@@ -169,6 +169,18 @@
             "mmRewardMultiple": 1.0
         },
         {
+            "tradeTokenSymbol": "CENT-000", 
+            "quoteTokenSymbol": "VITE",
+            "tradeTokenId": "tti_1ef6a8bef889022e0351886e",
+            "quoteTokenId": "tti_5649544520544f4b454e6e40",
+            "sellEffectiveInterval": 0.2,
+            "buyEffectiveInterval": 0.2,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 2.0
+        },
+        {
             "tradeTokenSymbol": "VX", 
             "quoteTokenSymbol": "USDT-000",
             "tradeTokenId": "tti_564954455820434f494e69b5",
