@@ -335,6 +335,18 @@
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
             "mmRewardMultiple": 1.0
+        },
+        {
+            "tradeTokenSymbol": "TON-000", 
+            "quoteTokenSymbol": "USDT-000",
+            "tradeTokenId": "tti_ffcb16eab521ec54daeba2ba",
+            "quoteTokenId": "tti_80f3751485e4e83456059473",
+            "sellEffectiveInterval": 0.1,
+            "buyEffectiveInterval": 0.1,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 1.0
         }
     ]
 }
