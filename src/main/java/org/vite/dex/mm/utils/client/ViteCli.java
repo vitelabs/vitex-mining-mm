@@ -148,6 +148,20 @@ public class ViteCli {
         return totalMineVx;
     }
 
+    public BigDecimal getCurrentVxMineInfo() throws IOException {
+        BigDecimal historyMinedSum = BigDecimal.ZERO;
+        try {
+            CommonResponse response = vitej.commonMethod("dexfund_getCurrentVxMineInfo").send();
+            BigDecimal total = JSONObject.parseObject(JSON.toJSONString(response.getResult())).getBigDecimal("historyMinedSum");
+            historyMinedSum = total.movePointLeft(18);
+        } catch (Exception e) {
+            log.error("getCurrentVxMineInfo failed,the err:" + e);
+            throw e;
+        }
+
+        return historyMinedSum;
+    }
+
     public AccountBlock getLatestAccountBlock(String addr) throws IOException {
         AccountBlock block = null;
         try {

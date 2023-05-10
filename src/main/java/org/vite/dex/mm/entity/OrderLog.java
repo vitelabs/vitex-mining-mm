@@ -94,8 +94,8 @@ public class OrderLog {
                 result.setChangeQuantity(rawQuantity);
             }
         } else {
-            result.setChangeQuantity(tx.getQuantity());
-            result.setChangeAmount(tx.getAmount());
+            result.setChangeQuantity(tx == null ? BigDecimal.ZERO : tx.getQuantity());
+            result.setChangeAmount(tx == null ? BigDecimal.ZERO : tx.getAmount());
         }
 
         return result;

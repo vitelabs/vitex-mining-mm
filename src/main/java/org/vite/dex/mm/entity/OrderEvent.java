@@ -1,6 +1,7 @@
 package org.vite.dex.mm.entity;
 
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.spongycastle.util.encoders.Hex;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.constant.enums.OrderStatus;
@@ -15,6 +16,7 @@ import static org.vite.dex.mm.constant.enums.EventType.UpdateOrder;
 import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
 
 @Data
+@Slf4j
 public class OrderEvent {
     private OrderLog orderLog;
 
@@ -83,6 +85,7 @@ public class OrderEvent {
                     throw new AssertionError(eventType.name());
             }
         } catch (Exception e) {
+            log.error("parse vmlog failed, the err:" + e);
             throw new RuntimeException(e);
         }
     }
