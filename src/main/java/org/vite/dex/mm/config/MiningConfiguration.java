@@ -13,4 +13,9 @@ public class MiningConfiguration {
     @Value("${marketmining.tradePairSettingUrl}")
     private String tradePairSettingUrl;
 
+    @Value("${marketmining.lookupTimeIncrement:5}")
+    private long lookupTimeIncrement;
+
+    @Value("${marketmining.maxLookupNum:100}")
+    private long maxLookupNum;
 }

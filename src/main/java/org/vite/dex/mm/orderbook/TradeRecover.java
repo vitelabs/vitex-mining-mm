@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.spongycastle.util.encoders.Hex;
+import org.vite.dex.mm.config.MiningConfiguration;
 import org.vite.dex.mm.constant.constants.MiningConst;
 import org.vite.dex.mm.constant.enums.EventType;
 import org.vite.dex.mm.entity.OrderModel;
@@ -34,6 +35,12 @@ import static org.vite.dex.mm.utils.ViteDataDecodeUtils.getEventType;
  */
 @Slf4j
 public class TradeRecover {
+
+    private MiningConfiguration config;
+
+    public TradeRecover(MiningConfiguration config) {
+        this.config = config;
+    }
 
     /**
      * recover all orderbooks to start time of last cycle
@@ -106,8 +113,8 @@ public class TradeRecover {
         long start = orders.stream().min(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
         long end = orders.stream().max(Comparator.comparing(OrderModel::getTimestamp)).get().getTimestamp();
 
-        start = start - TimeUnit.MINUTES.toSeconds(5);
-        end = end + TimeUnit.MINUTES.toSeconds(5);
+        start = start - TimeUnit.MINUTES.toSeconds(config.getLookupTimeIncrement());
+        end = end + TimeUnit.MINUTES.toSeconds(config.getLookupTimeIncrement());
 
         orderMap = fillAddressForOrders(orderMap, start, end, viteCli);
         if (orderMap.isEmpty()) {
@@ -117,13 +124,13 @@ public class TradeRecover {
         // downward and upward
         int cnt = 1;
         while (true) {
-            long start0 = start - TimeUnit.MINUTES.toSeconds(5);
+            long start0 = start - TimeUnit.MINUTES.toSeconds(config.getLookupTimeIncrement());
             orderMap = fillAddressForOrders(orderMap, start0, start, viteCli);
             if (orderMap.isEmpty()) {
                 break;
             }
 
-            long end1 = end + TimeUnit.MINUTES.toSeconds(5);
+            long end1 = end + TimeUnit.MINUTES.toSeconds(config.getLookupTimeIncrement());
             orderMap = fillAddressForOrders(orderMap, end, end1, viteCli);
             if (orderMap.isEmpty()) {
                 break;
@@ -132,7 +139,7 @@ public class TradeRecover {
             start = start0;
             end = end1;
 
-            if (++cnt >= 100) {
+            if (++cnt >= config.getMaxLookupNum()) {
                 log.error("address of Order is not found");
                 throw new RuntimeException("the address of Order is not found!");
             }

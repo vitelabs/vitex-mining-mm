@@ -49,13 +49,16 @@ public class RewardEngine {
 		if (!firstCalcOfCyclekey) {
 			return;
 		}
+		runCycle(cycleKey);
+	}
 
+	public void runCycle(int cycleKey) throws Exception {
 		log.info("the runDaily reward calc is start! The cycleKey is: {}", cycleKey);
 		long endTime = CommonUtils.getTimestampByCyclekey(cycleKey + 1);
 		long snapshotTime = endTime + 1800;
 		long prevTime = endTime - 86400;
 		Traveller traveller = new Traveller();
-		TradeRecover tradeRecover = new TradeRecover();
+		TradeRecover tradeRecover = new TradeRecover(miningConfig);
 		Tokens tokens = viteCli.getAllTokenInfos();
 		List<TradePair> tradePairs = CommonUtils.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());
 		OrderBooks recoveredOrderBooks = null;
@@ -120,7 +123,7 @@ public class RewardEngine {
 		long snapshotTime = estimateTime - 10 * 60;
 
 		Traveller traveller = new Traveller();
-		TradeRecover tradeRecover = new TradeRecover();
+		TradeRecover tradeRecover = new TradeRecover(miningConfig);
 		Tokens tokens = viteCli.getAllTokenInfos();
 		List<TradePair> tradePairs = CommonUtils
 				.getMarketMiningTradePairs(miningConfig.getTradePairSettingUrl());

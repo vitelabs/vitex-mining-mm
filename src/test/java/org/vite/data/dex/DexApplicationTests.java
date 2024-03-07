@@ -113,7 +113,7 @@ class DexApplicationTests {
     @Test
     public void testRecoverOrderBooks() throws Exception {
         Tokens tokens = viteCli.getAllTokenInfos();
-        TradeRecover tradeRecover = new TradeRecover();
+        TradeRecover tradeRecover = new TradeRecover(miningConfig);
         long startTime = (new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"))
                 .parse("2021-11-07 12:00:00", new ParsePosition(0)).getTime() / 1000;
         // unserialize from snapshot
@@ -207,7 +207,7 @@ class DexApplicationTests {
                 snapshotOrderBooks.getCurrentHeight());
 
         // 2.recover orderbooks
-        TradeRecover tradeRecover = new TradeRecover();
+        TradeRecover tradeRecover = new TradeRecover(miningConfig);
         TradeRecover.RecoverResult recoverResult = tradeRecover.recoverInTime(snapshotOrderBooks, prevTime, tokens,
                 viteCli);
         OrderBooks recoveredOrderBooks = recoverResult.getOrderBooks();
@@ -244,7 +244,7 @@ class DexApplicationTests {
         OrderBooks snapshotOrderBooks = traveller.travelInTime(snapshotTime, tokens, viteCli, tradePairs);
 
         // 2.recover orderbooks
-        TradeRecover tradeRecover = new TradeRecover();
+        TradeRecover tradeRecover = new TradeRecover(miningConfig);
         RecoverResult res = tradeRecover.recoverInTime(snapshotOrderBooks, startTime, tokens, viteCli);
         OrderBooks recovedOrderBooks = res.getOrderBooks();
         BlockEventStream eventStream = res.getStream();
@@ -310,7 +310,7 @@ class DexApplicationTests {
         order.setTimestamp(ViteDataDecodeUtils.getOrderCTimeByParseOrderId(orderBytes));
         l.add(order);
 
-        TradeRecover tradeRecover = new TradeRecover();
+        TradeRecover tradeRecover = new TradeRecover(miningConfig);
         tradeRecover.fillAddressForOrders(l, viteCli);
     }
 

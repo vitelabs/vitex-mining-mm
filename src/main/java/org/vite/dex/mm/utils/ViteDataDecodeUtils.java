@@ -7,6 +7,7 @@ import org.vite.dex.mm.utils.decode.ViteAddress;
 import org.vite.dex.mm.utils.decode.ViteToken;
 
 import java.math.BigDecimal;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.List;
 
@@ -77,7 +78,7 @@ public class ViteDataDecodeUtils {
     public static long bytesToLong(byte[] bytes) {
         ByteBuffer buffer = ByteBuffer.allocate(8);
         buffer.put(bytes, 0, bytes.length);
-        buffer.flip();//need flip
+        ((Buffer) buffer).flip();//need flip - cast to Buffer to avoid NoSuchMethodError when run this package compiled in JDK9 and above
         return buffer.getLong();
     }
 
