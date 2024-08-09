@@ -2,6 +2,7 @@ package org.vite.dex.mm.reward.bean;
 
 import lombok.Data;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 import org.vite.dex.mm.entity.InviteOrderMiningReward;
 import org.vite.dex.mm.reward.cfg.MiningRewardCfg;
 
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Data
+@Slf4j
 @Accessors(chain = true)
 public class RewardMarket {
 
@@ -55,5 +57,17 @@ public class RewardMarket {
         this.tradePairRewards.values().forEach(rewardTradePair -> {
             rewardTradePair.applyRule(this.marketFactorSum, sharedVX, tradePair2Cfg.get(rewardTradePair.getTp()));
         });
+    }
+
+    @Override
+    public String toString() {
+        return "RewardMarket{" +
+                "market=" + market +
+                ", tradePairRewards=" + tradePairRewards +
+                ", rewardOrders=" + rewardOrders +
+                ", inviteRewards=" + inviteRewards +
+                ", tradePair2Cfg=" + tradePair2Cfg +
+                ", marketFactorSum=" + marketFactorSum +
+                '}';
     }
 }

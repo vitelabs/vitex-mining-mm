@@ -103,4 +103,15 @@ public class RewardOrder {
             this.totalRewardVX = this.totalFactor.multiply(buyShardVxPerFactor).setScale(18, RoundingMode.DOWN);
         }
     }
+
+    @Override
+    public String toString() {
+        return "RewardOrder{" +
+                "orderModel=" + orderModel +
+                ", calculateStartTime=" + calculateStartTime +
+                ", market=" + market +
+                ", totalFactor=" + totalFactor +
+                ", totalRewardVX=" + totalRewardVX +
+                '}';
+    }
 }

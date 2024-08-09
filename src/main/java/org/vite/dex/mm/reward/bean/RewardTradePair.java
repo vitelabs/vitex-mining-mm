@@ -70,8 +70,9 @@ public class RewardTradePair {
         this.pairFactorSum = tpMiningOrderFactor.add(tpInviteFactor);
         this.pairSellFactorSum = tpMiningSellOrderFactor.add(tpInviteSellOrderFactor);
         this.pairBuyFactorSum = tpMiningBuyOrderFactor.add(tpInviteBuyOrderFactor);
-        this.pairSharedVX = this.pairFactorSum.divide(marketFactorSum, 18, RoundingMode.DOWN).multiply(marketSharedVX)
-                .setScale(18, RoundingMode.DOWN);
+        this.pairSharedVX = marketFactorSum.compareTo(BigDecimal.ZERO) > 0 ? this.pairFactorSum.divide(marketFactorSum, 18, RoundingMode.DOWN)
+                .multiply(marketSharedVX)
+                .setScale(18, RoundingMode.DOWN) : BigDecimal.ZERO;
 
         this.sellAmountSum = rewardOrders.stream()
                 .filter(reward -> reward.getOrderSide() && reward.getTotalFactor().compareTo(BigDecimal.ZERO) > 0)
