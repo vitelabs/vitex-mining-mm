@@ -337,12 +337,24 @@
             "mmRewardMultiple": 1.0
         },
         {
-            "tradeTokenSymbol": "TON-000", 
+            "tradeTokenSymbol": "VDAO-000", 
             "quoteTokenSymbol": "USDT-000",
-            "tradeTokenId": "tti_ffcb16eab521ec54daeba2ba",
+            "tradeTokenId": "tti_cc901f2d7a2cae72f9c79aee",
             "quoteTokenId": "tti_80f3751485e4e83456059473",
-            "sellEffectiveInterval": 0.1,
-            "buyEffectiveInterval": 0.1,
+            "sellEffectiveInterval": 0.15,
+            "buyEffectiveInterval": 0.15,
+            "marketMiningOpen": true,
+            "buyAmountThanSellRatio": 10,
+            "sellAmountThanBuyRatio": 10,
+            "mmRewardMultiple": 1.0
+        },
+        {
+            "tradeTokenSymbol": "VDAO-000", 
+            "quoteTokenSymbol": "VITE",
+            "tradeTokenId": "tti_cc901f2d7a2cae72f9c79aee",
+            "quoteTokenId": "tti_5649544520544f4b454e6e40",
+            "sellEffectiveInterval": 0.3,
+            "buyEffectiveInterval": 0.3,
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
