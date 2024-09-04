@@ -346,7 +346,7 @@
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
+            "mmRewardMultiple": 5.0
         },
         {
             "tradeTokenSymbol": "VDAO-000", 
@@ -358,7 +358,7 @@
             "marketMiningOpen": true,
             "buyAmountThanSellRatio": 10,
             "sellAmountThanBuyRatio": 10,
-            "mmRewardMultiple": 1.0
+            "mmRewardMultiple": 5.0
         }
     ]
 }
